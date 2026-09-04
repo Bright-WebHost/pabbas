@@ -157,9 +157,6 @@ function Header({ search, setSearch, onBack }: { search: string, setSearch: (v: 
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search in Pabbas" className="w-full bg-white border border-gray-200 rounded-full h-11 pl-10 pr-4 text-[15px] shadow-sm outline-none focus:border-gray-300 placeholder:text-gray-400 font-medium" />
     </div>
     <button className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center shrink-0 shadow-sm active:bg-gray-50">
-      <Users size={18} className="text-gray-700"/>
-    </button>
-    <button className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center shrink-0 shadow-sm active:bg-gray-50">
       <MoreVertical size={18} className="text-gray-700"/>
     </button>
   </header>
