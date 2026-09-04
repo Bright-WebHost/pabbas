@@ -235,9 +235,8 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
          {item.price > 150 && <span className="text-gray-400 text-[13px] line-through">{money(item.price + 100)}</span>}
       </div>
       {item.description && <p className="text-gray-500 text-[13px] line-clamp-2 leading-[1.4] mb-3">{item.description}</p>}
-      <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-4">Not eligible for coupons</div>
       
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-2">
         <button className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full text-gray-500 hover:bg-gray-50"><Bookmark size={15}/></button>
         <button className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full text-gray-500 hover:bg-gray-50"><Share2 size={15}/></button>
       </div>
