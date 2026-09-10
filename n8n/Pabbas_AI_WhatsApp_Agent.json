@@ -1,0 +1,93 @@
+{
+  "name": "Pabbas | DEV | AI WhatsApp Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pabbas-ai-chat",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "pabbas-ai-chat"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.message }}",
+        "options": {
+          "systemMessage": "You are the Pabbas WhatsApp Assistant.\n\nYou help customers discover Pabbas menu items, answer questions, make recommendations, provide authorized customer-specific information, check order information, and guide customers into the Pabbas ordering website.\n\nBe friendly, concise, natural, and WhatsApp appropriate.\n\nUse available tools whenever information depends on current Pabbas data.\n\nNever invent menu items, prices, descriptions, ingredients, availability, customer information, previous orders, order status, payment status, or order totals.\n\nNever claim that an order has been created unless the authoritative Pabbas ordering system confirms it.\nNever directly create, modify, cancel, or reserve an order or table.\n\nIf information is unavailable, say so honestly.\n\nYou are the Pabbas conversational assistant, not the system of record."
+        }
+      },
+      "id": "2",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-flash",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [450, 500]
+    },
+    {
+      "parameters": {
+        "sessionId": "={{ $json.body.conversation_id }}"
+      },
+      "id": "4",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.2,
+      "position": [600, 500]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

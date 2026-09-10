@@ -1,13 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, ChevronRight, Clock3, MapPin, Minus, Plus, Search, ShoppingBag, Sparkles, Trash2, Utensils, X, Star, Info, ChevronDown, SlidersHorizontal, Bookmark, Share2, Users, MoreVertical, ChevronLeft } from "lucide-react";
-import { categories, displayCategory, featuredItems, menuItems } from "@/lib/menu-data";
+import { ArrowLeft, Check, ChevronRight, Clock3, MapPin, Minus, Plus, Search, ShoppingBag, Sparkles, Trash2, Utensils, X, Star, Info, ChevronDown, SlidersHorizontal, Bookmark, Share2, Users, MoreVertical, ChevronLeft, LogOut } from "lucide-react";
+import { categories, displayCategory } from "@/lib/menu-data";
 import { CartItem, CustomerDetails, MenuItem, OrderType, PaymentMethod } from "@/lib/types";
-import DeliverySetup from "@/components/DeliverySetup";
-import DineInSetup from "@/components/DineInSetup";
-import PickupSetup from "@/components/PickupSetup";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
 const initialDetails: CustomerDetails = { name: "", phone: "", address: "", landmark: "", pincode: "", pickupDate: "", pickupTime: "19:00", payment: "upi" };
@@ -23,17 +21,35 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [details, setDetails] = useState<CustomerDetails>(initialDetails);
   
-  const [deliverySetupOpen, setDeliverySetupOpen] = useState(false);
-  const [dineInSetupOpen, setDineInSetupOpen] = useState(false);
-  const [pickupSetupOpen, setPickupSetupOpen] = useState(false);
-  
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuMenuOpen, setMenuMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
 
-  const visibleItems = useMemo(() => menuItems.filter((item) => `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(search.toLowerCase()) && (category === "All" || displayCategory(item.category) === category)), [category, search]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(true);
+
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        const res = await fetch('/api/menu');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.items) {
+            setMenuItems(data.items);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch menu:', err);
+      } finally {
+        setIsLoadingMenu(false);
+      }
+    };
+    fetchMenu();
+  }, []);
+
+  const visibleItems = useMemo(() => menuItems.filter((item) => `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(search.toLowerCase()) && (category === "All" || displayCategory(item.category) === category)), [category, search, menuItems]);
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = cart.reduce((sum, line) => sum + line.item.price * line.quantity, 0);
   const deliveryFee = orderType === "delivery" && subtotal > 0 ? 35 : 0;
@@ -51,17 +67,92 @@ export default function Home() {
   const changeQuantity = (id: string, delta: number) => setCart((current) => current.flatMap((line) => line.item.id === id ? (line.quantity + delta > 0 ? [{ ...line, quantity: line.quantity + delta }] : []) : [line]));
   const quantityFor = (id: string) => cart.find((line) => line.item.id === id)?.quantity ?? 0;
   const selectCategory = (value: string) => { setCategory(value); setMenuMenuOpen(false); document.getElementById("menu-list")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
-  const placeOrder = () => { setOrderNumber(`PB${Math.floor(1000 + Math.random() * 8999)}`); setScreen("confirmed"); setCartOpen(false); };
+  const [tables, setTables] = useState<import("@/lib/supabase/types").RestaurantTableRow[]>([]);
+  const [selectedTableId, setSelectedTableId] = useState<string>("");
+  const [partySize, setPartySize] = useState<number>(2);
+  const [isAsap, setIsAsap] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [idempotencyKey, setIdempotencyKey] = useState("");
 
-  if (screen === "welcome") return <>
-    <Welcome orderType={orderType} setOrderType={setOrderType} onDeliverySetup={() => setDeliverySetupOpen(true)} onDineInSetup={() => setDineInSetupOpen(true)} onPickupSetup={() => setPickupSetupOpen(true)} />
-    {deliverySetupOpen && <DeliverySetup details={details} setDetails={setDetails} onBack={() => setDeliverySetupOpen(false)} onContinue={() => { setDeliverySetupOpen(false); setScreen("menu"); }} />}
-    {dineInSetupOpen && <DineInSetup table={table} setTable={setTable} details={details} setDetails={setDetails} onBack={() => setDineInSetupOpen(false)} onContinue={() => { setDineInSetupOpen(false); setScreen("menu"); }} />}
-    {pickupSetupOpen && <PickupSetup details={details} setDetails={setDetails} onBack={() => setPickupSetupOpen(false)} onContinue={() => { setPickupSetupOpen(false); setScreen("menu"); }} />}
-  </>;
+  const fetchTables = async () => {
+    try {
+      const res = await fetch('/api/tables');
+      if (res.ok) {
+        const data = await res.json();
+        setTables(data.tables || []);
+        if (data.tables && data.tables.length > 0) {
+          setSelectedTableId(data.tables[0].id);
+          setTable(data.tables[0].table_number);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  if (screen === "checkout") return <Checkout orderType={orderType} table={table} cart={cart} total={total} details={details} setDetails={setDetails} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
-  if (screen === "confirmed") return <Confirmation orderNumber={orderNumber} orderType={orderType} table={table} cart={cart} total={total} onContinue={() => { setScreen("welcome"); setCart([]); }} />;
+  useEffect(() => {
+    if (orderType === "dine-in") {
+      fetchTables();
+    }
+  }, [orderType]);
+
+  const placeOrder = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    const currentIdempotencyKey = idempotencyKey || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `idemp-${Date.now()}`);
+    if (!idempotencyKey) setIdempotencyKey(currentIdempotencyKey);
+
+    try {
+      const payload = {
+        order_type: orderType,
+        customer_name: details.name,
+        customer_phone: details.phone,
+        delivery_address: orderType === "delivery" ? details.address : null,
+        landmark: orderType === "delivery" ? details.landmark : null,
+        pincode: orderType === "delivery" ? details.pincode : null,
+        scheduled_time: !isAsap && details.pickupDate && details.pickupTime ? new Date(`${details.pickupDate}T${details.pickupTime}`).toISOString() : null,
+        payment_method: details.payment,
+        idempotency_key: currentIdempotencyKey,
+        cart_items: cart.map(line => ({
+          menu_item_id: line.item.id,
+          quantity: line.quantity
+        })),
+        table_id: orderType === "dine-in" ? selectedTableId : null,
+        party_size: orderType === "dine-in" ? partySize : 1
+      };
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSubmitError(data.error || 'Failed to place order');
+        setIsSubmitting(false);
+        return;
+      }
+
+      setOrderNumber(data.order?.order_number || `PAB-${Math.floor(1000 + Math.random() * 8999)}`);
+      setScreen("confirmed");
+      setCartOpen(false);
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Network error placing order');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (screen === "welcome") return <Welcome orderType={orderType} setOrderType={(type) => { setOrderType(type); setScreen("menu"); }} />;
+
+  if (screen === "checkout") return <Checkout orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} total={total} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
+
+  if (screen === "confirmed") return <Confirmation orderNumber={orderNumber} orderType={orderType} table={table} cart={cart} total={total} onContinue={() => { setScreen("welcome"); setCart([]); setIdempotencyKey(""); }} />;
+
 
   return <div className="min-h-screen bg-gray-50 text-gray-900 pb-[80px]">
     <div className="max-w-[768px] mx-auto bg-white min-h-screen relative shadow-sm">
@@ -89,7 +180,8 @@ export default function Home() {
               <ProductCard key={item.id} item={item} quantity={quantityFor(item.id)} onAdd={addToCart} onChange={changeQuantity} onDetails={setSelectedItem} />
             ))}
           </div>
-          {visibleItems.length === 0 && <div className="py-12 text-center text-gray-500">No dishes found. Try a different search.</div>}
+          {isLoadingMenu && <div className="py-12 text-center text-gray-500">Loading menu...</div>}
+          {!isLoadingMenu && visibleItems.length === 0 && <div className="py-12 text-center text-gray-500">No dishes found. Try a different search.</div>}
         </section>
       </main>
 
@@ -180,7 +272,7 @@ function RestaurantInfo({ orderType, table }: { orderType: OrderType, table: str
   </div>
 }
 
-function Welcome({ orderType, setOrderType, onDeliverySetup, onDineInSetup, onPickupSetup }: { orderType: OrderType; setOrderType: (type: OrderType) => void; onDeliverySetup: () => void; onDineInSetup: () => void; onPickupSetup: () => void; }) { 
+function Welcome({ orderType, setOrderType }: { orderType: OrderType; setOrderType: (type: OrderType) => void; }) { 
   const modes = [
     { type: "delivery" as const, title: "Delivery", copy: "Fresh treats delivered to you", icon: <MapPin size={24} /> }, 
     { type: "pickup" as const, title: "Takeaway", copy: "Pick up your order in person", icon: <ShoppingBag size={24} /> }, 
@@ -197,12 +289,7 @@ function Welcome({ orderType, setOrderType, onDeliverySetup, onDineInSetup, onPi
         <h2 className="text-[22px] font-extrabold text-gray-900 mb-6 text-center">Select Order Type</h2>
         <div className="flex flex-col gap-3">
           {modes.map((mode) => (
-            <button key={mode.type} onClick={() => { 
-              setOrderType(mode.type); 
-              if (mode.type === "delivery") onDeliverySetup(); 
-              else if (mode.type === "dine-in") onDineInSetup();
-              else if (mode.type === "pickup") onPickupSetup();
-            }} className="flex items-center gap-4 p-4 rounded-2xl border border-gray-200 hover:border-[#ef4f5f] hover:shadow-md transition text-left bg-white group">
+            <button key={mode.type} onClick={() => setOrderType(mode.type)} className="flex items-center gap-4 p-4 rounded-2xl border border-gray-200 hover:border-[#ef4f5f] hover:shadow-md transition text-left bg-white group">
               <div className="bg-[#fff0f1] text-[#ef4f5f] p-3.5 rounded-2xl group-hover:bg-[#ef4f5f] group-hover:text-white transition">{mode.icon}</div>
               <div className="flex-1">
                 <strong className="block text-gray-900 text-[17px] font-bold">{mode.title}</strong>
@@ -339,7 +426,125 @@ function ProductDetails({ item, onClose, onAdd }: { item: MenuItem; onClose: () 
   </div> 
 }
 
-function Checkout({ orderType, table, cart, total, details, setDetails, onBack, onPlace }: { orderType: OrderType; table: string; cart: CartItem[]; total: number; details: CustomerDetails; setDetails: (details: CustomerDetails) => void; onBack: () => void; onPlace: () => void }) { 
+function Checkout({
+  orderType,
+  table,
+  setTable,
+  tables,
+  selectedTableId,
+  setSelectedTableId,
+  partySize,
+  setPartySize,
+  isAsap,
+  setIsAsap,
+  cart,
+  total,
+  details,
+  setDetails,
+  isSubmitting,
+  submitError,
+  onBack,
+  onPlace
+}: {
+  orderType: OrderType;
+  table: string;
+  setTable: (table: string) => void;
+  tables: import("@/lib/supabase/types").RestaurantTableRow[];
+  selectedTableId: string;
+  setSelectedTableId: (id: string) => void;
+  partySize: number;
+  setPartySize: (size: number) => void;
+  isAsap: boolean;
+  setIsAsap: (asap: boolean) => void;
+  cart: CartItem[];
+  total: number;
+  details: CustomerDetails;
+  setDetails: (details: CustomerDetails | ((prev: CustomerDetails) => CustomerDetails)) => void;
+  isSubmitting: boolean;
+  submitError: string;
+  onBack: () => void;
+  onPlace: () => void;
+}) { 
+  const { user, signOut } = useAuth();
+
+  const [addresses, setAddresses] = useState<import("@/lib/supabase/types").CustomerAddressRow[]>([]);
+  const [fetchingAddresses, setFetchingAddresses] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [addressForm, setAddressForm] = useState({ label: '', address: '', landmark: '', pincode: '', is_default: false });
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+
+  const fetchAddresses = async () => {
+    setFetchingAddresses(true);
+    try {
+      const res = await fetch('/api/customer/addresses');
+      if (res.ok) {
+        const data = await res.json();
+        setAddresses(data.addresses);
+        if (data.addresses.length > 0) {
+          const defaultAddr = data.addresses.find((a: any) => a.is_default) || data.addresses[0];
+          setDetails((prev: CustomerDetails) => ({
+            ...prev,
+            address: prev.address || defaultAddr.address,
+            landmark: prev.landmark || defaultAddr.landmark || '',
+            pincode: prev.pincode || defaultAddr.pincode || '',
+          }));
+        }
+      }
+    } finally {
+      setFetchingAddresses(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      setDetails((prev) => ({
+        ...prev,
+        name: prev.name || user.name || "",
+        phone: prev.phone || user.phone || "",
+      }));
+      fetchAddresses();
+    }
+  }, [user]);
+
+  const handleSaveAddress = async () => {
+    try {
+      const isNew = addresses.length === 0;
+      const body = isNew ? { address: details.address, landmark: details.landmark, pincode: details.pincode, is_default: true } : addressForm;
+      if (!body.address) return;
+      
+      if (editingAddressId && !isNew) {
+        await fetch(`/api/customer/addresses/${editingAddressId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body)
+        });
+      } else {
+        await fetch('/api/customer/addresses', {
+          method: 'POST',
+          body: JSON.stringify(body)
+        });
+      }
+      setShowAddressForm(false);
+      setEditingAddressId(null);
+      setAddressForm({ label: '', address: '', landmark: '', pincode: '', is_default: false });
+      await fetchAddresses();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    try {
+      await fetch(`/api/customer/addresses/${id}`, { method: 'DELETE' });
+      await fetchAddresses();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const selectAddress = (addr: import("@/lib/supabase/types").CustomerAddressRow) => {
+    setDetails((prev: CustomerDetails) => ({ ...prev, address: addr.address, landmark: addr.landmark || '', pincode: addr.pincode || '' }));
+  };
+
   return <main className="min-h-screen bg-gray-50 pt-4 pb-20 px-4">
     <div className="max-w-[768px] mx-auto">
       <button onClick={onBack} className="flex items-center gap-1.5 text-gray-800 mb-6 font-semibold"><ChevronLeft size={22} /> Back</button>
@@ -347,26 +552,218 @@ function Checkout({ orderType, table, cart, total, details, setDetails, onBack, 
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h1 className="text-2xl font-extrabold mb-6 text-gray-900">Complete Order</h1>
           
+          {user ? (
+            <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50/60 border border-green-200/80 rounded-2xl p-4 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+                  <Check size={20} strokeWidth={3} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[15px] font-extrabold text-gray-900">
+                      {user.name ? `Welcome, ${user.name}!` : "Welcome!"}
+                    </span>
+                  </div>
+                  {user.phone && (
+                    <p className="text-xs text-gray-600 font-medium mt-0.5">
+                      {user.phone}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="text-xs font-semibold text-gray-500 hover:text-red-600 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-red-200 transition shadow-xs flex items-center gap-1.5"
+              >
+                <LogOut size={13} />
+                Sign Out
+              </button>
+            </div>
+          ) : null}
+
           <div className="mb-8">
             <h2 className="text-[17px] font-bold mb-4 text-gray-800">Contact Details</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <input className="checkout-input bg-gray-50" placeholder="Full name" value={details.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} />
-              <input className="checkout-input bg-gray-50" placeholder="Mobile number" value={details.phone} onChange={(e) => setDetails({ ...details, phone: e.target.value })} />
+              <div className="bg-gray-100 border border-gray-200 rounded-xl p-3 flex flex-col justify-center gap-1 opacity-80 cursor-not-allowed">
+                <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">WhatsApp Number</span>
+                <span className="text-gray-900 font-semibold text-[15px] leading-tight">{details.phone || "Not linked"}</span>
+                <span className="text-[11px] text-green-700 font-semibold flex items-center gap-1 mt-0.5">🔒 Linked to WhatsApp</span>
+              </div>
             </div>
+
             {orderType === "delivery" && <>
-              <input className="checkout-input bg-gray-50 mt-4 w-full" placeholder="Delivery address" value={details.address} onChange={(e) => setDetails({ ...details, address: e.target.value })} />
-              <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                <input className="checkout-input bg-gray-50" placeholder="Landmark" value={details.landmark} onChange={(e) => setDetails({ ...details, landmark: e.target.value })} />
-                <input className="checkout-input bg-gray-50" placeholder="Pincode" value={details.pincode} onChange={(e) => setDetails({ ...details, pincode: e.target.value })} />
-              </div>
+              <h2 className="text-[17px] font-bold mt-8 mb-4 text-gray-800">Delivery Address</h2>
+              
+              {fetchingAddresses ? (
+                <div className="text-gray-500 text-sm">Loading addresses...</div>
+              ) : addresses.length === 0 || showAddressForm ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                  {(addresses.length > 0 || showAddressForm) && (
+                    <div className="mb-3">
+                      <label className="text-xs text-gray-500 font-bold uppercase tracking-wide ml-1">Label (Optional)</label>
+                      <input className="checkout-input bg-white w-full mt-1" placeholder="e.g. Home, Work" value={addressForm.label} onChange={(e) => setAddressForm({...addressForm, label: e.target.value})} />
+                    </div>
+                  )}
+                  <div className="mb-3">
+                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wide ml-1">Address</label>
+                    <input className="checkout-input bg-white w-full mt-1" placeholder="Flat, building, street address" value={addresses.length === 0 ? details.address : addressForm.address} onChange={(e) => addresses.length === 0 ? setDetails({...details, address: e.target.value}) : setAddressForm({...addressForm, address: e.target.value})} />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 mb-4">
+                    <div>
+                      <label className="text-xs text-gray-500 font-bold uppercase tracking-wide ml-1">Landmark</label>
+                      <input className="checkout-input bg-white w-full mt-1" placeholder="Landmark" value={addresses.length === 0 ? details.landmark : addressForm.landmark} onChange={(e) => addresses.length === 0 ? setDetails({...details, landmark: e.target.value}) : setAddressForm({...addressForm, landmark: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-bold uppercase tracking-wide ml-1">Pincode</label>
+                      <input className="checkout-input bg-white w-full mt-1" placeholder="Pincode" value={addresses.length === 0 ? details.pincode : addressForm.pincode} onChange={(e) => addresses.length === 0 ? setDetails({...details, pincode: e.target.value}) : setAddressForm({...addressForm, pincode: e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    {addresses.length > 0 && <button onClick={() => { setShowAddressForm(false); setEditingAddressId(null); }} className="text-gray-500 font-semibold text-[14px]">Cancel</button>}
+                    <button onClick={handleSaveAddress} className={`bg-[#ef4f5f] text-white px-5 py-2.5 rounded-xl font-bold text-[14px] shadow-md shadow-red-500/20 active:scale-95 transition ${addresses.length === 0 ? 'w-full' : ''}`}>Save Address</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {addresses.map(addr => {
+                    const isSelected = details.address === addr.address && details.pincode === (addr.pincode || '');
+                    return (
+                      <div key={addr.id} onClick={() => selectAddress(addr)} className={`border-2 rounded-2xl p-4 cursor-pointer transition ${isSelected ? 'border-green-600 bg-green-50/30' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-900 text-[15px]">{addr.label || 'Saved Address'}</span>
+                            {addr.is_default && <span className="bg-gray-100 text-gray-600 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md">Default</span>}
+                          </div>
+                          {isSelected && <Check size={18} strokeWidth={3} className="text-green-600" />}
+                        </div>
+                        <p className="text-gray-600 text-[14px] leading-tight mt-1">{addr.address}</p>
+                        <p className="text-gray-500 text-[13px] mt-0.5">{[addr.landmark, addr.pincode].filter(Boolean).join(', ')}</p>
+                        
+                        {isSelected && (
+                          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-200/60">
+                            <button onClick={(e) => {
+                              e.stopPropagation();
+                              setAddressForm({ label: addr.label || '', address: addr.address, landmark: addr.landmark || '', pincode: addr.pincode || '', is_default: addr.is_default });
+                              setEditingAddressId(addr.id);
+                              setShowAddressForm(true);
+                            }} className="text-gray-500 hover:text-gray-800 text-[13px] font-semibold">Edit</button>
+                            <button onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteAddress(addr.id);
+                            }} className="text-red-500 hover:text-red-700 text-[13px] font-semibold">Delete</button>
+                            {!addr.is_default && (
+                              <button onClick={async (e) => {
+                                e.stopPropagation();
+                                await fetch(`/api/customer/addresses/${addr.id}`, { method: 'PATCH', body: JSON.stringify({ is_default: true }) });
+                                await fetchAddresses();
+                              }} className="text-gray-500 hover:text-gray-800 text-[13px] font-semibold ml-auto">Set Default</button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  <button onClick={() => {
+                    setAddressForm({ label: '', address: '', landmark: '', pincode: '', is_default: false });
+                    setEditingAddressId(null);
+                    setShowAddressForm(true);
+                  }} className="mt-1 text-[#ef4f5f] font-bold text-[14px] border-2 border-dashed border-[#ffc9ce] rounded-xl p-3 flex items-center justify-center gap-2 hover:bg-[#fff0f1] transition">
+                    <Plus size={16} strokeWidth={2.5}/> Add new address
+                  </button>
+                </div>
+              )}
             </>}
+
             {orderType === "pickup" && (
-              <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                <input className="checkout-input bg-gray-50" type="date" value={details.pickupDate} onChange={(e) => setDetails({ ...details, pickupDate: e.target.value })} />
-                <input className="checkout-input bg-gray-50" type="time" value={details.pickupTime} onChange={(e) => setDetails({ ...details, pickupTime: e.target.value })} />
-              </div>
+              <>
+                <h2 className="text-[17px] font-bold mt-8 mb-4 text-gray-800">Pickup Details</h2>
+                <div className="flex gap-4 mb-4">
+                  <label className="flex items-center gap-2 text-[15px] font-medium text-gray-800 cursor-pointer">
+                    <input type="radio" name="pickupTime" checked={isAsap} onChange={() => setIsAsap(true)} className="w-4 h-4 text-[#ef4f5f] accent-[#ef4f5f]" />
+                    ASAP
+                  </label>
+                  <label className="flex items-center gap-2 text-[15px] font-medium text-gray-800 cursor-pointer">
+                    <input type="radio" name="pickupTime" checked={!isAsap} onChange={() => setIsAsap(false)} className="w-4 h-4 text-[#ef4f5f] accent-[#ef4f5f]" />
+                    Schedule Later
+                  </label>
+                </div>
+                {!isAsap && (
+                  <div className="grid gap-4 sm:grid-cols-2 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-gray-500 font-medium ml-1">Date</label>
+                      <input className="checkout-input bg-gray-50" type="date" value={details.pickupDate} onChange={(e) => setDetails({ ...details, pickupDate: e.target.value })} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-gray-500 font-medium ml-1">Time</label>
+                      <input className="checkout-input bg-gray-50" type="time" value={details.pickupTime} onChange={(e) => setDetails({ ...details, pickupTime: e.target.value })} />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-            {orderType === "dine-in" && <div className="mt-4 bg-[#fff0f1] border border-[#ffc9ce] text-[#ef4f5f] p-4 rounded-xl flex items-center gap-3"><Utensils size={20} /> <div><strong className="text-gray-900 text-[15px]">Dine-in Reservation</strong><br/><span className="text-gray-700 text-[14px]">{table} | {details.pickupDate} at {details.pickupTime}</span></div></div>}
+
+            {orderType === "dine-in" && (
+              <>
+                <h2 className="text-[17px] font-bold mt-8 mb-4 text-gray-800">Dine-in Details</h2>
+                <div className="grid gap-4 sm:grid-cols-2 mb-4">
+                  <div>
+                    <label className="text-[14px] font-bold text-gray-800 block mb-2">Select Table</label>
+                    <select
+                      className="checkout-input bg-gray-50 w-full appearance-none"
+                      value={selectedTableId}
+                      onChange={(e) => {
+                        setSelectedTableId(e.target.value);
+                        const matched = tables.find(t => t.id === e.target.value);
+                        if (matched) setTable(matched.table_number);
+                      }}
+                    >
+                      {tables.length === 0 ? (
+                        <option value="" disabled>Loading tables...</option>
+                      ) : (
+                        tables.map(t => (
+                          <option key={t.id} value={t.id}>{t.table_number} (Capacity: {t.capacity})</option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[14px] font-bold text-gray-800 block mb-2">Party Size (Guests)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      className="checkout-input bg-gray-50 w-full"
+                      value={partySize}
+                      onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-4 mb-4 mt-6">
+                  <label className="flex items-center gap-2 text-[15px] font-medium text-gray-800 cursor-pointer">
+                    <input type="radio" name="dineinTime" checked={isAsap} onChange={() => setIsAsap(true)} className="w-4 h-4 text-[#ef4f5f] accent-[#ef4f5f]" />
+                    Now
+                  </label>
+                  <label className="flex items-center gap-2 text-[15px] font-medium text-gray-800 cursor-pointer">
+                    <input type="radio" name="dineinTime" checked={!isAsap} onChange={() => setIsAsap(false)} className="w-4 h-4 text-[#ef4f5f] accent-[#ef4f5f]" />
+                    Schedule Later
+                  </label>
+                </div>
+                {!isAsap && (
+                  <div className="grid gap-4 sm:grid-cols-2 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-gray-500 font-medium ml-1">Date</label>
+                      <input className="checkout-input bg-gray-50" type="date" value={details.pickupDate} onChange={(e) => setDetails({ ...details, pickupDate: e.target.value })} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-gray-500 font-medium ml-1">Time</label>
+                      <input className="checkout-input bg-gray-50" type="time" value={details.pickupTime} onChange={(e) => setDetails({ ...details, pickupTime: e.target.value })} />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           
           <div>
@@ -389,7 +786,27 @@ function Checkout({ orderType, table, cart, total, details, setDetails, onBack, 
           <div className="border-t border-dashed border-gray-200 pt-4">
             <div className="flex justify-between font-extrabold text-[18px] text-gray-900"><span>Grand Total</span><span>{money(total)}</span></div>
           </div>
-          <button onClick={onPlace} disabled={!details.name || !details.phone || (orderType === "delivery" && !details.address)} className="w-full bg-[#e23744] text-white font-bold text-[16px] py-[15px] rounded-[14px] mt-6 disabled:opacity-50 shadow-md shadow-red-500/20 active:scale-[0.98] transition">Place Order</button>
+
+          {submitError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+              ⚠️ {submitError}
+            </div>
+          )}
+
+          <button
+            onClick={onPlace}
+            disabled={isSubmitting || !details.name || !details.phone || (orderType === "delivery" && !details.address) || (orderType === "dine-in" && !selectedTableId)}
+            className="w-full bg-[#e23744] text-white font-bold text-[16px] py-[15px] rounded-[14px] mt-6 disabled:opacity-50 shadow-md shadow-red-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                Placing Order...
+              </>
+            ) : (
+              'Place Order'
+            )}
+          </button>
           <p className="text-center text-[12px] text-gray-400 mt-4 font-medium">Payment is simulated in this preview.</p>
         </section>
       </div>
@@ -397,14 +814,20 @@ function Checkout({ orderType, table, cart, total, details, setDetails, onBack, 
   </main> 
 }
 
+
 function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }: { orderNumber: string; orderType: OrderType; table: string; cart: CartItem[]; total: number; onContinue: () => void }) { 
   return <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
     <div className="max-w-md w-full bg-white rounded-[24px] p-8 shadow-xl text-center border border-gray-100">
       <div className="w-[84px] h-[84px] bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
         <Check size={44} strokeWidth={3} />
       </div>
-      <h1 className="text-[26px] font-extrabold mb-2 text-gray-900">Order Placed!</h1>
-      <p className="text-gray-500 mb-8 font-medium">Your request has been received.</p>
+      <h1 className="text-[26px] font-extrabold mb-2 text-gray-900">Order Confirmed!</h1>
+      <p className="text-gray-500 mb-6 font-medium">Your request has been received.</p>
+      
+      <div className="flex items-center justify-center gap-2 mb-8 text-[#25D366] bg-[#25D366]/10 px-4 py-2 rounded-full mx-auto w-max text-[13px] font-semibold border border-[#25D366]/20 shadow-sm">
+        <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse"></span>
+        WhatsApp confirmation prepared
+      </div>
       
       <div className="bg-gray-50 rounded-[16px] p-5 mb-8 text-left border border-gray-100">
         <div className="flex justify-between mb-3">
