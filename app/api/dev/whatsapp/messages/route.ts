@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyDevAccessFromCookies } from '@/lib/dev/access'
 
 export async function GET(request: Request) {
+  // ── Dev-access guard ──────────────────────────────────────────────────
+  const hasDevAccess = await verifyDevAccessFromCookies()
+  if (!hasDevAccess) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 })
+  }
+
   const { searchParams } = new URL(request.url)
   const customerId = searchParams.get('customerId')
   const after = searchParams.get('after')

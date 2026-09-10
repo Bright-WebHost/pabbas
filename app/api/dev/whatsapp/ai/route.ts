@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSessionCookie } from '@/lib/session/cookies'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyDevAccessFromCookies } from '@/lib/dev/access'
 
 /**
  * POST /api/dev/whatsapp/ai
@@ -58,8 +59,9 @@ export async function POST(request: Request) {
     }
     customerId = customer.id
     customerPhone = customer.phone
-  } else if (channelUserId && process.env.NODE_ENV !== 'production') {
-    // Path 2: Dev-only fallback — resolve from channelUserId
+  } else if (channelUserId && (await verifyDevAccessFromCookies())) {
+    // Path 2: Dev fallback — resolve from channelUserId.
+    // Locally: always passes. On Vercel: requires pabbas_dev_access cookie.
     const devCustomer = DEV_CUSTOMERS[channelUserId]
     if (!devCustomer) {
       return NextResponse.json({ error: 'Unknown dev customer.' }, { status: 400 })

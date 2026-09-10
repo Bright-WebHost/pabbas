@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateToken, hashToken, TOKEN_TTL_SECONDS } from '@/lib/session/token'
+import { verifyDevAccessFromCookies } from '@/lib/dev/access'
 
 /** Development-only customer directory */
 const DEV_CUSTOMERS: Record<string, { phone: string; name: string }> = {
@@ -23,10 +24,13 @@ const DEV_CUSTOMERS: Record<string, { phone: string; name: string }> = {
 }
 
 export async function POST(request: Request) {
-  // ── Production guard ─────────────────────────────────────────────────
-  if (process.env.NODE_ENV === 'production') {
+  // ── Dev-access guard ──────────────────────────────────────────────────
+  // Locally: always passes (verifyDevAccessFromCookies returns true when NODE_ENV !== 'production').
+  // On Vercel: requires the pabbas_dev_access cookie set by POST /api/dev/access.
+  const hasDevAccess = await verifyDevAccessFromCookies()
+  if (!hasDevAccess) {
     return NextResponse.json(
-      { error: 'Development session creation is not available in production.' },
+      { error: 'Dev simulator access is not enabled. Please authenticate at /dev/login.' },
       { status: 403 }
     )
   }
