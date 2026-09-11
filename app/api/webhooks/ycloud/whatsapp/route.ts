@@ -50,7 +50,8 @@ export async function POST(request: Request) {
 
     // 9. Replay protection
     const now = Date.now();
-    if (Math.abs(now - timestamp) > REPLAY_TOLERANCE_MS) {
+    const timestampMs = timestamp * 1000;
+    if (Math.abs(now - timestampMs) > REPLAY_TOLERANCE_MS) {
       console.warn('YCloud Webhook Error: Request timestamp outside tolerance (replay protection)');
       return new NextResponse('Unauthorized', { status: 401 });
     }
