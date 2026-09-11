@@ -24,7 +24,25 @@ export async function GET(request: Request) {
     const expectedSecret = process.env.PABBAS_AI_WEBHOOK_SECRET;
 
     if (!expectedSecret || secretHeader !== expectedSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      // TEMPORARY DIAGNOSTIC PAYLOAD
+      const envSecretExists = !!expectedSecret;
+      const envSecretLength = expectedSecret ? expectedSecret.length : 0;
+      const headerSecretExists = !!secretHeader;
+      const headerSecretLength = secretHeader ? secretHeader.length : 0;
+      const isExactMatch = expectedSecret === secretHeader;
+      const isTrimmedMatch = expectedSecret?.trim() === secretHeader?.trim();
+
+      return NextResponse.json({ 
+        error: 'Unauthorized',
+        _diagnostic: {
+          envSecretExists,
+          envSecretLength,
+          headerSecretExists,
+          headerSecretLength,
+          isExactMatch,
+          isTrimmedMatch
+        }
+      }, { status: 401 });
     }
 
     const supabase = createAdminClient();
