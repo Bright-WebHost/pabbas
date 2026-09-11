@@ -72,7 +72,12 @@ export async function GET(request: Request) {
         .single();
 
       if (insertError) {
-        console.error('[AI Tool: customer_lookup] Database error on insert:', insertError.message);
+        console.error('[AI Tool: customer_lookup] Database error on insert:', {
+          message: insertError.message,
+          code: insertError.code,
+          details: insertError.details,
+          hint: insertError.hint
+        });
         return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
       }
       
