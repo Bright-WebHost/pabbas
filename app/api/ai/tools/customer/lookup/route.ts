@@ -14,74 +14,46 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const phone = searchParams.get('phone');
     const name = searchParams.get('name');
+    const channelUserId = searchParams.get('channel_user_id');
 
-    if (!phone) {
-      return NextResponse.json({ error: 'Missing phone number' }, { status: 400 });
+    if (!phone || !channelUserId) {
+      return NextResponse.json({ error: 'Missing phone number or channel_user_id' }, { status: 400 });
     }
 
     // Authenticate the request from n8n
-    const secretHeader = request.headers.get('x-pabbas-ai-secret');
-    const expectedSecret = process.env.PABBAS_AI_WEBHOOK_SECRET;
+    const secretHeader = request.headers.get('x-pabbas-ai-secret')?.trim();
+    const expectedSecret = process.env.PABBAS_AI_WEBHOOK_SECRET?.trim();
 
     if (!expectedSecret || secretHeader !== expectedSecret) {
-      // TEMPORARY DIAGNOSTIC PAYLOAD
-      const envSecretExists = !!expectedSecret;
-      const envSecretLength = expectedSecret ? expectedSecret.length : 0;
-      const headerSecretExists = !!secretHeader;
-      const headerSecretLength = secretHeader ? secretHeader.length : 0;
-      const isExactMatch = expectedSecret === secretHeader;
-      const isTrimmedMatch = expectedSecret?.trim() === secretHeader?.trim();
-
-      return NextResponse.json({ 
-        error: 'Unauthorized',
-        _diagnostic: {
-          envSecretExists,
-          envSecretLength,
-          headerSecretExists,
-          headerSecretLength,
-          isExactMatch,
-          isTrimmedMatch
-        }
-      }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = createAdminClient();
 
-    // 1. Try to find the existing customer by phone
-    let { data: customer, error: fetchError } = await supabase
+    // 1 & 2. Find or create the customer robustly to prevent race conditions.
+    // The schema has a UNIQUE(channel, channel_user_id) constraint.
+    const { data: customer, error: upsertError } = await supabase
       .from('app_customers')
+      .upsert({
+        channel: 'whatsapp',
+        channel_user_id: channelUserId,
+        phone: phone,
+        name: name || 'WhatsApp Customer'
+      }, { 
+        onConflict: 'channel,channel_user_id',
+        ignoreDuplicates: false // updating phone/name ensures profile is fresh
+      })
       .select('id')
-      .eq('phone', phone)
-      .maybeSingle();
+      .single();
 
-    if (fetchError) {
-      console.error('[AI Tool: customer_lookup] Database error on fetch:', fetchError.message);
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
-    }
-
-    // 2. If no customer exists, create a new stub record
-    if (!customer) {
-      const { data: newCustomer, error: insertError } = await supabase
-        .from('app_customers')
-        .insert({
-          phone: phone,
-          name: name || 'WhatsApp Customer',
-          channel: 'whatsapp'
-        })
-        .select('id')
-        .single();
-
-      if (insertError) {
-        console.error('[AI Tool: customer_lookup] Database error on insert:', {
-          message: insertError.message,
-          code: insertError.code,
-          details: insertError.details,
-          hint: insertError.hint
-        });
-        return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
-      }
-      
-      customer = newCustomer;
+    if (upsertError || !customer) {
+      console.error('[AI Tool: customer_lookup] Database error on upsert:', upsertError ? {
+        message: upsertError.message,
+        code: upsertError.code,
+        details: upsertError.details,
+        hint: upsertError.hint
+      } : 'No customer returned');
+      return NextResponse.json({ error: 'Failed to find or create customer' }, { status: 500 });
     }
 
     // 3. Generate a secure one-time session token for the CTA
@@ -94,7 +66,7 @@ export async function GET(request: Request) {
       .insert({
         customer_id: customer.id,
         channel: 'whatsapp',
-        channel_user_id: phone,
+        channel_user_id: channelUserId,
         token_hash: tokenHash,
         status: 'pending',
         expires_at: expiresAt,
