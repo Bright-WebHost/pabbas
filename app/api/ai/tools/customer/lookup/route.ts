@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     }
 
     // 4. Return the customer_id and the fully qualified CTA URL
-    const ctaUrl = `https://pabbas.com/auth/whatsapp?token=${encodeURIComponent(rawToken)}`;
+    const ctaUrl = `https://pabbas-one.vercel.app/auth/whatsapp?token=${encodeURIComponent(rawToken)}`;
     
     return NextResponse.json({ 
       customer_id: customer.id,
