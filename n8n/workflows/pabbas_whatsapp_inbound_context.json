@@ -1,0 +1,355 @@
+{
+  "name": "Pabbas | Production | WhatsApp AI Order Bridge",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "pabbas-whatsapp-inbound", "responseMode": "onReceived", "options": {} },
+      "id": "pabbas-inbound-webhook",
+      "name": "Verified YCloud Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "pabbas-whatsapp-inbound",
+      "credentials": { "httpHeaderAuth": { "id": "Pabbas_WhatsApp_Inbound_Secret_ID", "name": "Pabbas WhatsApp Inbound Secret" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const event = $input.first().json.body || $input.first().json;\nconst data = event.data || {};\nconst message = data.message || data.whatsappInboundMessage || event.message || event.whatsappInboundMessage || {};\nconst profile = data.customerProfile || data.profile || {};\nconst type = String(message.type || 'text');\nlet content = message.text?.body || message.body || '';\nif (type === 'interactive') content = message.interactive?.button_reply?.id || message.interactive?.list_reply?.id || '';\nif (type === 'button') content = message.button?.text || '';\nif (type === 'image') content = message.image?.caption || '[image]';\nif (type === 'audio' || type === 'voice') content = '[voice note]';\nreturn [{ json: { event_type: event.type || '', message_id: String(message.id || data.messageId || event.messageId || event.id || ''), phone: String(message.from || message.sender?.phone || data.from || event.from || ''), customer_name: String(profile.name || message.customerProfile?.name || ''), message_type: type, content: String(content), direction: 'inbound', sender: 'customer', ai_intent: '' } }];"
+      },
+      "id": "pabbas-extract-message",
+      "name": "Extract Inbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [ { "name": "message_id", "value": "=eq.{{ $('Extract Inbound Message').first().json.message_id }}" }, { "name": "select", "value": "id" }, { "name": "limit", "value": "1" } ] },
+        "options": {}
+      },
+      "id": "pabbas-dedupe-lookup",
+      "name": "Look Up Message ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": { "mode": "runOnceForAllItems", "language": "javaScript", "jsCode": "const rows = $input.all().flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]);\nreturn [{ json: { duplicate: rows.some((item) => item?.id), ...$('Extract Inbound Message').first().json } }];" },
+      "id": "pabbas-dedupe-decision",
+      "name": "Decide Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": { "conditions": { "boolean": [ { "value1": "={{ $json.duplicate }}", "operation": "false" } ] } },
+      "id": "pabbas-new-message",
+      "name": "New Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" }, { "name": "Prefer", "value": "return=minimal" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, direction: 'inbound', content: $json.content, sender: 'customer', message_type: $json.message_type, message_id: $json.message_id, ai_intent: '' }) }}",
+        "options": {}
+      },
+      "id": "pabbas-save-inbound",
+      "name": "Save Inbound Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 220],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/rpc/chat_context",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_phone: $('Extract Inbound Message').first().json.phone, p_order: null }) }}",
+        "options": {}
+      },
+      "id": "pabbas-chat-context",
+      "name": "Retrieve Chat Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1520, 220],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": { "mode": "runOnceForAllItems", "language": "javaScript", "jsCode": "const input = $('Extract Inbound Message').first().json;\nconst context = $('Retrieve Chat Context').first().json || {};\nreturn [{ json: { customer_phone: input.phone, customer_name: input.customer_name, message: input.content, context } }];" },
+      "id": "pabbas-build-ai-request",
+      "name": "Build AI Order Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 220]
+    },
+    {
+      "parameters": { "mode": "runOnceForAllItems", "language": "javaScript", "jsCode": "const input = $('Extract Inbound Message').first().json;\nconst context = $('Retrieve Chat Context').first().json || {};\nconst text = String(input.content || '').trim();\nconst match = text.match(/^btn_(confirm|cancel):([A-Z0-9-]+)$/i);\nlet route = 'ai';\nlet response = null;\nif (context.session && context.session.ai_enabled === false) route = 'staff';\nelse if (context.is_open === false) { route = 'response'; response = { customer_phone: input.phone, log_text: 'Pabbas is currently closed. Please try again during our opening hours.', outgoing: { type: 'text', text: { body: 'Pabbas is currently closed. Please try again during our opening hours.' } } }; }\nelse if (match) { route = match[1].toLowerCase(); }\nelse if (/^(hi|hello|hey|menu|start)$/i.test(text)) { route = 'response'; response = { customer_phone: input.phone, log_text: 'Hello! Tell me what you would like to order from Pabbas.', outgoing: { type: 'text', text: { body: 'Hello! Tell me what you would like to order from Pabbas.' } } }; }\nreturn [{ json: { route, order_number: match ? match[2].toUpperCase() : null, customer_phone: input.phone, customer_name: input.customer_name, response } }];" },
+      "id": "pabbas-route-inbound",
+      "name": "Route Inbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 80]
+    },
+    {
+      "parameters": { "rules": { "values": [
+        { "conditions": { "conditions": [ { "leftValue": "={{ $json.route }}", "rightValue": "staff", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "staff" },
+        { "conditions": { "conditions": [ { "leftValue": "={{ $json.route }}", "rightValue": "response", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "response" },
+        { "conditions": { "conditions": [ { "leftValue": "={{ $json.route }}", "rightValue": "confirm", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "confirm" },
+        { "conditions": { "conditions": [ { "leftValue": "={{ $json.route }}", "rightValue": "cancel", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "cancel" }
+      ] }, "options": { "fallbackOutput": "extra", "renameFallbackOutput": "ai" } },
+      "id": "pabbas-route-switch",
+      "name": "Inbound Route Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1960, 80]
+    },
+    {
+      "parameters": { "mode": "runOnceForAllItems", "language": "javaScript", "jsCode": "const d = $input.first().json;\nreturn [{ json: d.response || { customer_phone: d.customer_phone, log_text: '', outgoing: { type: 'text', text: { body: '' } } } }];" },
+      "id": "pabbas-staff-stop",
+      "name": "Staff Handover - Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2180, -100]
+    },
+    {
+      "parameters": { "mode": "runOnceForAllItems", "language": "javaScript", "jsCode": "const d = $input.first().json;\nreturn [{ json: d.response || { customer_phone: d.customer_phone, log_text: '', outgoing: { type: 'text', text: { body: '' } } } }];" },
+      "id": "pabbas-build-routed-response",
+      "name": "Build Routed Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2180, 0]
+    },
+    {
+      "parameters": { "method": "POST", "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/rpc/customer_confirm", "authentication": "predefinedCredentialType", "nodeCredentialType": "httpCustomAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number }) }}", "options": {} },
+      "id": "pabbas-route-confirm",
+      "name": "Route Confirm Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2180, 100],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": { "method": "POST", "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/rpc/customer_cancel", "authentication": "predefinedCredentialType", "nodeCredentialType": "httpCustomAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_reason: 'customer_request' }) }}", "options": {} },
+      "id": "pabbas-route-cancel",
+      "name": "Route Cancel Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2180, 200],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": { "systemMessage": "You are the Pabbas order assistant. Return JSON only: {\"intent\":\"order|info|other\",\"reply\":\"short text\",\"items\":[{\"name\":\"exact menu name\",\"quantity\":1}],\"order_type\":\"delivery|takeaway|dine-in\"}. Use only names from context.menu. Never provide prices or totals. For an existing open order, return the complete final cart. For non-order messages, return an empty items array." }
+      },
+      "id": "pabbas-ai-agent",
+      "name": "Pabbas AI Order Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1960, 220]
+    },
+    {
+      "parameters": { "model": { "__rl": true, "value": "gpt-4.1-mini-2025-04-14", "mode": "list" }, "options": { "temperature": 0.3 } },
+      "id": "pabbas-openai-model",
+      "name": "Pabbas OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [1960, 460],
+      "credentials": { "openAiApi": { "id": "9xE7IBelUtLtDEJt", "name": "OpenAI account" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const source = $('Build AI Order Request').first().json;\nconst context = source.context || {};\nconst raw = String($input.first().json.output || '').replace(/```json/gi, '').replace(/```/g, '').trim();\nconst norm = (v) => String(v || '').toLowerCase().replace(/\\s+/g, ' ').trim();\nconst out = { customer_phone: source.customer_phone, customer_name: source.customer_name, action: 'reply', reply: 'Tell me what you would like to order.', order_type: 'delivery', items: [], total: 0, order_number: null };\nconst button = source.message.match(/^btn_(confirm|cancel):([A-Z0-9-]+)$/i);\nif (button) { out.action = button[1].toLowerCase(); out.order_number = button[2].toUpperCase(); out.reply = ''; return [{ json: out }]; }\nlet parsed = null;\ntry { const a = raw.indexOf('{'); const b = raw.lastIndexOf('}'); if (a >= 0 && b > a) parsed = JSON.parse(raw.slice(a, b + 1)); } catch {}\nif (!parsed || parsed.intent !== 'order') { out.reply = String(parsed?.reply || out.reply); return [{ json: out }]; }\nconst menu = new Map();\nfor (const line of (typeof context.menu === 'string' ? context.menu.split('\\n') : [])) { const i = line.lastIndexOf('|'); if (i > 0) menu.set(norm(line.slice(0, i)), { name: line.slice(0, i).trim(), price: Number(line.slice(i + 1)) || 0 }); }\nfor (const candidate of (Array.isArray(parsed.items) ? parsed.items : [])) { const item = menu.get(norm(candidate?.name)); const quantity = Math.round(Number(candidate?.quantity)); if (!item || !Number.isInteger(quantity) || quantity < 1 || quantity > 50) { out.reply = !item ? 'That item is not on the current Pabbas menu.' : 'Please choose a quantity between 1 and 50.'; return [{ json: out }]; } out.items.push({ name: item.name, quantity, price: item.price }); }\nif (!out.items.length) { out.reply = String(parsed.reply || out.reply); return [{ json: out }]; }\nconst open = context.open_order || null;\nout.action = open ? 'amend' : 'create';\nout.order_number = open?.order_number || null;\nout.order_type = ['delivery', 'takeaway', 'dine-in'].includes(String(parsed.order_type || '').toLowerCase()) ? String(parsed.order_type).toLowerCase() : (open?.order_type || 'delivery');\nout.total = out.items.reduce((sum, item) => sum + item.price * item.quantity, 0);\nout.reply = String(parsed.reply || '');\nreturn [{ json: out }];"
+      },
+      "id": "pabbas-validate-menu",
+      "name": "Validate Menu And Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2180, 220]
+    },
+    {
+      "parameters": {
+        "rules": { "values": [
+          { "conditions": { "conditions": [ { "leftValue": "={{ $json.action }}", "rightValue": "create", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "create" },
+          { "conditions": { "conditions": [ { "leftValue": "={{ $json.action }}", "rightValue": "amend", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "amend" },
+          { "conditions": { "conditions": [ { "leftValue": "={{ $json.action }}", "rightValue": "confirm", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "confirm" },
+          { "conditions": { "conditions": [ { "leftValue": "={{ $json.action }}", "rightValue": "cancel", "operator": { "type": "string", "operation": "equals" } } ] }, "renameOutput": true, "outputKey": "cancel" }
+        ] },
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "no database action" }
+      },
+      "id": "pabbas-action-switch",
+      "name": "Order Action Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [2400, 220]
+    },
+    {
+      "parameters": { "method": "POST", "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/orders", "authentication": "predefinedCredentialType", "nodeCredentialType": "httpCustomAuth", "sendHeaders": true, "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" }, { "name": "Prefer", "value": "return=representation" } ] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ customer_phone: $json.customer_phone, customer_name: $json.customer_name || '', items: $json.items.map(item => item.name + ' x' + item.quantity).join(', '), items_json: $json.items, total: $json.total, status: 'draft', order_type: $json.order_type, source: 'whatsapp' }) }}", "options": {} },
+      "id": "pabbas-create-draft",
+      "name": "Create Draft Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 80],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": { "method": "POST", "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/rpc/customer_amend", "authentication": "predefinedCredentialType", "nodeCredentialType": "httpCustomAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_items: $json.items, p_total: $json.total }) }}", "options": {} },
+      "id": "pabbas-amend-order",
+      "name": "Amend Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 180],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": { "method": "POST", "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/rpc/customer_confirm", "authentication": "predefinedCredentialType", "nodeCredentialType": "httpCustomAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number }) }}", "options": {} },
+      "id": "pabbas-confirm-order",
+      "name": "Confirm Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 280],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": { "method": "POST", "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/rpc/customer_cancel", "authentication": "predefinedCredentialType", "nodeCredentialType": "httpCustomAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_reason: 'customer_request' }) }}", "options": {} },
+      "id": "pabbas-cancel-order",
+      "name": "Cancel Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 380],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": {},
+      "id": "pabbas-duplicate-stop",
+      "name": "Duplicate - Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1300, 420]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const validation = $('Validate Menu And Price').first()?.json || {};\nconst response = $input.first().json || {};\nif (response.outgoing) return [{ json: response }];\nconst route = $('Route Inbound Message').first()?.json || {};\nconst row = Array.isArray(response) ? (response[0] || {}) : (response.order || response);\nconst phone = validation.customer_phone || route.customer_phone;\nconst action = validation.action || (route.route === 'confirm' ? 'confirm' : route.route === 'cancel' ? 'cancel' : 'reply');\nconst orderNumber = row.order_number || validation.order_number || route.order_number || '';\nconst items = Array.isArray(row.items_json) && row.items_json.length ? row.items_json : (validation.items || []);\nconst lines = items.map((item) => `${item.name} x${item.quantity}`).join('\\n');\nlet text = validation.reply || 'Pabbas could not process that request.';\nlet interactive = null;\nif (['create', 'amend'].includes(action)) {\n  text = `${action === 'create' ? 'Order draft' : 'Order updated'}${orderNumber ? ` ${orderNumber}` : ''}:\\n${lines}\\nTotal: Rs ${Number(row.total ?? validation.total ?? 0).toFixed(2)}\\n\\nPlease confirm your order.`;\n  if (orderNumber) interactive = { type: 'button', body: { text }, action: { buttons: [ { type: 'reply', reply: { id: `btn_confirm:${orderNumber}`, title: 'Confirm order' } }, { type: 'reply', reply: { id: `btn_cancel:${orderNumber}`, title: 'Cancel order' } } ] } };\n} else if (action === 'confirm') {\n  text = `Order ${orderNumber || ''} confirmation result: ${response.result || 'processed'}.`.trim();\n} else if (action === 'cancel') {\n  text = `Order ${orderNumber || ''} cancellation result: ${response.result || 'processed'}.`.trim();\n}\nconst outgoing = interactive ? { type: 'interactive', interactive } : { type: 'text', text: { body: text } };\nreturn [{ json: { customer_phone: phone, log_text: text, outgoing, ycloud_payload: { from: $env.YCLOUD_WHATSAPP_BUSINESS_NUMBER, to: phone, ...outgoing } } }];"
+      },
+      "id": "pabbas-build-outbound",
+      "name": "Build Outbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3120, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ycloud.com/v2/whatsapp/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ycloud_payload) }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "pabbas-send-outbound-disabled",
+      "name": "Send YCloud WhatsApp (Disabled)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3360, 220],
+      "disabled": true,
+      "credentials": { "httpHeaderAuth": { "id": "Pabbas_YCloud_API_Key_ID", "name": "Pabbas YCloud API Key" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [ { "name": "Content-Type", "value": "application/json" }, { "name": "Prefer", "value": "return=minimal" } ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Build Outbound Message').first().json.customer_phone, direction: 'outbound', sender: 'system', message_type: $('Build Outbound Message').first().json.outgoing.type, content: $('Build Outbound Message').first().json.log_text, message_id: $json.id || $json.messageId || '' }) }}",
+        "options": {}
+      },
+      "id": "pabbas-log-outbound",
+      "name": "Log Successful Outbound",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3600, 220],
+      "credentials": { "httpCustomAuth": { "id": "Supabase_Service_Role_ID", "name": "Supabase Service Role" } }
+    },
+    {
+      "parameters": {},
+      "id": "pabbas-ycloud-media-todo",
+      "name": "YCloud Voice/Media TODO (Disabled)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [420, 560],
+      "disabled": true,
+      "notes": "TODO: implement only after the verified Pabbas YCloud media retrieval/transcription contract is supplied."
+    },
+    {
+      "parameters": {},
+      "id": "pabbas-ycloud-status-todo",
+      "name": "YCloud Status Handling TODO (Disabled)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [640, 560],
+      "disabled": true,
+      "notes": "TODO: implement only after the verified Pabbas YCloud delivery/read/failed callback payload is supplied."
+    }
+  ],
+  "connections": {
+    "Verified YCloud Inbound Webhook": { "main": [ [ { "node": "Extract Inbound Message", "type": "main", "index": 0 } ] ] },
+    "Extract Inbound Message": { "main": [ [ { "node": "Look Up Message ID", "type": "main", "index": 0 } ] ] },
+    "Look Up Message ID": { "main": [ [ { "node": "Decide Duplicate", "type": "main", "index": 0 } ] ] },
+    "Decide Duplicate": { "main": [ [ { "node": "New Message?", "type": "main", "index": 0 } ] ] },
+    "New Message?": { "main": [ [ { "node": "Save Inbound Message", "type": "main", "index": 0 } ], [ { "node": "Duplicate - Stop", "type": "main", "index": 0 } ] ] },
+    "Save Inbound Message": { "main": [ [ { "node": "Retrieve Chat Context", "type": "main", "index": 0 } ] ] },
+    "Retrieve Chat Context": { "main": [ [ { "node": "Route Inbound Message", "type": "main", "index": 0 } ] ] },
+    "Route Inbound Message": { "main": [ [ { "node": "Inbound Route Switch", "type": "main", "index": 0 } ] ] },
+    "Inbound Route Switch": { "main": [ [ { "node": "Staff Handover - Stop", "type": "main", "index": 0 } ], [ { "node": "Build Routed Response", "type": "main", "index": 0 } ], [ { "node": "Route Confirm Order", "type": "main", "index": 0 } ], [ { "node": "Route Cancel Order", "type": "main", "index": 0 } ], [ { "node": "Build AI Order Request", "type": "main", "index": 0 } ] ] },
+    "Build Routed Response": { "main": [ [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Route Confirm Order": { "main": [ [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Route Cancel Order": { "main": [ [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Build AI Order Request": { "main": [ [ { "node": "Pabbas AI Order Agent", "type": "main", "index": 0 } ] ] },
+    "Pabbas OpenAI Chat Model": { "ai_languageModel": [ [ { "node": "Pabbas AI Order Agent", "type": "ai_languageModel", "index": 0 } ] ] },
+    "Pabbas AI Order Agent": { "main": [ [ { "node": "Validate Menu And Price", "type": "main", "index": 0 } ] ] },
+    "Validate Menu And Price": { "main": [ [ { "node": "Order Action Switch", "type": "main", "index": 0 } ] ] },
+    "Order Action Switch": { "main": [ [ { "node": "Create Draft Order", "type": "main", "index": 0 } ], [ { "node": "Amend Order", "type": "main", "index": 0 } ], [ { "node": "Confirm Order", "type": "main", "index": 0 } ], [ { "node": "Cancel Order", "type": "main", "index": 0 } ], [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Create Draft Order": { "main": [ [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Amend Order": { "main": [ [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Confirm Order": { "main": [ [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Cancel Order": { "main": [ [ { "node": "Build Outbound Message", "type": "main", "index": 0 } ] ] },
+    "Build Outbound Message": { "main": [ [ { "node": "Send YCloud WhatsApp (Disabled)", "type": "main", "index": 0 } ] ] },
+    "Send YCloud WhatsApp (Disabled)": { "main": [ [ { "node": "Log Successful Outbound", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1", "saveExecutionProgress": true, "saveManualExecutions": true, "callerPolicy": "workflowsFromSameOwner" }
+}

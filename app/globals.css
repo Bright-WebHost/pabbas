@@ -4,6 +4,33 @@
 :root {
   --background: #ffffff;
   --foreground: #1c1c1c;
+
+  /* Dashboard Colors */
+  --red: #E23744;
+  --red2: #CB202D;
+  --tint: #FFF1F2;
+  --ink: #10151C;
+  --muted: #6B7684;
+  --line: #E6E9EE;
+  --bg: #F4F6F8;
+  --card: #ffffff;
+  --navy: #111A26;
+  --navy2: #1B2736;
+  --c-new: #FFF0F1;
+  --c-new-b: #F5C2C6;
+  --c-new-t: #C0392B;
+  --c-prep: #EAF3FF;
+  --c-prep-b: #BFD8F5;
+  --c-prep-t: #1A5FA8;
+  --c-ready: #F2EEFF;
+  --c-ready-b: #D3C7F5;
+  --c-ready-t: #5B3FBF;
+  --c-done: #EAF8EF;
+  --c-done-b: #BEE5CC;
+  --c-done-t: #1F8A4C;
+  --warn: #F5A623;
+  --danger: #E23744;
+  --ok: #3AB757;
 }
 
 * { box-sizing: border-box; }

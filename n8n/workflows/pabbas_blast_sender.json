@@ -1,0 +1,569 @@
+{
+  "name": "Pabbas | Blast Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pabbas-blast",
+        "responseMode": "onReceived",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "pabbas-blast-webhook",
+      "name": "Blast Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        200
+      ],
+      "webhookId": "pabbas-blast",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Pabbas_WhatsApp_Inbound_Secret_ID",
+          "name": "Pabbas WhatsApp Inbound Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "JavaScript",
+        "jsCode": "const hook = $input.first().json; const body = hook.body || hook; const phones = Array.isArray(body.phones) ? body.phones : []; return [{ json: { phones, filter: body.filter || 'all', template_name: body.template_name || 'pabbas_promo_en', language: body.language || 'en', header_image: body.header_image || '', run_started_at: new Date().toISOString(), run_id: 'blast_' + Date.now() } }];"
+      },
+      "id": "pabbas-blast-extract-params",
+      "name": "Extract Params",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        430,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/customers",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "opted_out",
+              "value": "=eq.false"
+            },
+            {
+              "name": "select",
+              "value": "phone,name,total_orders,last_order_date"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "pabbas-blast-get-customers",
+      "name": "Get Customers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        650,
+        200
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "Supabase_Service_Role_ID",
+          "name": "Supabase Service Role"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "JavaScript",
+        "jsCode": "function cleanPhone(raw) { const p = String(raw || '').replace(/[^0-9]/g, ''); if (p === '') return ''; if (p.length === 11 && p.charAt(0) === '0') return '91' + p.substring(1); if (p.length === 10 && '6789'.indexOf(p.charAt(0)) !== -1) return '91' + p; if (p.length === 12 && p.substring(0, 2) === '91') return p; if (p.length >= 11 && p.length <= 15) return p; return '91' + p; } const params = $('Extract Params').first().json; const raw = $input.all().map((i) => i.json); let all = []; raw.forEach((r) => { if (Array.isArray(r)) all = all.concat(r); else if (r && r.phone) all.push(r); }); if (params.phones && params.phones.length) all = params.phones.map((p) => ({ phone: p, name: '' })); const list = all.filter((c) => c.phone && String(c.phone).trim() !== '').map((c) => ({ phone: cleanPhone(c.phone), name: c.name || '', run_id: params.run_id })); const deduped = []; const seen = new Set(); for (const item of list) { if (!seen.has(item.phone)) { seen.add(item.phone); deduped.push(item); } } return deduped.map((item) => ({ ...item, template: params.template_name || 'pabbas_promo_en', language: params.language || 'en', header_image: params.header_image || '' }));"
+      },
+      "id": "pabbas-blast-filter-and-clean-phones",
+      "name": "Filter & Clean Phones",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        870,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "pabbas-blast-loop-customers",
+      "name": "Loop Customers",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1090,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ycloud.com/whatsapp/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ to: $json.phone, template: { name: $json.template, language: { code: $json.language }, components: [ { type: 'header', parameters: [ { type: 'image', image: { link: $json.header_image } } ] } ] } }) }}",
+        "options": {
+          "timeout": 15000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "id": "pabbas-blast-send-template",
+      "name": "Send Template (TODO: verify YCloud payload)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1310,
+        120
+      ],
+      "disabled": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Pabbas_YCloud_WhatsApp_Token_ID",
+          "name": "Pabbas YCloud WhatsApp Token"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "JavaScript",
+        "jsCode": "const res = $input.first().json; const cust = $('Loop Customers').first().json; let messageId = ''; try { messageId = res.messages[0].id || ''; } catch (e) { messageId = ''; } let errorMsg = ''; try { errorMsg = res.error.message || ''; } catch (e) { errorMsg = ''; } const failed = messageId === ''; return [{ json: { run_id: cust.run_id, phone: cust.phone, blast_message_id: messageId, blast_status: failed ? 'failed' : 'sent', blast_sent_at: failed ? null : new Date().toISOString(), blast_error: errorMsg } }];"
+      },
+      "id": "pabbas-blast-parse-send-result",
+      "name": "Parse Send Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1530,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/customers",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "=eq.{{ $json.phone }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ blast_message_id: $json.blast_message_id, blast_sent_at: $json.blast_sent_at, blast_read_at: null }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "pabbas-blast-update-customer",
+      "name": "Update Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1750,
+        120
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "Supabase_Service_Role_ID",
+          "name": "Supabase Service Role"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "id": "pabbas-blast-throttle-1s",
+      "name": "Throttle 1s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1970,
+        120
+      ],
+      "webhookId": "pabbas-blast-wait"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/blast_log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ run_id: $('Extract Params').first().json.run_id, phone: $('Parse Send Result').first().json.phone, status: $('Parse Send Result').first().json.blast_status, message_id: $('Parse Send Result').first().json.blast_message_id, error: $('Parse Send Result').first().json.blast_error }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "pabbas-blast-log-send",
+      "name": "Log Blast",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2190,
+        120
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "Supabase_Service_Role_ID",
+          "name": "Supabase Service Role"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "pabbas-blast-done",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2410,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || \"https://YOUR_PROJECT_REF.supabase.co\" }}/rest/v1/rpc/staff_check",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY || \"YOUR_SERVICE_ROLE_KEY\" }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization || \"Bearer \" + ($env.SUPABASE_SERVICE_ROLE_KEY || \"YOUR_SERVICE_ROLE_KEY\") }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "id": "pabbas-blast-verify-staff",
+      "name": "Verify Staff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "pabbas-blast-is-staff-check",
+              "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "pabbas-blast-is-staff",
+      "name": "Is Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "pabbas-blast-respond-unauthorised",
+      "name": "Respond Unauthorised",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        220
+      ]
+    }
+  ],
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [],
+  "id": "",
+  "meta": {},
+  "connections": {
+    "Blast Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Staff": {
+      "main": [
+        [
+          {
+            "node": "Is Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Staff?": {
+      "main": [
+        [
+          {
+            "node": "Extract Params",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Params": {
+      "main": [
+        [
+          {
+            "node": "Get Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customers": {
+      "main": [
+        [
+          {
+            "node": "Filter & Clean Phones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Clean Phones": {
+      "main": [
+        [
+          {
+            "node": "Loop Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Customers": {
+      "main": [
+        [
+          {
+            "node": "Send Template (TODO: verify YCloud payload)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Template (TODO: verify YCloud payload)": {
+      "main": [
+        [
+          {
+            "node": "Parse Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Send Result": {
+      "main": [
+        [
+          {
+            "node": "Log Blast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Blast": {
+      "main": [
+        [
+          {
+            "node": "Update Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Customer": {
+      "main": [
+        [
+          {
+            "node": "Throttle 1s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Throttle 1s": {
+      "main": [
+        [
+          {
+            "node": "Loop Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

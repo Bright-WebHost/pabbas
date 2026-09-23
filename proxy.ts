@@ -34,7 +34,9 @@ function verifyDevCookieInMiddleware(raw: string): boolean {
   }
 }
 
-export function proxy(request: NextRequest) {
+import { updateSession } from './lib/supabase/middleware'
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // ── Dev route protection ─────────────────────────────────────────────
@@ -57,10 +59,14 @@ export function proxy(request: NextRequest) {
       loginUrl.search = ''
       return NextResponse.redirect(loginUrl)
     }
+    
+    return NextResponse.next({ request })
   }
 
-  return NextResponse.next({ request })
+  // Handle Supabase Auth for Dashboard
+  return await updateSession(request)
 }
+
 
 export const config = {
   matcher: [
