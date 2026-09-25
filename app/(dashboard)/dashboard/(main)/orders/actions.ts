@@ -7,6 +7,11 @@ export async function notifyStatusWebhook(order_number: string, status: string) 
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
     const authHeader = session?.access_token ? `Bearer ${session.access_token}` : "";
+    
+    // DEBUG LOG
+    const fs = await import("fs");
+    fs.appendFileSync("webhook_debug.txt", `[${new Date().toISOString()}] Session exists: ${!!session}, AuthHeader length: ${authHeader.length}\n`);
+
 
     const url = process.env.N8N_STATUS_WEBHOOK_URL || "https://staff.brightmedia.tech/webhook/pabbas-status";
     const secret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET || process.env.PABBAS_AI_WEBHOOK_SECRET || process.env.PABBAS_N8N_WEBHOOK_SECRET || "";
