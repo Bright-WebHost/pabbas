@@ -1,0 +1,374 @@
+{
+  "name": "Oceana AI Toggle",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oceana-ai-toggle",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-ai-toggle-toggle-webhook",
+      "name": "Toggle Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "oceana-ai-toggle"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nfunction cleanPhone(raw) {\n  var p = String(raw || '').replace(/[^0-9]/g, '');\n  if (p === '') { return ''; }\n  if (p.length === 11 && p.charAt(0) === '0') { return '91' + p.substring(1); }\n  if (p.length === 10 && '6789'.indexOf(p.charAt(0)) !== -1) { return '91' + p; }\n  if (p.length === 12 && p.substring(0, 2) === '91') { return p; }\n  if (p.length >= 11 && p.length <= 15) { return p; }\n  return '91' + p;\n}\n\nvar hook = $('Toggle Webhook').first().json;\nvar body = hook.body || hook;\nvar who = ($('Verify Staff').first().json || {}).body || {};\nvar phone = cleanPhone(body.phone);\nvar enabled = (body.enabled === true || body.enabled === 'true');\nvar agent = String(body.agent_name || who.email || 'Staff').trim();\nif (phone === '') { return [{ json: { error: true, reason: 'Missing phone' } }]; }\nreturn [{ json: { phone: phone, enabled: enabled, agent_name: agent, error: false } }];\n"
+      },
+      "id": "oceana-ai-toggle-parse-toggle",
+      "name": "Parse Toggle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "oceana-ai-toggle-valid",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/chat_sessions",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "phone"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, ai_enabled: $json.enabled, ai_disabled_at: $json.enabled ? null : new Date().toISOString(), ai_disabled_by: $json.enabled ? \"\" : $json.agent_name, last_human_activity_at: new Date().toISOString() }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-ai-toggle-upsert-session",
+      "name": "Upsert Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, phone: $('Parse Toggle').first().json.phone, ai_enabled: $('Parse Toggle').first().json.enabled }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-ai-toggle-respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-ai-toggle-respond-err",
+      "name": "Respond Err",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/rpc/staff_check",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_qdBxwwY06XTSEG5OKwCmaQ_r7KY3J5T"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization || 'Bearer none' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "id": "8b0558a1-4361-4f90-a9f6-43b9cb53bce0",
+      "name": "Verify Staff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a8713e39-871c-4e48-8279-1e6bcc26e52e",
+              "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7f7c1f68-2ab2-4da7-8bab-7fff76fcb432",
+      "name": "Is Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "22d299af-029b-416b-88a4-0b39b98542d4",
+      "name": "Respond Unauthorised",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Toggle Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Toggle": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Upsert Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Err",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Session": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Staff": {
+      "main": [
+        [
+          {
+            "node": "Is Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Staff?": {
+      "main": [
+        [
+          {
+            "node": "Parse Toggle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [],
+  "id": "",
+  "meta": {}
+}

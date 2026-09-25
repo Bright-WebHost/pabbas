@@ -1,0 +1,544 @@
+{
+  "name": "Oceana Status Notifier",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oceana-status",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-status-notifier-status-webhook",
+      "name": "Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "oceana-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nvar hook = $('Status Webhook').first().json;\nvar d = hook.body || hook;\nvar who = ($('Verify Staff').first().json || {}).body || {};\nvar allowed = ['new','preparing','ready_for_pickup','out_for_delivery','delivered','cancelled'];\nvar status = String(d.status || '').trim();\nvar orderNum = String(d.order_number || '').trim();\n// older dashboards still send 'confirmed' - that step no longer exists\nif (status === 'confirmed') { status = 'preparing'; }\nif (orderNum === '' || allowed.indexOf(status) === -1) {\n  return [{ json: { error: true, reason: 'Invalid order_number or status' } }];\n}\nreturn [{ json: { order_number: orderNum, status: status,\n                  staff: String(d.agent_name || who.email || 'staff'), error: false } }];\n"
+      },
+      "id": "oceana-status-notifier-extract-data",
+      "name": "Extract Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "oceana-status-notifier-valid-status",
+      "name": "Valid Status?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/orders",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "order_number",
+              "value": "=eq.{{ $json.order_number }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.status === \"cancelled\" ? { status: $json.status, cancelled_by: \"staff:\" + $json.staff, cancelled_at: new Date().toISOString() } : { status: $json.status }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-status-notifier-update-status",
+      "name": "Update Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nvar rows = $input.first().json;\nvar order = Array.isArray(rows) ? (rows[0] || null) : (rows || null);\nif (order && typeof order === 'object' && Object.keys(order).length === 0) { order = null; }\nif (!order || !order.customer_phone) { return [{ json: { skip: true } }]; }\n\nvar name = order.customer_name ? (' ' + String(order.customer_name).split(' ')[0]) : '';\nvar num = order.order_number || '';\nvar status = $('Extract Data').first().json.status;\n\nvar messages = {\n  preparing: 'Hi' + name + ', your Oceana Hotel order *' + num + '* has been accepted and our kitchen is preparing it now.',\n  out_for_delivery: 'Good news' + name + '! Your order *' + num + '* is on its way. Expect it in 20-35 minutes.',\n  ready_for_pickup: 'Hi' + name + ', your order *' + num + '* is ready for pickup at Janapriya Complex, State Bank, Mangalore.',\n  delivered: 'Delivered! Hope you enjoy your meal' + name + '.\\n\\nHow was it? Reply with a number from 1 to 5.\\n(1 = poor, 5 = excellent)',\n  cancelled: 'Hi' + name + ', your order *' + num + '* has been cancelled by the restaurant.\\nPlease call +91 96634 28354 if this is unexpected.'\n};\n\nvar msg = messages[status];\nif (!msg) { return [{ json: { skip: true } }]; }\n\nreturn [{ json: { skip: false, phone: String(order.customer_phone),\n                  message: msg, order_number: num, status: status } }];\n"
+      },
+      "id": "oceana-status-notifier-build-message",
+      "name": "Build Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "oceana-status-notifier-should-notify",
+      "name": "Should Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1057952097409620/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.phone, type: \"text\", text: { body: $json.message } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "oceana-status-notifier-send-whatsapp",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -160
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1vNIxOEoQUki4NdE",
+          "name": "whatsapp token"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/messages",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Build Message').first().json.phone, direction: \"outbound\", sender: \"system\", message_type: \"text\", content: $('Build Message').first().json.message }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-status-notifier-log-notification",
+      "name": "Log Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        -160
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, order_number: $('Extract Data').first().json.order_number, status: $('Extract Data').first().json.status }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-status-notifier-respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-status-notifier-respond-invalid",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/rpc/staff_check",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_qdBxwwY06XTSEG5OKwCmaQ_r7KY3J5T"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization || 'Bearer none' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "id": "d7a441c2-8e45-4517-99ad-968e7028e6c4",
+      "name": "Verify Staff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "244a13c2-e359-4c0d-958e-faca0bbfe6f6",
+              "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ebf9e7e1-60a8-4954-ab25-8e69a2c11c81",
+      "name": "Is Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "d203c37e-9048-4181-8102-e2727f92087b",
+      "name": "Respond Unauthorised",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Status Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Valid Status?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Status?": {
+      "main": [
+        [
+          {
+            "node": "Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status": {
+      "main": [
+        [
+          {
+            "node": "Build Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Message": {
+      "main": [
+        [
+          {
+            "node": "Should Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Log Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Notification": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Staff": {
+      "main": [
+        [
+          {
+            "node": "Is Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Staff?": {
+      "main": [
+        [
+          {
+            "node": "Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [],
+  "id": "",
+  "meta": {}
+}

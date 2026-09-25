@@ -1,0 +1,680 @@
+{
+  "name": "Oceana PWA Order Receiver",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oceana-order",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-pwa-order-receiver-pwa-webhook",
+      "name": "PWA Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "oceana-order"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Validates and PRICES the order on the server. Nothing the browser sends\n// about price, total or availability is trusted.\nfunction cleanPhone(raw) {\n  var p = String(raw || '').replace(/[^0-9]/g, '');\n  if (p === '') { return ''; }\n  if (p.length === 11 && p.charAt(0) === '0') { return '91' + p.substring(1); }\n  if (p.length === 10 && '6789'.indexOf(p.charAt(0)) !== -1) { return '91' + p; }\n  if (p.length === 12 && p.substring(0, 2) === '91') { return p; }\n  if (p.length >= 11 && p.length <= 15) { return p; }\n  return '91' + p;\n}\nfunction norm(s) { return String(s || '').toLowerCase().replace(/\\s+/g, ' ').trim(); }\nfunction rs(n) { return 'Rs ' + Number(n || 0).toLocaleString('en-IN'); }\nfunction bad(reason, code) { return [{ json: { invalid: true, reason: reason, code: code || 'invalid' } }]; }\n\nvar hook = $('PWA Webhook').first().json;\nvar d = hook.body || hook;\nvar ctx = $input.first().json || {};\nif (Array.isArray(ctx)) { ctx = ctx[0] || {}; }\n\nif (!Array.isArray(ctx.menu)) {\n  return bad('We could not check the menu just now. Please try again in a minute.', 'unavailable');\n}\nif (ctx.is_open === false) {\n  return bad('Sorry, Oceana Hotel is closed right now. We are open ' + (ctx.hours || '7:00 AM to 11:30 PM') +\n             ' and are not taking orders until then.', 'closed');\n}\n\nvar phone = cleanPhone(d.customer_phone || d.phone);\nif (phone.length < 11 || phone.length > 15) {\n  return bad('Please enter a valid WhatsApp number.', 'phone');\n}\nvar name = String(d.customer_name || d.name || '').trim().slice(0, 60);\nif (name.length < 2) { return bad('Please tell us your name.', 'name'); }\n\nvar raw = Array.isArray(d.items) ? d.items : [];\nif (raw.length === 0) { return bad('Your cart is empty.', 'empty'); }\nif (raw.length > 60) { return bad('That is too many different items for one order.', 'too_many'); }\n\nvar byNum = {};\nvar byName = {};\nctx.menu.forEach(function (m) { byNum[String(m.n)] = m; byName[norm(m.name)] = m; });\n\nvar priced = [];\nvar pos = {};\nvar soldOut = [];\nvar missing = [];\nraw.forEach(function (i) {\n  var m = byNum[String(i.item_number)] || byName[norm(i.name || i.item_name)];\n  if (!m) { missing.push(String(i.name || i.item_name || 'an item')); return; }\n  if (!m.available) { soldOut.push(m.name); return; }\n  if (!(Number(m.price) > 0)) { missing.push(m.name); return; }\n  var q = Math.round(Number(i.quantity));\n  if (!(q > 0)) { return; }\n  var key = String(m.n);\n  if (Object.prototype.hasOwnProperty.call(pos, key)) {\n    priced[pos[key]].quantity = Math.min(50, priced[pos[key]].quantity + q);\n    return;\n  }\n  pos[key] = priced.length;\n  priced.push({ item_number: m.n, name: m.name, quantity: Math.min(50, q), price: Number(m.price) });\n});\n\nif (soldOut.length) {\n  return bad(soldOut.join(', ') + (soldOut.length > 1 ? ' are' : ' is') +\n             ' sold out right now. Please remove ' + (soldOut.length > 1 ? 'them' : 'it') + ' and try again.', 'sold_out');\n}\nif (missing.length) {\n  return bad(missing.join(', ') + ' cannot be ordered online right now. Please refresh the menu and try again.', 'unknown_item');\n}\nif (priced.length === 0) { return bad('Your cart is empty.', 'empty'); }\n\nvar total = priced.reduce(function (s, i) { return s + (i.price * i.quantity); }, 0);\n\nvar type = d.order_type || 'delivery';\nif (['delivery', 'takeaway', 'dine-in'].indexOf(type) === -1) { type = 'delivery'; }\n\nvar address = String(d.address || '').trim().slice(0, 300);\nvar landmark = String(d.landmark || '').trim().slice(0, 120);\nvar pincode = String(d.pincode || '').trim();\nif (type === 'delivery') {\n  var min = Number(ctx.min_order || 200);\n  if (total < min) {\n    return bad('Delivery starts at ' + rs(min) + '. Add ' + rs(min - total) + ' more, or choose takeaway.', 'min_order');\n  }\n  if (address.length < 8) { return bad('We need your full address to deliver.', 'address'); }\n  if (!/^\\d{6}$/.test(pincode)) { return bad('Please enter your 6-digit pincode.', 'pincode'); }\n  var pins = (ctx.pincodes || []).map(String);\n  if (pins.length && pins.indexOf(pincode) === -1) {\n    return bad('We do not deliver to ' + pincode + ' yet. Takeaway works though.', 'pincode');\n  }\n} else {\n  address = ''; landmark = ''; pincode = '';\n}\n\n// order_number is omitted on purpose: the database assigns it.\nreturn [{ json: {\n  invalid: false,\n  customer_phone: phone,\n  customer_name: name,\n  items: priced.map(function (i) { return i.name + ' x' + i.quantity; }).join(', '),\n  raw_items: priced,\n  total: total,\n  order_type: type,\n  address: address,\n  landmark: landmark,\n  city: ctx.city || 'Mangalore',\n  pincode: pincode\n} }];\n"
+      },
+      "id": "oceana-pwa-order-receiver-prepare-order",
+      "name": "Prepare Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.invalid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "oceana-pwa-order-receiver-valid-order",
+      "name": "Valid Order?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/orders",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ customer_phone: $json.customer_phone, customer_name: $json.customer_name, items: $json.items, items_json: $json.raw_items, total: $json.total, status: \"new\", order_type: $json.order_type, source: \"pwa\", address: $json.address, landmark: $json.landmark, city: $json.city, pincode: $json.pincode }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-pwa-order-receiver-insert-order",
+      "name": "Insert Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": "={{ 201 }}",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "oceana-pwa-order-receiver-order-created",
+      "name": "Order Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, order_number: $json.body[0].order_number, status: \"new\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-pwa-order-receiver-respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nfunction rs(n) { return 'Rs ' + Number(n || 0).toLocaleString('en-IN'); }\n\nvar created = $('Insert Order').first().json;\nvar rows = created.body !== undefined ? created.body : created;\nvar order = Array.isArray(rows) ? (rows[0] || {}) : (rows || {});\nvar d = $('Prepare Order').first().json;\n\nvar when = new Date(Date.now() + (5.5 * 60 * 60 * 1000));\nvar stamp = when.getUTCDate() + '/' + (when.getUTCMonth() + 1) + '/' + when.getUTCFullYear() +\n            ' ' + when.getUTCHours() + ':' + String(when.getUTCMinutes()).padStart(2, '0');\n\nvar lines = d.raw_items.map(function (i) {\n  var name = i.name || i.item_name || '';\n  var qty = Number(i.quantity) || 1;\n  var lt = (Number(i.price) || 0) * qty;\n  return '- ' + name + ' x' + qty + (lt > 0 ? ('  ' + rs(lt)) : '');\n}).join('\\n');\n\nvar labels = { delivery: 'Delivery', takeaway: 'Takeaway', 'dine-in': 'Dine-in' };\nvar addr = '';\nif (d.order_type === 'delivery' && d.address) {\n  addr = '\\n' + d.address + (d.landmark ? (', ' + d.landmark) : '') +\n         (d.pincode ? (' - ' + d.pincode) : '');\n}\n\nvar msg = '*OCEANA HOTEL - ORDER RECEIVED*\\n' +\n  '--------------------------------\\n' +\n  'Order *' + (order.order_number || '') + '*\\n' + stamp + '\\n\\n' +\n  lines + '\\n\\n*Total: ' + rs(d.total) + '*\\n' +\n  (labels[d.order_type] || d.order_type) + addr + '\\n' +\n  '--------------------------------\\n' +\n  'Thank you! We will keep you posted on your order.';\n\nreturn [{ json: { phone: d.customer_phone, message: msg,\n                  order_number: order.order_number || '' } }];\n"
+      },
+      "id": "oceana-pwa-order-receiver-build-whatsapp-confirmation",
+      "name": "Build WhatsApp Confirmation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1057952097409620/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.phone, type: \"text\", text: { body: $json.message } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "oceana-pwa-order-receiver-send-whatsapp-confirmation",
+      "name": "Send WhatsApp Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        40
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1vNIxOEoQUki4NdE",
+          "name": "whatsapp token"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/messages",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, direction: \"outbound\", sender: \"system\", message_type: \"text\", content: $json.content }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-pwa-order-receiver-log-confirmation",
+      "name": "Log Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        40
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 500,
+        "responseBody": "={{ JSON.stringify({ success: false, error: \"Order could not be saved. Please try again or call us.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-pwa-order-receiver-respond-order-failed",
+      "name": "Respond Order Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason, code: $json.code || \"invalid\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-pwa-order-receiver-respond-invalid",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nfunction rs(n){ return 'Rs ' + Number(n||0).toLocaleString('en-IN'); }\nfunction esc(s){ return String(s==null?'':s)\n  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }\n\nfunction receiptHtml(o){\n  var rows = o.items.map(function(i){\n    var q = Number(i.quantity)||1;\n    var lt = (Number(i.price)||0)*q;\n    return '<tr><td class=\"it\">'+esc(i.name)+'</td><td class=\"q\">x'+q+'</td>'+\n           '<td class=\"p\">'+(lt>0?rs(lt):'-')+'</td></tr>';\n  }).join('');\n  var addr = o.address ? '<div class=\"ad\">'+esc(o.address)+'</div>' : '';\n  var css = '*{box-sizing:border-box}body{margin:0;padding:26px 18px;background:#EFEFEA;font-family:\\'JetBrains Mono\\',monospace;color:#1C1C1C}.paper{background:#FAFAF7;padding:28px 24px 30px;position:relative;box-shadow:0 2px 14px rgba(0,0,0,.10)}.paper:before,.paper:after{content:\\'\\';position:absolute;left:0;right:0;height:10px; background:repeating-linear-gradient(135deg,#FAFAF7 0 10px,transparent 10px 20px)}.paper:before{top:-9px;transform:scaleY(-1)}.paper:after{bottom:-9px}h1{margin:0;text-align:center;font-size:27px;letter-spacing:7px;color:#C0392B;font-weight:700}.sub{text-align:center;font-size:10.5px;letter-spacing:2.6px;color:#6B6B6B;margin-top:7px}.addr{text-align:center;font-size:10.5px;color:#8A8A8A;margin-top:6px;line-height:1.7}.dash{border-top:1.6px dashed #C9C9C4;margin:16px 0}.dot{border-top:1px dotted #D5D5D0;margin:13px 0}.pay{background:#C0392B;color:#fff;padding:13px 16px;margin:16px 0}.pay b{display:block;font-size:15px;letter-spacing:2.4px}.pay span{font-size:9.5px;letter-spacing:1.8px;opacity:.9}.num{text-align:center;font-size:22px;font-weight:700;letter-spacing:3px;margin-top:4px}.when{text-align:center;font-size:11px;color:#7A7A7A;margin-top:5px}.badge{border:1.6px solid #C0392B;color:#C0392B;text-align:center;padding:8px;font-size:11.5px; letter-spacing:2px;font-weight:700;margin:13px auto 0;max-width:280px}.lbl{font-size:9.5px;letter-spacing:2.4px;color:#A0A09A;margin:16px 0 8px}.kv{display:flex;justify-content:space-between;font-size:12px;padding:4px 0}.kv span:first-child{color:#8A8A8A;letter-spacing:1.4px;font-size:10px}.kv span:last-child{font-weight:700}.ad{font-size:11px;color:#5A5A5A;text-align:right;line-height:1.6;margin-top:2px}table{width:100%;border-collapse:collapse;margin-top:4px}th{font-size:9.5px;letter-spacing:2px;color:#A0A09A;text-align:left;padding-bottom:7px;font-weight:400}th.q,th.p{text-align:right}td{padding:8px 0;border-bottom:1px dotted #E2E2DD;font-size:12.5px}td.it{font-weight:700}td.q{text-align:right;color:#8A8A8A;width:48px}td.p{text-align:right;font-weight:700;width:92px}.total{border:2.2px solid #C0392B;display:flex;justify-content:space-between;align-items:center; padding:15px 17px;margin-top:18px}.total span{font-size:11.5px;letter-spacing:2.6px;color:#C0392B}.total b{font-size:25px;color:#C0392B}.note{text-align:center;font-size:10.5px;color:#7A7A7A;margin-top:13px}.ref{text-align:center;font-size:9.5px;letter-spacing:2.4px;color:#B5B5AE;margin:13px 0}.ty{text-align:center;font-size:12.5px;color:#4A4A4A;margin-top:4px;line-height:1.9}.ty b{color:#C0392B}';\n  return '<html><head><meta charset=\"utf-8\">'+\n   '<link href=\"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap\" rel=\"stylesheet\">'+\n   '<style>'+css+'</style></head><body><div class=\"paper\">'+\n   '<h1>OCEANA</h1>'+\n   '<div class=\"sub\">INDIAN &amp; CHINESE RESTAURANT</div>'+\n   '<div class=\"addr\">Janapriya Complex, State Bank<br>Mangalore 575001<br>+91 96634 28354</div>'+\n   '<div class=\"dash\"></div>'+\n   '<div class=\"pay\"><b>CASH &middot; '+esc(o.type_label.toUpperCase())+'</b>'+\n   '<span>'+(o.order_type==='delivery'?'PAY ON DELIVERY &middot; COD':'PAY AT COUNTER &middot; COD')+'</span></div>'+\n   '<div class=\"dot\"></div>'+\n   '<div class=\"num\">'+esc(o.order_number)+'</div>'+\n   '<div class=\"when\">'+esc(o.stamp)+'</div>'+\n   '<div class=\"badge\">'+esc(o.badge)+'</div>'+\n   '<div class=\"lbl\">CUSTOMER</div>'+\n   '<div class=\"kv\"><span>NAME</span><span>'+esc(o.customer_name||'Guest')+'</span></div>'+\n   '<div class=\"kv\"><span>PHONE</span><span>'+esc(o.phone)+'</span></div>'+\n   '<div class=\"kv\"><span>TYPE</span><span>'+esc(o.type_label)+'</span></div>'+ addr +\n   '<div class=\"dot\"></div>'+\n   '<table><tr><th>ITEM</th><th class=\"q\">QTY</th><th class=\"p\">AMOUNT</th></tr>'+rows+'</table>'+\n   '<div class=\"total\"><span>TOTAL</span><b>'+rs(o.total)+'</b></div>'+\n   '<div class=\"note\">'+(o.order_type==='delivery'?'Please have exact change ready':'Pay at the counter')+'</div>'+\n   '<div class=\"ref\">'+esc(o.order_number)+' &middot; OCEANA HOTEL</div>'+\n   '<div class=\"ty\">Thank you for your order!<br><b>+91 96634 28354</b></div>'+\n   '</div></body></html>';\n}\n\nfunction istStamp(){\n  var w = new Date(Date.now() + (5.5*60*60*1000));\n  var M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];\n  return w.getUTCDate()+' '+M[w.getUTCMonth()]+' '+w.getUTCFullYear()+\n         ' \\u00b7 '+w.getUTCHours()+':'+String(w.getUTCMinutes()).padStart(2,'0');\n}\nvar LABELS = { delivery:'Delivery', takeaway:'Takeaway', 'dine-in':'Dine-in' };\n\nvar created = $('Insert Order').first().json;\nvar rows = created.body !== undefined ? created.body : created;\nvar order = Array.isArray(rows) ? (rows[0] || {}) : (rows || {});\nvar d = $('Prepare Order').first().json;\nvar addr = '';\nif (d.order_type === 'delivery' && d.address) {\n  addr = d.address + (d.landmark ? ', ' + d.landmark : '') + (d.pincode ? ' - ' + d.pincode : '');\n}\nvar html = receiptHtml({\n  order_number: order.order_number || '', stamp: istStamp(), badge: 'ORDER RECEIVED',\n  customer_name: d.customer_name, phone: d.customer_phone,\n  order_type: d.order_type, type_label: LABELS[d.order_type] || d.order_type,\n  address: addr, items: d.raw_items, total: d.total });\nreturn [{ json: { html: html, order_number: order.order_number || '', phone: d.customer_phone } }];\n"
+      },
+      "id": "pwa-invoice-html",
+      "name": "Build Invoice HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hcti.io/v1/image",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ html: $json.html, viewport_width: 440, viewport_height: 1100, device_scale_factor: 2 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "pwa-invoice-img",
+      "name": "Generate Invoice Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        -40
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ofxhVtjdHtnsqIQ8",
+          "name": "HCTI API"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "img",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "pwa-img-ok",
+      "name": "Invoice Image Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nvar inv = $('Build Invoice HTML').first().json;\nvar img = $input.first().json.url;\nvar caption = 'Thanks! Your order ' + inv.order_number + ' is in. We will confirm it in a moment.';\nreturn [{ json: { phone: inv.phone, outgoing: {\n  type: 'image', image: { link: img, caption: caption } } } }];\n"
+      },
+      "id": "pwa-send-img",
+      "name": "Prepare Invoice Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1057952097409620/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.phone }, $json.outgoing)) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "pwa-send-invoice",
+      "name": "Send Invoice Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -140
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1vNIxOEoQUki4NdE",
+          "name": "whatsapp token"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Either the image branch or the text branch ran, never both. Read whichever\n// exists so the chat log is correct on both paths.\nvar phone = '', content = '';\ntry { var inv = $('Build Invoice HTML').first().json; phone = inv.phone; } catch (e) {}\ntry {\n  var img = $('Prepare Invoice Image').first().json;\n  if (img && img.outgoing) {\n    phone = img.phone || phone;\n    content = '[invoice image] ' + ((img.outgoing.image && img.outgoing.image.caption) || '');\n  }\n} catch (e) {}\nif (content === '') {\n  try { var t = $('Build WhatsApp Confirmation').first().json;\n        phone = t.phone || phone; content = t.message || ''; } catch (e) {}\n}\nif (content === '') { content = 'Order confirmation sent'; }\nreturn [{ json: { phone: phone, content: content } }];\n"
+      },
+      "id": "pwa-prep-log",
+      "name": "Prepare Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/rpc/order_context",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "id": "739f8a95-82ea-42db-a897-0c4cb1694f2d",
+      "name": "Get Order Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "PWA Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Order Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Order": {
+      "main": [
+        [
+          {
+            "node": "Valid Order?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Order?": {
+      "main": [
+        [
+          {
+            "node": "Insert Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Order": {
+      "main": [
+        [
+          {
+            "node": "Order Created?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Created?": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Invoice HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Order Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WhatsApp Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Prepare Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Invoice HTML": {
+      "main": [
+        [
+          {
+            "node": "Generate Invoice Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Invoice Image": {
+      "main": [
+        [
+          {
+            "node": "Invoice Image Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice Image Ready?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Invoice Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WhatsApp Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Invoice Image": {
+      "main": [
+        [
+          {
+            "node": "Send Invoice Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Invoice Image": {
+      "main": [
+        [
+          {
+            "node": "Prepare Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Log": {
+      "main": [
+        [
+          {
+            "node": "Log Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Order Context": {
+      "main": [
+        [
+          {
+            "node": "Prepare Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [],
+  "id": "",
+  "meta": {}
+}

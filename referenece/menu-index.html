@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#E23744">
+<title>Oceana Hotel — Order online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --deep:#E23744;      /* Zomato red */
+  --mid:#CB202D;       /* Zomato red, pressed */
+  --pale:#FFF1F2;      /* red tint */
+  --coral:#E23744;     /* actions use the same red */
+  --ink:#1C1C1C;
+  --muted:#696969;
+  --line:#E8E8E8;
+  --bg:#FFFFFF;
+  --ok:#3AB757;
+  --radius:14px;
+  --safe:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);
+  font-size:15px;line-height:1.5;padding-bottom:calc(120px + var(--safe));
+}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- header ---------- */
+.top{position:sticky;top:0;z-index:40;
+  background:linear-gradient(180deg,var(--deep) 0%,var(--deep) 62%,#fff 62%,#fff 100%);
+  padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+.idrow{display:flex;align-items:center;gap:12px}
+.logo{width:52px;height:52px;border-radius:12px;background:#fff;padding:3px;flex:none;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);object-fit:contain}
+.brandrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand{font-family:Fraunces,Georgia,serif;font-size:25px;font-weight:700;letter-spacing:-.4px;color:#fff}
+.brand span{font-weight:500;color:#FFD9DC}
+.meta{font-size:12px;color:#FFE3E5;margin-top:3px}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#5BD69A;margin-right:5px;vertical-align:middle}
+.dot.shut{background:#E2613F}
+.closed{background:#FFF1EE;border-bottom:1px solid #F6C9BF;color:#9B2C1A;padding:11px 16px;font-size:13.5px;line-height:1.45;text-align:center}
+.closed b{display:block;font-size:14.5px}
+.search{margin-top:14px;display:flex;align-items:center;gap:9px;background:#fff;
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  box-shadow:0 3px 14px rgba(0,0,0,.10)}
+.search input{border:0;outline:0;width:100%;font-size:15px;background:none}
+.search input::placeholder{color:#9A9A9A}
+.search svg{flex:none;opacity:.5}
+
+/* ---------- category rail ---------- */
+.rail{position:sticky;top:0;z-index:30;background:var(--deep);border-bottom:1px solid var(--mid);
+  display:flex;gap:8px;overflow-x:auto;padding:11px 16px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:7px 15px;border-radius:999px;border:1px solid rgba(255,255,255,.45);
+  font-size:13px;font-weight:600;color:#fff;background:transparent}
+.chip[aria-selected="true"]{background:#fff;border-color:#fff;color:var(--deep);font-weight:700}
+
+/* ---------- list ---------- */
+.wrap{max-width:680px;margin:0 auto}
+.sec{padding:22px 16px 6px;border-top:3px solid var(--pale)}
+.sec h2{font-family:Fraunces,Georgia,serif;font-size:19px;margin:0 0 2px;color:var(--deep)}
+.sec p{margin:0;color:var(--muted);font-size:12px}
+.item{display:flex;gap:14px;padding:16px;border-bottom:1px solid var(--line);align-items:flex-start}
+.item .txt{flex:1;min-width:0}
+.vt{display:inline-flex;width:13px;height:13px;border:1.5px solid;align-items:center;justify-content:center;
+  border-radius:3px;margin-right:7px;vertical-align:-2px}
+.vt i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block}
+.veg{color:var(--ok)}.non{color:#C0392B}
+.nm{font-weight:600;font-size:15px}
+.pr{margin-top:4px;font-weight:600;color:var(--ink)}
+.ds{margin-top:4px;color:var(--muted);font-size:12.5px}
+.ask{color:var(--coral);font-weight:600;font-size:13px;margin-top:3px}
+.thumbwrap{position:relative;flex:none;width:112px}
+.thumb{width:112px;height:92px;border-radius:12px;object-fit:cover;display:block;background:#F2F2F2}
+.thumbwrap:after{content:'';position:absolute;inset:0;height:92px;border-radius:12px;
+ background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.14));pointer-events:none}
+.add{position:absolute;left:50%;transform:translateX(-50%);bottom:-13px;background:#fff;color:var(--coral);
+  border:1px solid var(--line);border-radius:9px;padding:6px 20px;font-weight:700;font-size:13px;
+  box-shadow:0 2px 8px rgba(11,61,98,.14)}
+.step{position:absolute;left:50%;transform:translateX(-50%);bottom:-13px;display:flex;align-items:center;
+  background:var(--coral);color:#fff;border-radius:9px;box-shadow:0 2px 8px rgba(11,61,98,.14);overflow:hidden}
+.step button{padding:6px 12px;font-weight:700;font-size:15px;color:#fff}
+.step b{min-width:22px;text-align:center;font-size:13px}
+.empty{padding:64px 24px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+
+/* ---------- cart bar ---------- */
+.bar{position:fixed;left:10px;right:10px;bottom:calc(14px + var(--safe));z-index:50;
+  background:var(--deep);color:#fff;border-radius:14px;padding:12px 14px;
+  box-shadow:0 8px 28px rgba(226,55,68,.38);
+  display:none;align-items:center;justify-content:space-between;gap:12px}
+.bar.on{display:flex}
+.bar small{display:block;color:rgba(255,255,255,.85);font-size:12px}
+.bar .go{background:#fff;color:var(--deep);padding:11px 20px;border-radius:10px;font-weight:700}
+.bar .go[disabled]{opacity:.45}
+
+/* ---------- sheet ---------- */
+.scrim{position:fixed;inset:0;background:rgba(8,28,42,.55);z-index:60;display:none}
+.scrim.on{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:70;background:#fff;border-radius:18px 18px 0 0;
+  max-height:92vh;overflow:auto;transform:translateY(100%);transition:transform .24s ease;
+  padding-bottom:calc(20px + var(--safe))}
+.sheet.on{transform:translateY(0)}
+.sh{position:sticky;top:0;background:#fff;padding:16px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center}
+.sh h3{margin:0;font-family:Fraunces,Georgia,serif;font-size:19px}
+.sb{padding:16px}
+.ln{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.ln .q{color:var(--muted);font-size:13px}
+.tot{display:flex;justify-content:space-between;padding:14px 0;font-weight:700;font-size:17px}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:14px 0 5px}
+.f{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.f:focus{outline:2px solid var(--mid);outline-offset:0;border-color:var(--mid)}
+.seg{display:flex;gap:8px;margin-top:6px}
+.seg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--pale);border-color:var(--mid);color:var(--deep)}
+.pay{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:6px;display:flex;
+  justify-content:space-between;align-items:center;background:var(--pale)}
+.pay span{font-weight:600}
+.pay em{font-style:normal;color:var(--muted);font-size:12px}
+.cta{width:100%;margin-top:18px;background:var(--coral);color:#fff;padding:15px;border-radius:12px;
+  font-weight:700;font-size:15px}
+.cta[disabled]{opacity:.45}
+.warn{margin-top:10px;background:#FFF3EE;border:1px solid #F6D3C6;color:#9C3B1C;
+  padding:10px 12px;border-radius:10px;font-size:13px}
+.done{text-align:center;padding:44px 24px}
+.done .tick{width:62px;height:62px;border-radius:50%;background:var(--ok);color:#fff;display:grid;
+  place-items:center;margin:0 auto 18px;font-size:30px}
+.done h3{font-family:Fraunces,Georgia,serif;font-size:23px;margin:0 0 6px}
+.done .num{display:inline-block;margin:14px 0;background:var(--pale);color:var(--deep);
+  padding:9px 16px;border-radius:9px;font-weight:700;letter-spacing:.5px}
+.skel{height:96px;margin:14px 16px;border-radius:12px;background:linear-gradient(90deg,#F1F6FA,#E6EFF6,#F1F6FA);
+  background-size:200% 100%;animation:sh 1.2s linear infinite}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brandrow">
+      <div class="idrow">
+        <img class="logo" src="https://mvyeccwomwsgtzuxddye.supabase.co/storage/v1/object/public/menu/logo.png" alt="Oceana Hotel">
+        <div>
+          <div class="brand">Oceana <span>Hotel</span></div>
+          <div class="meta" id="meta"><span class="dot"></span>Loading…</div>
+        </div>
+      </div>
+    </div>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" placeholder="Search biryani, tandoori, juice…" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<div class="closed" id="closed" role="status" hidden></div>
+<nav class="rail" id="rail" aria-label="Menu sections"></nav>
+<main class="wrap" id="list"><div class="skel"></div><div class="skel"></div><div class="skel"></div></main>
+
+<div class="bar" id="bar">
+  <div><b id="barn">0 items</b><small id="barp">₹0</small></div>
+  <button class="go" id="barbtn">View cart</button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shtitle">
+  <div class="sh"><h3 id="shtitle">Your order</h3><button id="close" aria-label="Close">✕</button></div>
+  <div class="sb" id="sb"></div>
+</section>
+
+<script>
+const SB   = 'https://mvyeccwomwsgtzuxddye.supabase.co';
+const KEY  = 'sb_publishable_qdBxwwY06XTSEG5OKwCmaQ_r7KY3J5T';
+const HOOK = 'https://n8n.brightmedia.tech/webhook/oceana-order';
+const WA   = 'https://wa.me/919663428354';
+
+const GROUPS = [
+  ['Soups & Salads', ['Veg Soup','Non-Veg Soup','Seafood Soup','Salad']],
+  ['Starters',       ['Chinese Veg Starters (Dry)','Chinese Non-Veg Starters (Dry)','Chinese Lamb Starters (Dry)','Chinese Seafood Starters (Dry)','Indian Veg Starters (Dry)','Indian Non-Veg Starters (Dry)','Indian Seafood Starters (Dry)']],
+  ['Tandoori & Grill',['Tandoori Veg Starters','Tandoori Non-Veg Starters','Arabian Dish','Arabian Grilled']],
+  ['Main Course',    ['Indian Veg Gravy','Indian Chicken Gravy','Indian Mutton Gravy','Indian Seafood Gravy','Chinese Veg Gravy','Chinese Non-Veg Gravy','Egg Special']],
+  ['Biryani & Rice', ['Biriyani & Pulao (Veg)','Biriyani & Pulao (Non-Veg)','Rice & Noodles','Chop Suey','Raita','Meals']],
+  ['Breads',         ['Breads & Tandoori Bread']],
+  ['Desserts',       ['Desserts','Ice Cream']],
+  ['Drinks',         ['Milkshakes','Juices & Mocktails','Hot Beverages','Soft Drinks & Water']]
+];
+
+const NONVEG = /chicken|mutton|fish|prawn|lamb|egg|seafood|alfaham|kebab|tikka|beef|meat|keema|tangri|kalmi|ayala|nethili|koonthal|vavval|vanchiram|seekh|irani|drumstick|lollipop/i;
+const VEGWORD = /paneer|gobi|aloo|veg |vegetable|mushroom|dal |corn|cauliflower|greenpeas|kulcha|naan|roti|paratha|phulka|chappati|rice|pulao|raita|salad|juice|lassi|tea|coffee|soda|water|milkshake|ice cream|kulfi|halwa|jamun|rasmalai|custard|brownie|pudding|falooda|mojito|lagoon|punch|smoothie|kesari|buttermilk/i;
+function isVeg(it){
+  const s=(it.item_name+' '+it.category);
+  if(NONVEG.test(s)) return false;
+  if(/\(Veg\)|Veg Soup|Indian Veg|Chinese Veg|Tandoori Veg/i.test(it.category)) return true;
+  if(VEGWORD.test(s)) return true;
+  return !/Non-Veg/i.test(it.category);
+}
+const rs = n => '₹' + Number(n||0).toLocaleString('en-IN');
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let MENU=[], SET={}, PINS=[], CART={}, ACTIVE=GROUPS[0][0], QUERY='', TYPE='delivery';
+
+async function api(path){
+  const r = await fetch(SB+'/rest/v1/'+path, {headers:{apikey:KEY}});
+  if(!r.ok) throw new Error(path+' '+r.status);
+  return r.json();
+}
+
+async function boot(){
+  try{
+    const [menu,set,pins] = await Promise.all([
+      api('menu_items?select=item_number,item_name,category,price,description,image_url,variants&available=eq.true&order=category.asc,item_number.asc'),
+      api('settings?select=key,value'),
+      api('delivery_pincodes?select=pincode,area&active=eq.true')
+    ]);
+    MENU=menu; PINS=pins.map(p=>p.pincode);
+    set.forEach(s=>SET[s.key]=s.value);
+  }catch(e){
+    document.getElementById('list').innerHTML =
+      '<div class="empty"><b>Menu didn\'t load</b>'+
+      '<div style="margin:6px 0 16px;font-size:12.5px;color:#9A9A9A">'+esc(e.message||e)+'</div>'+
+      '<button class="cta" style="max-width:220px;margin:0 auto" id="retry">Try again</button></div>';
+    document.getElementById('retry').onclick=()=>{
+      document.getElementById('list').innerHTML='<div class="skel"></div><div class="skel"></div>';boot();};
+    return;
+  }
+  document.getElementById('meta').innerHTML =
+    (isOpen()?'<span class="dot"></span>Open now · ':'<span class="dot shut"></span>Closed · ') +
+    esc(SET.hours||'') + ' · ' + esc(SET.city||'Mangalore');
+  showClosed();
+  setInterval(()=>{ showClosed(); if(document.getElementById('sheet').classList.contains('on')&&!isOpen()) openCart(); },60000);
+  buildRail(); render(); restore();
+}
+
+function showClosed(){
+  const b=document.getElementById('closed');
+  if(isOpen()){ b.hidden=true; return; }
+  b.hidden=false;
+  b.innerHTML='<b>We are closed right now</b>Ordering opens again during our hours: '+esc(SET.hours||'7:00 AM to 11:30 PM')+'. You can still browse the menu.';
+}
+
+function isOpen(){
+  const ist=new Date(Date.now()+(new Date().getTimezoneOffset()*60000)+(5.5*3600000));
+  const h=ist.getHours()+ist.getMinutes()/60;
+  const hr=(v,d)=>{const m=String(v||d).match(/^(\d{1,2}):(\d{2})/);return m?(+m[1])+(+m[2])/60:0;};
+  return h>=hr(SET.open_time,'07:00') && h<hr(SET.close_time,'23:30');
+}
+
+function buildRail(){
+  const rail=document.getElementById('rail');
+  rail.innerHTML = GROUPS.filter(g=>g[1].some(c=>MENU.some(m=>m.category===c)))
+    .map(g=>`<button class="chip" role="tab" aria-selected="${g[0]===ACTIVE}" data-g="${esc(g[0])}">${esc(g[0])}</button>`).join('');
+  rail.onclick = e => { const b=e.target.closest('[data-g]'); if(!b) return;
+    ACTIVE=b.dataset.g; QUERY=''; document.getElementById('q').value=''; buildRail(); render(); window.scrollTo({top:0}); };
+}
+
+function render(){
+  const list=document.getElementById('list');
+  let cats;
+  if(QUERY){
+    const hits=MENU.filter(m=>m.item_name.toLowerCase().includes(QUERY)||m.category.toLowerCase().includes(QUERY));
+    if(!hits.length){ list.innerHTML='<div class="empty"><b>Nothing matched “'+esc(QUERY)+'”</b>Try a dish name like biryani, naan or lassi.</div>'; return; }
+    list.innerHTML = section('Search results', hits.length+' found', hits);
+    return;
+  }
+  cats = (GROUPS.find(g=>g[0]===ACTIVE)||GROUPS[0])[1];
+  list.innerHTML = cats.map(c=>{
+    const rows=MENU.filter(m=>m.category===c);
+    return rows.length ? section(c, rows.length+' items', rows) : '';
+  }).join('') || '<div class="empty"><b>Nothing here yet</b>Try another section.</div>';
+}
+
+function section(title, sub, rows){
+  return `<div class="sec"><h2>${esc(title)}</h2><p>${esc(sub)}</p></div>` + rows.map(card).join('');
+}
+
+function card(it){
+  const veg=isVeg(it), n=CART[it.item_number]?CART[it.item_number].qty:0, free=Number(it.price)===0;
+  return `<article class="item">
+    <div class="txt">
+      <div><span class="vt ${veg?'veg':'non'}"><i></i></span><span class="nm">${esc(it.item_name)}</span></div>
+      ${free?'<div class="ask">Market price — we\'ll confirm on WhatsApp</div>'
+            :'<div class="pr">'+rs(it.price)+'</div>'}
+      ${it.description&&!free?'<div class="ds">'+esc(it.description)+'</div>':''}
+    </div>
+    <div class="thumbwrap">
+      <img class="thumb" src="${esc(it.image_url)}" alt="" loading="lazy">
+      ${free?'' : n>0
+        ? `<div class="step"><button data-m="${it.item_number}" aria-label="Remove one">−</button><b>${n}</b><button data-p="${it.item_number}" aria-label="Add one">+</button></div>`
+        : `<button class="add" data-p="${it.item_number}">ADD</button>`}
+    </div></article>`;
+}
+
+document.getElementById('list').addEventListener('click', e=>{
+  const p=e.target.closest('[data-p]'), m=e.target.closest('[data-m]');
+  if(p) bump(+p.dataset.p, 1);
+  if(m) bump(+m.dataset.m, -1);
+});
+document.getElementById('q').addEventListener('input', e=>{ QUERY=e.target.value.trim().toLowerCase(); render(); });
+
+let cartTimer=null;
+function reportCart(){
+  // lets the abandoned-cart workflow see a live cart. Only once we know the phone.
+  const ph=(new URLSearchParams(location.search).get('ph')||
+            (JSON.parse(localStorage.getItem('oceana_customer')||'{}').phone)||'').replace(/\D/g,'');
+  if(!ph) return;
+  clearTimeout(cartTimer);
+  cartTimer=setTimeout(()=>{
+    const items=Object.values(CART).map(c=>({name:c.item.item_name,quantity:c.qty,price:Number(c.item.price)}));
+    fetch(SB+'/rest/v1/rpc/save_cart',{method:'POST',
+      headers:{apikey:KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({p_phone:ph,p_items:items,p_total:total()})}).catch(()=>{});
+  },2500);
+}
+
+function bump(num, d){
+  const it=MENU.find(m=>m.item_number===num); if(!it||Number(it.price)===0) return;
+  const c=CART[num]||{item:it,qty:0};
+  c.qty+=d;
+  if(c.qty<=0) delete CART[num]; else CART[num]=c;
+  render(); bar(); reportCart();
+  if(document.getElementById('sheet').classList.contains('on')) openCart();
+}
+
+function total(){ return Object.values(CART).reduce((s,c)=>s+Number(c.item.price)*c.qty,0); }
+function count(){ return Object.values(CART).reduce((s,c)=>s+c.qty,0); }
+
+function bar(){
+  const b=document.getElementById('bar'), n=count();
+  b.classList.toggle('on', n>0);
+  document.getElementById('barn').textContent = n+(n===1?' item':' items');
+  document.getElementById('barp').textContent = rs(total());
+}
+
+/* ---------- cart + checkout ---------- */
+const sheet=document.getElementById('sheet'), scrim=document.getElementById('scrim');
+function show(){ sheet.classList.add('on'); scrim.classList.add('on'); }
+function hide(){ sheet.classList.remove('on'); scrim.classList.remove('on'); }
+document.getElementById('close').onclick=hide; scrim.onclick=hide;
+document.getElementById('barbtn').onclick=openCart;
+
+function minOrder(){ return Number(SET.min_order||200); }
+
+function openCart(){
+  document.getElementById('shtitle').textContent='Your order';
+  const lines=Object.values(CART).map(c=>`<div class="ln">
+      <div><div>${esc(c.item.item_name)}</div><div class="q">${rs(c.item.price)} × ${c.qty}</div></div>
+      <div><b>${rs(c.item.price*c.qty)}</b></div></div>`).join('');
+  const short=minOrder()-total(), closed=!isOpen(), blocked=closed||(TYPE==='delivery'&&short>0);
+  document.getElementById('sb').innerHTML = lines + `
+    <div class="tot"><span>Total</span><span>${rs(total())}</span></div>
+    <label>How would you like it?</label>
+    <div class="seg" id="seg">
+      <button data-t="delivery"  aria-pressed="${TYPE==='delivery'}">Delivery</button>
+      <button data-t="takeaway"  aria-pressed="${TYPE==='takeaway'}">Takeaway</button>
+      <button data-t="dine-in"   aria-pressed="${TYPE==='dine-in'}">Dine-in</button>
+    </div>
+    ${closed?`<div class="warn">We are closed right now, so orders can't be placed. We're open ${esc(SET.hours||'7:00 AM to 11:30 PM')}.</div>`
+      :(blocked?`<div class="warn">Delivery starts at ${rs(minOrder())}. Add ${rs(short)} more, or switch to takeaway.</div>`:'')}
+    <button class="cta" id="next" ${blocked?'disabled':''}>${closed?'Closed now':'Add details'}</button>`;
+  document.getElementById('seg').onclick=e=>{const b=e.target.closest('[data-t]'); if(!b)return; TYPE=b.dataset.t; openCart();};
+  document.getElementById('next').onclick=openDetails;
+  show();
+}
+
+function openDetails(){
+  const d=JSON.parse(localStorage.getItem('oceana_customer')||'{}');
+  const ph=new URLSearchParams(location.search).get('ph')||d.phone||'';
+  const deliver=TYPE==='delivery';
+  document.getElementById('shtitle').textContent='Your details';
+  document.getElementById('sb').innerHTML=`
+    <label for="cn">Name</label><input class="f" id="cn" value="${esc(d.name||'')}" placeholder="Your name">
+    <label for="cp">WhatsApp number</label><input class="f" id="cp" inputmode="numeric" value="${esc(ph)}" placeholder="10-digit mobile">
+    ${deliver?`
+      <label for="ca">Delivery address</label><textarea class="f" id="ca" rows="2" placeholder="Flat, building, street">${esc(d.address||'')}</textarea>
+      <label for="cl">Landmark</label><input class="f" id="cl" value="${esc(d.landmark||'')}" placeholder="Nearby landmark">
+      <label for="cz">Pincode</label><input class="f" id="cz" inputmode="numeric" maxlength="6" value="${esc(d.pincode||'')}" placeholder="575001">`:''}
+    <label>Payment</label>
+    <div class="pay"><span>Cash on ${deliver?'delivery':'pickup'}</span><em>UPI coming soon</em></div>
+    <div id="err"></div>
+    <button class="cta" id="place">Place order · ${rs(total())}</button>`;
+  document.getElementById('place').onclick=place;
+  show();
+}
+
+function place(){
+  const g=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
+  const name=g('cn'), phone=g('cp').replace(/\D/g,''), addr=g('ca'), land=g('cl'), pin=g('cz');
+  const deliver=TYPE==='delivery';
+  const err=document.getElementById('err');
+  const fail=m=>{err.innerHTML='<div class="warn">'+esc(m)+'</div>';err.scrollIntoView({block:'nearest'});};
+  if(!isOpen()) return fail('We are closed right now, so orders can\'t be placed. We\'re open '+(SET.hours||'7:00 AM to 11:30 PM')+'.');
+  if(name.length<2) return fail('Please tell us your name.');
+  if(!/^(91)?[6-9]\d{9}$/.test(phone)) return fail('That number doesn\'t look right. Use a 10-digit Indian mobile.');
+  if(deliver){
+    if(addr.length<8) return fail('We need a full address to find you.');
+    if(!/^\d{6}$/.test(pin)) return fail('Enter your 6-digit pincode.');
+    if(PINS.length && !PINS.includes(pin))
+      return fail('We deliver within about 3 km of State Bank. Your pincode is outside that — takeaway or dine-in works though.');
+  }
+  localStorage.setItem('oceana_customer',JSON.stringify({name,phone,address:addr,landmark:land,pincode:pin}));
+
+  const btn=document.getElementById('place');
+  btn.disabled=true; btn.textContent='Placing your order…';
+  fetch(HOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    customer_phone:phone, customer_name:name, order_type:TYPE,
+    address:addr, landmark:land, city:SET.city||'Mangalore', pincode:pin,
+    total: total(),
+    items: Object.values(CART).map(c=>({item_number:c.item.item_number,name:c.item.item_name,quantity:c.qty}))
+  })})
+  .then(r=>r.json().catch(()=>({})))
+  .then(j=>{
+    if(!j||!j.success){ const e=new Error((j&&j.error)||''); e.server=true; throw e; }
+    CART={}; bar(); localStorage.removeItem('oceana_cart');
+    document.getElementById('shtitle').textContent='Order placed';
+    document.getElementById('sb').innerHTML=`<div class="done">
+      <div class="tick">✓</div>
+      <h3>We've got your order</h3>
+      <p>We'll confirm on WhatsApp in a moment${TYPE==='delivery'?' and let you know when it\'s on the way':''}.</p>
+      <div class="num">${esc(j.order_number||'')}</div>
+      <button class="cta" onclick="location.href='${WA}'">Back to WhatsApp</button></div>`;
+  })
+  .catch(e=>{ btn.disabled=false; btn.textContent='Place order · '+rs(total());
+    fail((e&&e.server&&e.message)?e.message:'We couldn\'t place that just now. Try again, or message us on WhatsApp.');
+    if(e&&e.server&&/closed/i.test(e.message)) showClosed(); });
+}
+
+function restore(){
+  try{ const c=JSON.parse(localStorage.getItem('oceana_cart')||'{}');
+    Object.keys(c).forEach(k=>{const it=MENU.find(m=>m.item_number===+k);
+      if(it&&Number(it.price)>0) CART[k]={item:it,qty:c[k]};});
+    render(); bar();
+  }catch(e){}
+  window.addEventListener('beforeunload',()=>{
+    const s={}; Object.values(CART).forEach(c=>s[c.item.item_number]=c.qty);
+    localStorage.setItem('oceana_cart',JSON.stringify(s));
+  });
+}
+boot();
+</script>
+</body>
+</html>

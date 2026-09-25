@@ -40,20 +40,40 @@ function rowToMenuItem(row: SupabaseMenuRow): MenuItem {
 }
 
 /**
- * Converts a production `menu_items` row (with category name) to the frontend `MenuItem` type.
- * Converts integer price_paise to Rupee amount strictly at the UI display boundary.
+ * Converts a production `menu_items` row from the verified live schema into the
+ * frontend `MenuItem` shape used by the current website UI.
  */
-function rowToProductionMenuItem(row: MenuItemRow & { menu_categories?: { name: string } }): MenuItem {
+function rowToProductionMenuItem(row: {
+  id: string
+  item_name: string
+  category: string | null
+  price: number | string | null
+  description: string | null
+  image_url: string | null
+  available?: boolean | null
+  variants?: unknown
+  item_number?: number | null
+}): MenuItem {
+  const safePrice = typeof row.price === 'number' ? row.price : Number(row.price ?? 0)
+
   return {
-    id: row.id,
-    name: row.name,
-    category: row.menu_categories?.name || 'Desserts',
+    id: String(row.id),
+    name: row.item_name || 'Unnamed item',
+    category: row.category || 'General',
     description: row.description || '',
-    price: Math.round(row.price_paise / 100),
-    image: row.image || placeholderImage(row.name),
-    vegetarian: row.vegetarian,
-    badge: row.badge || undefined,
-    featured: row.featured,
+    price: Number.isFinite(safePrice) ? safePrice : 0,
+    image: row.image_url || placeholderImage(row.item_name || 'item'),
+    vegetarian: undefined,
+    badge: undefined,
+    featured: undefined,
+    options: Array.isArray(row.variants) ? row.variants.map((variant: any) => ({
+      label: typeof variant?.name === 'string' ? variant.name : 'Variant',
+      values: typeof variant?.options === 'object' && variant?.options
+        ? Array.isArray((variant as any).options)
+          ? (variant as any).options.map((opt: any) => String(opt ?? ''))
+          : []
+        : [],
+    })) : undefined,
   }
 }
 
@@ -69,16 +89,26 @@ type SupabaseServerClient = SupabaseClient<Database>
 export async function fetchProductionMenuItems(client: SupabaseServerClient): Promise<MenuItem[] | null> {
   const { data, error } = await client
     .from('menu_items')
-    .select('*, menu_categories(name)')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
+    .select(`
+      id,
+      item_number,
+      item_name,
+      category,
+      price,
+      available,
+      description,
+      image_url,
+      variants
+    `)
+    .eq('available', true)
+    .order('item_number', { ascending: true })
 
   if (error) {
     console.error('[menu/queries] Failed to fetch production menu items:', error.message)
     return null
   }
 
-  return (data as any[]).map(rowToProductionMenuItem)
+  return (data ?? []).map((row: any) => rowToProductionMenuItem(row))
 }
 
 /**

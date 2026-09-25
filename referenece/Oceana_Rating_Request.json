@@ -1,0 +1,347 @@
+{
+  "name": "Oceana Rating Request",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "oceana-rating-request-every-10-minutes",
+      "name": "Every 10 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/pending_ratings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "id": "oceana-rating-request-find-delivered",
+      "name": "Find Delivered",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "oceana-rating-request-loop-orders",
+      "name": "Loop Orders",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nvar o = $input.first().json;\nif (!o || !o.customer_phone) { return [{ json: { skip: true } }]; }\nvar name = o.customer_name ? (' ' + String(o.customer_name).split(' ')[0]) : '';\nvar msg = 'Hope you enjoyed your meal' + name + '!\\n\\n' +\n  'How was order ' + o.order_number + '? Tap a rating below, or reply with a number from 1 to 5.';\nreturn [{ json: { skip: false, phone: o.customer_phone, order_number: o.order_number,\n  outgoing: { type: 'interactive', interactive: { type: 'button',\n    body: { text: msg },\n    action: { buttons: [\n      { type: 'reply', reply: { id: 'rate_5', title: '5 - Excellent' } },\n      { type: 'reply', reply: { id: 'rate_4', title: '4 - Good' } },\n      { type: 'reply', reply: { id: 'rate_3', title: '3 - Okay' } } ] } } } } }];\n"
+      },
+      "id": "oceana-rating-request-build-ask",
+      "name": "Build Ask",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1057952097409620/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.phone }, $json.outgoing)) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "oceana-rating-request-send-ask",
+      "name": "Send Ask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1vNIxOEoQUki4NdE",
+          "name": "whatsapp token"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/reviews",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order_number: $('Build Ask').first().json.order_number, phone: $('Build Ask').first().json.phone, asked_at: new Date().toISOString() }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        }
+      },
+      "id": "oceana-rating-request-reserve-review",
+      "name": "Reserve Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "oceana-rating-request-wait-2s",
+      "name": "Wait 2s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        120
+      ],
+      "webhookId": "oceana-rate-wait"
+    },
+    {
+      "parameters": {},
+      "id": "oceana-rating-request-done",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "aa47abca-c14d-4ab8-8ec7-1bd76964855c",
+              "leftValue": "={{ $json.skip !== true && !!$json.phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "50839d4e-83fb-4b74-9631-2d2bfb66f638",
+      "name": "Has Phone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Every 10 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Find Delivered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Delivered": {
+      "main": [
+        [
+          {
+            "node": "Loop Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Orders": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Ask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ask": {
+      "main": [
+        [
+          {
+            "node": "Has Phone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Ask": {
+      "main": [
+        [
+          {
+            "node": "Reserve Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reserve Review": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s": {
+      "main": [
+        [
+          {
+            "node": "Loop Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Phone?": {
+      "main": [
+        [
+          {
+            "node": "Send Ask",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [],
+  "id": "",
+  "meta": {}
+}

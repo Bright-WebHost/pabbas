@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#E23744">
+<title>Oceana — Staff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#E23744;--red2:#CB202D;--tint:#FFF1F2;
+  --ink:#10151C;--muted:#6B7684;--line:#E6E9EE;--bg:#F4F6F8;--card:#fff;
+  --navy:#111A26;--navy2:#1B2736;
+  --c-new:#FFF0F1;--c-new-b:#F5C2C6;--c-new-t:#C0392B;
+  --c-conf:#FFF6E6;--c-conf-b:#F3DFB0;--c-conf-t:#9A6B00;
+  --c-prep:#EAF3FF;--c-prep-b:#BFD8F5;--c-prep-t:#1A5FA8;
+  --c-ready:#F2EEFF;--c-ready-b:#D3C7F5;--c-ready-t:#5B3FBF;
+  --c-done:#EAF8EF;--c-done-b:#BEE5CC;--c-done-t:#1F8A4C;
+  --warn:#F5A623;--danger:#E23744;--ok:#3AB757;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.hide{display:none!important}
+
+#login{min-height:100vh;display:grid;place-items:center;padding:24px;background:#fff}
+.lbox{width:100%;max-width:330px}
+.lbox h1{font-family:Fraunces,serif;font-size:32px;color:var(--red);margin:0 0 2px}
+.lbox p{color:var(--muted);margin:0 0 22px}
+.f{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:#fff}
+.f:focus{border-color:var(--red);outline:none}
+.btn{background:var(--red);color:#fff;padding:13px;border-radius:10px;font-weight:700;width:100%}
+.btn.sm{width:auto;padding:8px 13px;border-radius:9px;font-size:13px}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.err{background:var(--tint);border:1px solid #F5C6CB;color:var(--red2);padding:10px;border-radius:9px;margin-bottom:10px}
+
+/* shell */
+.shell{display:grid;grid-template-columns:212px 1fr;min-height:100vh}
+aside{background:var(--navy);color:#fff;padding:20px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.brandwrap{text-align:center;padding:6px 0 4px}
+.tile{width:56px;height:56px;border-radius:15px;background:var(--red);color:#fff;
+ font-family:Fraunces,serif;font-size:31px;font-weight:700;display:grid;place-items:center;
+ margin:0 auto 12px;box-shadow:0 6px 18px rgba(226,55,68,.34)}
+.brand{font-size:27px;font-weight:800;letter-spacing:-.6px;line-height:1}
+.kicker{font-size:10px;letter-spacing:3px;color:var(--red);margin-top:6px;font-weight:800}
+aside nav{margin-top:24px;display:flex;flex-direction:column;gap:4px;order:2}
+aside nav button{display:flex;align-items:center;gap:11px;padding:13px 14px;border-radius:11px;
+ color:#95A3B5;font-weight:600;font-size:14px;text-align:left;width:100%;position:relative}
+aside nav button:hover{background:var(--navy2);color:#fff}
+aside nav button[aria-current="true"]{background:var(--navy2);color:#fff}
+aside nav button[aria-current="true"]:before{content:'';position:absolute;left:-14px;top:9px;bottom:9px;
+ width:4px;border-radius:0 4px 4px 0;background:var(--red)}
+.side-foot{margin-top:auto;order:3;display:flex;flex-direction:column;gap:8px;border-top:1px solid #223040;padding-top:16px}
+.side-foot button{background:var(--navy2);color:#C7D2DE;padding:11px;border-radius:11px;font-size:13px;font-weight:600}
+.side-foot button:hover{background:#26364a;color:#fff}
+main{padding:18px 20px 40px;overflow-x:hidden}
+.head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+ margin:-18px -20px 16px;padding:14px 20px;background:#fff;border-bottom:1px solid var(--line);
+ position:sticky;top:0;z-index:15}
+.head h1{font-size:25px;font-weight:800;margin:0;letter-spacing:-.4px}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pilb{font-size:12px;font-weight:700;padding:6px 13px;border-radius:999px;background:#F1F3F6;color:var(--muted)}
+.pilb.ok{background:#E8F7EE;color:#1F8A4C}
+.pilb.warn{background:#FFF3E5;color:#B8730B}
+.filterrow{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.flabel{font-weight:800;color:var(--muted);font-size:13.5px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:9px 19px;border-radius:999px;border:1px solid var(--line);background:#fff;
+ font-size:13.5px;font-weight:700;color:var(--muted);box-shadow:0 1px 2px rgba(16,21,28,.04)}
+.chip:hover{border-color:#CBD3DC}
+.chip[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#fff}
+.stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;
+ box-shadow:0 1px 3px rgba(16,21,28,.05)}
+.stat span{display:block;color:var(--muted);font-size:12px;font-weight:800;letter-spacing:1.3px;
+ text-transform:uppercase;margin-bottom:10px}
+.stat b{display:block;font-size:40px;font-weight:800;line-height:1;letter-spacing:-1.5px}
+.stat.r b{color:var(--red)}.stat.b b{color:#1A5FA8}.stat.p b{color:#5B3FBF}.stat.o b{color:#B8730B}
+
+/* kanban */
+.board{display:grid;gap:14px;grid-template-columns:repeat(4,minmax(252px,1fr));align-items:start}
+@media(max-width:1180px){.board{grid-auto-flow:column;grid-template-columns:none;
+ grid-auto-columns:minmax(252px,1fr);overflow-x:auto;padding-bottom:10px}}
+.col{background:transparent;border:0;padding:0;min-height:120px}
+.colbar{border-radius:14px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;
+ font-weight:800;font-size:16px;letter-spacing:-.2px;margin-bottom:10px}
+.colbar .cnt{background:rgba(255,255,255,.82);border-radius:999px;padding:2px 11px;font-size:13px}
+.col.new .colbar{background:var(--c-new);color:var(--c-new-t);border:1px solid var(--c-new-b)}
+.col.confirmed .colbar{background:var(--c-conf);color:var(--c-conf-t);border:1px solid var(--c-conf-b)}
+.col.preparing .colbar{background:var(--c-prep);color:var(--c-prep-t);border:1px solid var(--c-prep-b)}
+.col.ready .colbar{background:var(--c-ready);color:var(--c-ready-t);border:1px solid var(--c-ready-b)}
+.col.delivered .colbar{background:var(--c-done);color:var(--c-done-t);border:1px solid var(--c-done-b)}
+.colh{display:flex;align-items:center;justify-content:space-between;padding:3px 4px 9px;font-weight:800;font-size:12px;letter-spacing:.4px;text-transform:uppercase}
+.col.new .colh{color:var(--c-new-t)}.col.confirmed .colh{color:var(--c-conf-t)}
+.col.preparing .colh{color:var(--c-prep-t)}.col.ready .colh{color:var(--c-ready-t)}
+.col.delivered .colh{color:var(--c-done-t)}
+.cnt{background:rgba(255,255,255,.85);border-radius:999px;padding:2px 11px;font-size:13px;font-weight:800}
+.o{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;
+ box-shadow:0 2px 6px rgba(16,21,28,.06)}
+.o:hover{box-shadow:0 4px 14px rgba(16,21,28,.10)}
+.o.flash{animation:fl 1.6s ease}
+@keyframes fl{0%{box-shadow:0 0 0 4px var(--tint)}100%{box-shadow:0 1px 2px rgba(16,21,28,.04)}}
+.orow{display:flex;justify-content:space-between;gap:9px;align-items:flex-start}
+.onum{font-weight:800;font-size:14.5px}
+.oamt{font-weight:800;white-space:nowrap}
+.osub{color:var(--muted);font-size:12px;margin-top:2px}
+.oitems{margin-top:8px;font-size:13px;line-height:1.5}
+.addr{margin-top:6px;font-size:12px;color:var(--muted)}
+.tags{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.tag{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:6px;background:#F1F3F6;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.tag.dl{background:#EAF3FF;color:#1A5FA8}.tag.tk{background:#FFF6E6;color:#9A6B00}
+.tag.am{background:#FFEFD6;color:#9A5B00}
+.tag.cx{background:#FDE8E8;color:#B42318;border:1px solid #F5C2C0}
+.age{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--muted)}
+.age.warn{color:var(--warn)}.age.bad{color:var(--danger)}
+.slide{position:relative;height:42px;border-radius:10px;background:#F1F3F6;overflow:hidden;
+ margin-top:10px;user-select:none;border:1px solid var(--line)}
+.slide .fill{position:absolute;inset:0;width:0}
+.slide .lbl{position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:12.5px;color:var(--muted);pointer-events:none}
+.slide .knob{position:absolute;top:3px;left:3px;width:50px;height:34px;border-radius:8px;
+ display:grid;place-items:center;color:#fff;font-weight:800;touch-action:none}
+.mini{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+.mini button{border:1px solid var(--line);background:#fff;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600}
+.mini button.x{color:var(--red2)}
+.none{padding:26px 6px;text-align:center;color:#9AA6B4;font-size:12.5px;
+ background:#fff;border:1px dashed var(--line);border-radius:12px}
+.drawer{margin-top:20px;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.drawer>button{width:100%;padding:12px 14px;display:flex;justify-content:space-between;font-weight:700;color:var(--muted)}
+.drawer .body{border-top:1px solid var(--line);padding:10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;
+ padding:12px 18px;border-radius:10px;z-index:90;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.28)}
+
+/* chat / tables reused */
+.chat{display:grid;grid-template-columns:262px 1fr;gap:12px;height:calc(100vh - 170px);min-height:420px}
+@media(max-width:860px){.chat{grid-template-columns:1fr}.chat.open .sessions{display:none}.chat:not(.open) .thread{display:none}}
+.sessions{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:auto}
+.s{padding:11px 13px;border-bottom:1px solid var(--line);cursor:pointer}
+.s[aria-selected="true"]{background:var(--tint)}
+.s b{display:block;font-size:13.5px}.s small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.unread{background:var(--red);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;float:right}
+.aioff{color:var(--warn);font-size:11px;font-weight:700}
+.thread{background:#fff;border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column}
+.th{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.msgs{flex:1;overflow:auto;padding:13px;background:#FAFBFC}
+.m{max-width:76%;padding:9px 12px;border-radius:12px;margin-bottom:9px;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+.m.in{background:#fff;border:1px solid var(--line)}.m.out{background:var(--tint);margin-left:auto}
+.m small{display:block;font-size:10.5px;color:var(--muted);margin-top:4px}
+.compose{display:flex;gap:8px;padding:11px;border-top:1px solid var(--line)}
+.compose input{flex:1;padding:11px;border:1px solid var(--line);border-radius:10px}
+.tgl{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600}
+.sw{width:40px;height:23px;border-radius:999px;background:#D8DCE2;position:relative}
+.sw i{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .15s}
+.sw[aria-pressed="true"]{background:var(--ok)}.sw[aria-pressed="true"] i{left:19px}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:13px}
+th{background:#FAFBFC;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+tr:last-child td{border-bottom:0}
+.pickbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.pickbar .grow{flex:1;min-width:180px}
+.cbox{width:17px;height:17px;accent-color:var(--red)}
+.selinfo{background:var(--tint);border:1px solid #F5C6CB;color:var(--red2);padding:9px 14px;
+ border-radius:10px;font-weight:700;font-size:13px}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:18px;text-align:center;color:var(--muted);background:#fff}
+.drop.on{border-color:var(--red);background:var(--tint)}
+.srch{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px;background:#fff}
+</style>
+</head>
+<body>
+
+<div id="login"><div class="lbox">
+  <h1>Oceana</h1><p>Staff dashboard</p>
+  <div id="lerr"></div>
+  <input class="f" id="em" type="email" placeholder="Email" autocomplete="username">
+  <input class="f" id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="btn" id="lbtn">Sign in</button>
+</div></div>
+
+<div id="app" class="shell hide">
+  <aside>
+    <div class="brandwrap">
+      <div class="tile">O</div>
+      <div class="brand">Oceana</div>
+      <div class="kicker">ORDER HUB</div>
+    </div>
+    <nav id="nav">
+      <button data-v="orders" aria-current="true">🧾 Orders</button>
+      <button data-v="chat">💬 Live Chat</button>
+      <button data-v="menu">📋 Menu</button>
+      <button data-v="stats">📊 Analytics</button>
+      <button data-v="contacts">👥 Contacts</button>
+      <button data-v="blast">📣 Blast</button>
+    </nav>
+    <div class="side-foot">
+      <button id="refresh">↻ Refresh Now</button>
+      <button id="sound">🔔 Enable sound</button>
+      <button id="out">Sign out</button>
+    </div>
+  </aside>
+  <main>
+    <div class="head">
+      <h1 id="vtitle">🧾 Orders</h1>
+      <div class="pills">
+        <span class="pilb ok">● Live</span>
+        <span class="pilb">Updated <span id="upd">—</span></span>
+        <span class="pilb warn">● Staff online</span>
+      </div>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+<script>
+const SB='https://mvyeccwomwsgtzuxddye.supabase.co';
+const KEY='sb_publishable_qdBxwwY06XTSEG5OKwCmaQ_r7KY3J5T';
+const N8N='https://n8n.brightmedia.tech/webhook';
+const sb=supabase.createClient(SB,KEY);
+// n8n checks this token against the staff list before doing anything
+async function hook(path,body){
+  const {data}=await sb.auth.getSession();
+  const token=data&&data.session?data.session.access_token:'';
+  const r=await fetch(N8N+path,{method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(body)});
+  if(r.status===401){toast('Your session expired - please log in again');}
+  return r;
+}
+
+// column key -> [label, css class, slide label, next status, knob colour]
+const COLS=[
+ ['new','New','new','Slide to accept & cook','preparing','#C0392B'],
+ ['preparing','Preparing','preparing','Slide to ready / out','READY','#1A5FA8'],
+ ['READY','Ready / Out','ready','Slide to delivered','delivered','#5B3FBF'],
+ ['delivered','Delivered','delivered',null,null,'#1F8A4C']];
+const READY=['ready_for_pickup','out_for_delivery'];
+// 'confirmed' is retired; any old row still shows as New
+const colOf=o=>o.status==='confirmed'?'new':(READY.indexOf(o.status)>=0?'READY':o.status);
+
+let VIEW='orders',RANGE='today',ORDERS=[],SESSIONS=[],CUR=null,MSGS=[],SOUND=false,AGENT='Staff',FLASH=null,DRAWER=false;
+const rs=n=>'₹'+Number(n||0).toLocaleString('en-IN');
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ist=t=>new Date(t).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+const el=id=>document.getElementById(id);
+
+el('lbtn').onclick=async()=>{el('lerr').innerHTML='';
+ const {error}=await sb.auth.signInWithPassword({email:el('em').value.trim(),password:el('pw').value});
+ if(error){el('lerr').innerHTML='<div class="err">'+esc(error.message)+'</div>';return;} start();};
+el('pw').addEventListener('keydown',e=>{if(e.key==='Enter')el('lbtn').click();});
+el('out').onclick=async()=>{await sb.auth.signOut();location.reload();};
+el('refresh').onclick=async()=>{const b=el('refresh');b.textContent='↻ Refreshing…';
+ await loadOrders();await loadSessions();render();b.textContent='↻ Refresh Now';toast('Refreshed');};
+el('refresh').onclick=async()=>{const b=el('refresh');b.textContent='↻ Refreshing…';
+ await loadOrders();await loadSessions();render();b.textContent='↻ Refresh Now';};
+sb.auth.getSession().then(({data})=>{if(data.session)start();});
+
+async function start(){
+  const {data}=await sb.auth.getUser();
+  AGENT=(data.user&&data.user.user_metadata&&data.user.user_metadata.display_name)||'Staff';
+  el('login').classList.add('hide'); el('app').classList.remove('hide');
+  await loadOrders(); await loadSessions(); render(); live();
+  setInterval(()=>{ if(VIEW==='orders') tickAges(); },20000);
+}
+el('nav').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;
+ VIEW=b.dataset.v;[...el('nav').children].forEach(x=>x.setAttribute('aria-current',x===b));
+ el('vtitle').textContent=b.textContent; render();};
+
+let AC=null;
+el('sound').onclick=()=>{AC=AC||new (window.AudioContext||window.webkitAudioContext)();AC.resume();
+ SOUND=true;el('sound').textContent='🔔 Sound on';el('sound').disabled=true;ping();};
+function ping(){if(!SOUND||!AC)return;[0,.18,.36].forEach((t,i)=>{const o=AC.createOscillator(),g=AC.createGain();
+ o.connect(g);g.connect(AC.destination);o.frequency.value=[784,1046,1318][i];o.type='sine';
+ g.gain.setValueAtTime(.0001,AC.currentTime+t);g.gain.exponentialRampToValueAtTime(.32,AC.currentTime+t+.02);
+ g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+t+.26);o.start(AC.currentTime+t);o.stop(AC.currentTime+t+.3);});}
+function toast(m){const d=document.createElement('div');d.className='toast';d.textContent=m;
+ document.body.appendChild(d);setTimeout(()=>d.remove(),3400);}
+
+function rangeStart(){
+  const n=new Date(), ist=new Date(n.getTime()+(n.getTimezoneOffset()*60000)+19800000);
+  const midnight=new Date(ist); midnight.setHours(0,0,0,0);
+  const off=midnight.getTime()-19800000-(n.getTimezoneOffset()*60000);
+  if(RANGE==='today') return new Date(off);
+  if(RANGE==='yesterday') return new Date(off-86400000);
+  if(RANGE==='week') return new Date(off-6*86400000);
+  if(RANGE==='month') return new Date(off-29*86400000);
+  return new Date(0);
+}
+function inRange(o){
+  const t=new Date(o.created_at).getTime(), s=rangeStart().getTime();
+  if(RANGE==='yesterday') return t>=s && t<s+86400000;
+  return t>=s;
+}
+
+async function loadOrders(){
+  const {data}=await sb.from('orders').select('*').order('created_at',{ascending:false}).limit(300);
+  ORDERS=data||[]; el('upd').textContent=new Date().toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+async function loadSessions(){
+  const {data}=await sb.from('chat_sessions').select('*').order('last_message_at',{ascending:false,nullsFirst:false}).limit(80);
+  SESSIONS=data||[];}
+async function loadMsgs(p){const {data}=await sb.from('messages').select('*').eq('phone',p).order('created_at').limit(200);MSGS=data||[];}
+
+function live(){
+  sb.channel('o').on('postgres_changes',{event:'*',schema:'public',table:'orders'},async p=>{
+    if(p.eventType==='INSERT'&&p.new.status!=='draft'){FLASH=p.new.order_number;ping();
+      toast('New order '+p.new.order_number+' · '+rs(p.new.total));}
+    else if(p.eventType==='UPDATE'&&p.new.amendment_count>(p.old&&p.old.amendment_count||0)){
+      FLASH=p.new.order_number;ping();toast(p.new.order_number+' was amended by the customer');}
+    else if(p.eventType==='UPDATE'&&p.new.cancel_requested_at&&p.new.cancel_requested_at!==(p.old&&p.old.cancel_requested_at)){
+      FLASH=p.new.order_number;ping();toast(p.new.order_number+': customer asked to cancel - please call them');}
+    else if(p.eventType==='UPDATE'&&p.new.status==='new'&&p.old&&p.old.status==='draft'){
+      FLASH=p.new.order_number;ping();toast('New order '+p.new.order_number+' · '+rs(p.new.total));}
+    await loadOrders(); if(VIEW==='orders')render();}).subscribe();
+  sb.channel('m').on('postgres_changes',{event:'*',schema:'public',table:'messages'},async p=>{
+    if(CUR&&p.new&&p.new.phone===CUR)await loadMsgs(CUR);
+    await loadSessions(); if(VIEW==='chat')render();}).subscribe();
+}
+function render(){({orders:vOrders,chat:vChat,menu:vMenu,stats:vStats,contacts:vContacts,blast:vBlast}[VIEW])();}
+
+/* ---------- orders ---------- */
+function ageOf(o){return Math.floor((Date.now()-new Date(o.created_at).getTime())/60000);}
+function ageHtml(o){
+  if(['delivered','cancelled'].indexOf(o.status)>=0) return '';
+  const m=ageOf(o), cls=m>=30?'bad':(m>=15?'warn':'');
+  const txt=m<60?(m+'m'):(Math.floor(m/60)+'h '+(m%60)+'m');
+  return '<span class="age '+cls+'" data-age="'+esc(o.order_number)+'">⏱ '+txt+'</span>';
+}
+function tickAges(){document.querySelectorAll('[data-age]').forEach(s=>{
+  const o=ORDERS.find(x=>x.order_number===s.dataset.age); if(!o)return;
+  const m=ageOf(o); s.className='age '+(m>=30?'bad':(m>=15?'warn':''));
+  s.textContent='⏱ '+(m<60?m+'m':Math.floor(m/60)+'h '+(m%60)+'m');});}
+
+function vOrders(){
+  const rows=ORDERS.filter(inRange), live=rows.filter(o=>o.status!=='draft');
+  const cancelled=live.filter(o=>o.status==='cancelled');
+  const rev=live.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.total),0);
+  el('view').innerHTML=`
+    <div class="filterrow"><span class="flabel">Filter:</span><div class="chips" id="chips">
+      ${[['today','Today'],['yesterday','Yesterday'],['week','This Week'],['month','This Month'],['all','All Time']]
+        .map(([k,l])=>`<button class="chip" data-r="${k}" aria-pressed="${RANGE===k}">${l}</button>`).join('')}
+    </div></div>
+    <div class="stats">
+      <div class="stat r"><span>Revenue</span><b>${rs(rev)}</b></div>
+      <div class="stat b"><span>Total Orders</span><b>${live.filter(o=>o.status!=='cancelled').length}</b></div>
+      <div class="stat o"><span>Awaiting Accept</span><b>${live.filter(o=>colOf(o)==='new').length}</b></div>
+      <div class="stat p"><span>In The Kitchen</span><b>${live.filter(o=>o.status==='preparing').length}</b></div>
+    </div>
+    <div class="board">${COLS.map(c=>{
+      const list=live.filter(o=>colOf(o)===c[0]);
+      return `<div class="col ${c[2]}"><div class="colbar"><span>${c[1]}</span><span class="cnt">${list.length}</span></div>
+        ${list.length?list.map(o=>card(o,c)).join(''):'<div class="none">Nothing here</div>'}</div>`;}).join('')}</div>
+    <div class="drawer"><button id="dr">Cancelled <span>${cancelled.length} ▾</span></button>
+      ${DRAWER?`<div class="body">${cancelled.length?cancelled.map(o=>card(o,null)).join(''):'<div class="none">None</div>'}</div>`:''}</div>`;
+  el('chips').onclick=e=>{const b=e.target.closest('[data-r]');if(!b)return;RANGE=b.dataset.r;render();};
+  el('dr').onclick=()=>{DRAWER=!DRAWER;render();};
+  wire();
+}
+function card(o,c){
+  const amended=Number(o.amendment_count)>0;
+  return `<div class="o ${o.order_number===FLASH?'flash':''}">
+    <div class="orow"><div><div class="onum">${esc(o.order_number)}</div>
+      <div class="osub">${esc(o.customer_name||'Guest')} · ${esc(o.customer_phone)}</div>
+      <div class="osub">${ist(o.created_at)}</div></div><div class="oamt">${rs(o.total)}</div></div>
+    <div class="oitems">${esc(o.items||'')}</div>
+    ${o.address?`<div class="addr">📍 ${esc(o.address)}${o.landmark?', '+esc(o.landmark):''}${o.pincode?' — '+esc(o.pincode):''}</div>`:''}
+    <div class="tags"><span class="tag ${o.order_type==='delivery'?'dl':'tk'}">${esc(o.order_type)}</span>
+      <span class="tag">${esc(o.source)}</span>
+      ${amended?`<span class="tag am">Amended ×${o.amendment_count}</span>`:''}
+      ${o.cancel_requested_at&&['delivered','cancelled'].indexOf(o.status)<0?`<span class="tag cx">Customer asked to cancel</span>`:''}
+      ${o.status==='cancelled'&&o.cancelled_by?`<span class="tag">By ${esc(String(o.cancelled_by).replace(/^staff:/,''))}${o.cancel_reason?' · '+esc(String(o.cancel_reason).replace(/_/g,' ')):''}</span>`:''}
+      ${ageHtml(o)}</div>
+    ${c&&c[4]?`<div class="slide" data-o="${esc(o.order_number)}" data-next="${c[4]}" data-col="${c[2]}">
+        <div class="fill" style="background:${c[5]};opacity:.16"></div>
+        <div class="lbl">${c[3]}</div><div class="knob" style="background:${c[5]}">›</div></div>`:''}
+    <div class="mini">
+      ${c&&c[0]==='preparing'?`<button data-st="ready_for_pickup" data-n="${esc(o.order_number)}">Ready for pickup</button>`:''}
+      ${o.status!=='delivered'&&o.status!=='cancelled'?`<button class="x" data-st="cancelled" data-n="${esc(o.order_number)}">Cancel</button>`:''}
+      <button data-p="${esc(o.order_number)}">Print</button></div></div>`;
+}
+function wire(){
+  el('view').querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{
+    if(b.dataset.st==='cancelled'&&!confirm('Cancel order '+b.dataset.n+'? The customer will be told on WhatsApp.'))return;
+    setStatus(b.dataset.n,b.dataset.st);});
+  el('view').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>printOrder(b.dataset.p));
+  el('view').querySelectorAll('.slide').forEach(initSlide);
+}
+function initSlide(box){
+  const knob=box.querySelector('.knob'),fill=box.querySelector('.fill'),lbl=box.querySelector('.lbl');
+  const base=lbl.textContent; let x0=null,max=0;
+  const down=e=>{x0=(e.touches?e.touches[0].clientX:e.clientX);max=box.clientWidth-knob.clientWidth-6;
+   document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+   document.addEventListener('touchmove',mv,{passive:false});document.addEventListener('touchend',up);};
+  const mv=e=>{if(x0===null)return;if(e.cancelable)e.preventDefault();
+   const d=Math.max(0,Math.min(max,(e.touches?e.touches[0].clientX:e.clientX)-x0));
+   knob.style.left=(3+d)+'px';fill.style.width=(d+50)+'px';
+   lbl.textContent=d>max*.55?'Release':base;};
+  const up=()=>{const d=parseInt(knob.style.left||'3')-3;
+   document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+   document.removeEventListener('touchmove',mv);document.removeEventListener('touchend',up);
+   if(d>max*.55){lbl.textContent='Updating…';
+     let next=box.dataset.next;
+     if(next==='READY'){const o=ORDERS.find(x=>x.order_number===box.dataset.o);
+       next=(o&&o.order_type==='delivery')?'out_for_delivery':'ready_for_pickup';}
+     setStatus(box.dataset.o,next);}
+   else{knob.style.left='3px';fill.style.width='0';lbl.textContent=base;}
+   x0=null;};
+  knob.addEventListener('mousedown',down);knob.addEventListener('touchstart',down,{passive:true});
+}
+async function setStatus(num,status){
+  try{const r=await hook('/oceana-status',{order_number:num,status,agent_name:AGENT});
+   const j=await r.json(); if(!j.success)throw new Error();
+   toast(num+' → '+status.replace(/_/g,' '));}
+  catch(e){toast('Could not update '+num);}
+  await loadOrders(); render();
+}
+function printOrder(num){
+  const o=ORDERS.find(x=>x.order_number===num);if(!o)return;
+  const w=window.open('','_blank','width=380,height=640');
+  w.document.write(`<html><head><title>${esc(num)}</title><style>
+   body{font-family:monospace;padding:14px;font-size:13px;width:300px}h2{text-align:center;margin:0 0 2px}
+   .c{text-align:center}hr{border:0;border-top:1px dashed #999;margin:9px 0}
+   .r{display:flex;justify-content:space-between}.t{font-weight:bold;font-size:15px}</style></head><body>
+   <h2>OCEANA HOTEL</h2><div class="c">Janapriya Complex, State Bank<br>Mangalore 575001<br>+91 96634 28354</div>
+   <hr><div class="r"><span>${esc(num)}</span><span>${esc(o.order_type)}</span></div><div>${ist(o.created_at)}</div>
+   <div>${esc(o.customer_name||'Guest')} · ${esc(o.customer_phone)}</div>${o.address?'<div>'+esc(o.address)+'</div>':''}
+   <hr>${esc(o.items||'').split(', ').map(i=>'<div>'+esc(i)+'</div>').join('')}
+   <hr><div class="r t"><span>TOTAL</span><span>${rs(o.total)}</span></div>
+   <div class="c" style="margin-top:9px">Cash on ${o.order_type==='delivery'?'delivery':'pickup'}</div>
+   <hr><div class="c">Thank you!</div></body></html>`);
+  w.document.close();w.focus();w.print();
+}
+
+/* ---------- chat ---------- */
+function vChat(){
+  el('view').innerHTML=`<div class="chat ${CUR?'open':''}">
+    <div class="sessions">${SESSIONS.length?SESSIONS.map(s=>`
+      <div class="s" data-p="${esc(s.phone)}" aria-selected="${s.phone===CUR}">
+        ${s.unread_count>0?`<span class="unread">${s.unread_count}</span>`:''}
+        <b>${esc(s.phone)}</b><small>${esc((s.last_message||'').slice(0,42))}</small>
+        ${s.ai_enabled===false?`<span class="aioff">AI off · ${esc(s.ai_disabled_by||'staff')}</span>`:''}
+      </div>`).join(''):'<div class="none">No conversations yet</div>'}</div>
+    <div class="thread">${CUR?threadHtml():'<div class="none">Pick a conversation</div>'}</div></div>`;
+  el('view').querySelectorAll('[data-p]').forEach(d=>d.onclick=async()=>{
+    CUR=d.dataset.p;await loadMsgs(CUR);
+    await sb.from('chat_sessions').update({unread_count:0}).eq('phone',CUR);
+    await loadSessions();render();});
+  if(CUR){const s=SESSIONS.find(x=>x.phone===CUR)||{};
+    const sw=el('sw');if(sw)sw.onclick=()=>toggleAI(CUR,s.ai_enabled===false);
+    const b=el('send');if(b)b.onclick=sendReply;
+    const i=el('msg');if(i)i.addEventListener('keydown',e=>{if(e.key==='Enter')sendReply();});
+    const bk=el('back');if(bk)bk.onclick=()=>{CUR=null;render();};
+    const m=el('msgs');if(m)m.scrollTop=m.scrollHeight;}
+}
+function threadHtml(){
+  const s=SESSIONS.find(x=>x.phone===CUR)||{};
+  return `<div class="th"><div><button class="btn sm ghost" id="back" style="margin-right:8px">←</button><b>${esc(CUR)}</b></div>
+    <div class="tgl">AI <button class="sw" id="sw" aria-pressed="${s.ai_enabled!==false}"><i></i></button></div></div>
+    <div class="msgs" id="msgs">${MSGS.map(m=>`<div class="m ${m.direction==='inbound'?'in':'out'}">${esc(m.content)}
+      <small>${esc(m.sender)} · ${ist(m.created_at)}</small></div>`).join('')||'<div class="none">No messages</div>'}</div>
+    <div class="compose"><input id="msg" placeholder="Reply as ${esc(AGENT)}…" autocomplete="off">
+      <button class="btn sm" id="send">Send</button></div>`;
+}
+async function toggleAI(phone,on){
+  try{const r=await hook('/oceana-ai-toggle',{phone,enabled:on,agent_name:AGENT});
+   if(!r.ok)throw new Error();
+   toast(on?'AI back on':'AI paused — you are replying');}catch(e){toast('Could not change AI');}
+  await loadSessions();render();
+}
+async function sendReply(){
+  const i=el('msg');const t=i.value.trim();if(!t)return;i.value='';i.disabled=true;
+  try{const r=await hook('/oceana-agent-reply',{phone:CUR,message:t,agent_name:AGENT});
+   const j=await r.json();if(!j.success)throw new Error();}catch(e){toast('Message not sent');i.value=t;}
+  i.disabled=false;i.focus();await loadMsgs(CUR);await loadSessions();render();
+}
+
+/* ---------- menu ---------- */
+let MENU=[],MQ='';
+async function vMenu(){
+  if(!MENU.length){const {data}=await sb.from('menu_items').select('*').order('category').order('item_number');MENU=data||[];}
+  el('view').innerHTML=`<input class="srch" id="mq" type="search" placeholder="Search ${MENU.length} items by name or category" value="${esc(MQ)}" autocomplete="off">
+    <div id="mrows"></div>`;
+  el('mq').oninput=e=>{MQ=e.target.value;menuRows();};
+  menuRows();
+}
+function menuRows(){
+  const q=MQ.trim().toLowerCase();
+  const rows=MENU.filter(m=>!q||String(m.item_name||'').toLowerCase().includes(q)||String(m.category||'').toLowerCase().includes(q));
+  el('mrows').innerHTML=`<table><tr><th>Item</th><th>Category</th><th>Price</th><th>Available</th></tr>
+    ${rows.slice(0,200).map(m=>`<tr><td>${esc(m.item_name)}</td><td>${esc(m.category)}</td>
+      <td>${Number(m.price)?rs(m.price):'<span style="color:#E23744">Market</span>'}</td>
+      <td><button class="sw" data-av="${m.item_number}" aria-pressed="${m.available}" aria-label="${esc(m.item_name)} available"><i></i></button></td></tr>`).join('')}</table>
+    ${rows.length?'':'<div class="none">No items match "'+esc(q)+'"</div>'}
+    ${rows.length>200?'<div class="none">Showing first 200 of '+rows.length+' - keep typing to narrow.</div>':''}`;
+  el('mrows').querySelectorAll('[data-av]').forEach(b=>b.onclick=async()=>{
+    const n=+b.dataset.av,it=MENU.find(m=>m.item_number===n),next=!it.available;
+    const {error}=await sb.from('menu_items').update({available:next}).eq('item_number',n);
+    if(error){toast('Could not update');return;}
+    it.available=next;b.setAttribute('aria-pressed',next);
+    toast(it.item_name+(next?' back on the menu':' marked sold out'));});
+}
+
+/* ---------- analytics ---------- */
+async function vStats(){
+  const [{data:days},{data:top}]=await Promise.all([
+    sb.from('daily_sales').select('*').limit(14), sb.from('top_items').select('*').limit(12)]);
+  const d=days||[],t=top||[];
+  const tot=d.reduce((s,x)=>s+Number(x.revenue),0),ord=d.reduce((s,x)=>s+Number(x.orders),0);
+  el('view').innerHTML=`<div class="stats">
+      <div class="stat"><b>${ord}</b><span>Orders, last ${d.length} days</span></div>
+      <div class="stat"><b>${rs(tot)}</b><span>Revenue</span></div>
+      <div class="stat"><b>${rs(ord?Math.round(tot/ord):0)}</b><span>Average order</span></div></div>
+    <h3 style="font-family:Fraunces,serif;margin:18px 0 8px">By day</h3>
+    <table><tr><th>Day</th><th>Orders</th><th>Revenue</th><th>Average</th></tr>
+    ${d.length?d.map(x=>`<tr><td>${esc(x.day)}</td><td>${x.orders}</td><td>${rs(x.revenue)}</td><td>${rs(x.avg_order)}</td></tr>`).join('')
+      :'<tr><td colspan="4" class="none">No orders yet</td></tr>'}</table>
+    <h3 style="font-family:Fraunces,serif;margin:22px 0 8px">Most ordered</h3>
+    <table><tr><th>Item</th><th>Times</th></tr>
+    ${t.length?t.map(x=>`<tr><td>${esc(x.item)}</td><td>${x.times}</td></tr>`).join('')
+      :'<tr><td colspan="2" class="none">Nothing yet</td></tr>'}</table>`;
+}
+
+
+/* ---------- contacts ---------- */
+let CUSTOMERS=[],PICK=new Set(),CQ='';
+async function loadCustomers(){
+  const {data}=await sb.from('customers').select('phone,name,total_orders,last_order_date,opted_out')
+    .order('last_order_date',{ascending:false,nullsFirst:false}).limit(1000);
+  CUSTOMERS=data||[];
+}
+function cleanNum(raw){
+  let p=String(raw||'').replace(/[^0-9]/g,'');
+  if(!p) return '';
+  if(p.length===11&&p[0]==='0') return '91'+p.slice(1);
+  if(p.length===10&&'6789'.indexOf(p[0])>=0) return '91'+p;
+  if(p.length===12&&p.slice(0,2)==='91') return p;
+  return p.length>=10?p:'';
+}
+async function vContacts(){
+  if(!CUSTOMERS.length) await loadCustomers();
+  const rows=CUSTOMERS.filter(c=>!CQ||String(c.phone).includes(CQ)||String(c.name||'').toLowerCase().includes(CQ));
+  const eligible=rows.filter(c=>!c.opted_out);
+  el('view').innerHTML=`
+    <div class="stats">
+      <div class="stat c2"><span>Saved Contacts</span><b>${CUSTOMERS.length}</b></div>
+      <div class="stat c1"><span>Selected</span><b>${PICK.size}</b></div>
+      <div class="stat c3"><span>Opted Out</span><b>${CUSTOMERS.filter(c=>c.opted_out).length}</b></div>
+    </div>
+    <div class="drop" id="drop">
+      <b style="color:var(--ink)">Add numbers</b><br>
+      Drop a CSV here, or paste numbers below (one per line, or comma separated)
+      <div style="margin-top:12px;display:flex;gap:9px;justify-content:center;flex-wrap:wrap">
+        <input type="file" id="csv" accept=".csv,.txt" style="display:none">
+        <button class="btn sm ghost" id="pickfile">Choose CSV</button>
+      </div>
+    </div>
+    <textarea class="f" id="paste" rows="3" placeholder="9663428354, 7795240605 …" style="margin-top:12px"></textarea>
+    <button class="btn sm" id="imp">Add to contacts</button>
+    <div id="impres" style="margin-top:10px"></div>
+
+    <div class="pickbar" style="margin-top:22px">
+      <input class="f grow" id="cq" placeholder="Search name or number" value="${esc(CQ)}" style="margin:0">
+      <button class="btn sm ghost" id="selall">Select all shown (${eligible.length})</button>
+      <button class="btn sm ghost" id="selnone">Clear</button>
+      ${PICK.size?`<span class="selinfo">${PICK.size} selected</span>`:''}
+    </div>
+    <table><tr><th style="width:38px"></th><th>Number</th><th>Name</th><th>Orders</th><th>Last order</th></tr>
+      ${rows.length?rows.slice(0,400).map(c=>`<tr>
+        <td><input type="checkbox" class="cbox" data-ph="${esc(c.phone)}" ${PICK.has(c.phone)?'checked':''} ${c.opted_out?'disabled':''}></td>
+        <td>${esc(c.phone)}</td><td>${esc(c.name||'—')}</td><td>${c.total_orders||0}</td>
+        <td>${c.last_order_date?esc(c.last_order_date):'—'}${c.opted_out?' · <b style="color:var(--red)">opted out</b>':''}</td>
+      </tr>`).join(''):'<tr><td colspan="5" class="none">No contacts yet</td></tr>'}
+    </table>
+    ${rows.length>400?'<div class="none" style="margin-top:10px">Showing first 400 — search to narrow.</div>':''}
+    ${PICK.size?`<button class="btn" id="tob" style="margin-top:16px">Blast to ${PICK.size} selected →</button>`:''}`;
+
+  el('cq').oninput=e=>{CQ=e.target.value.trim().toLowerCase();vContacts();};
+  el('selall').onclick=()=>{eligible.forEach(c=>PICK.add(c.phone));vContacts();};
+  el('selnone').onclick=()=>{PICK.clear();vContacts();};
+  el('view').querySelectorAll('[data-ph]').forEach(b=>b.onchange=()=>{
+    if(b.checked)PICK.add(b.dataset.ph); else PICK.delete(b.dataset.ph);
+    const n=el('view').querySelector('.selinfo'); if(n)n.textContent=PICK.size+' selected';});
+  el('pickfile').onclick=()=>el('csv').click();
+  el('csv').onchange=e=>{const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();r.onload=()=>doImport(r.result);r.readAsText(f);};
+  const dz=el('drop');
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('on');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('on');}));
+  dz.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(!f)return;
+    const r=new FileReader();r.onload=()=>doImport(r.result);r.readAsText(f);});
+  el('imp').onclick=()=>doImport(el('paste').value);
+  const tb=el('tob'); if(tb) tb.onclick=()=>{VIEW='blast';
+    [...el('nav').children].forEach(x=>x.setAttribute('aria-current',x.dataset.v==='blast'));
+    el('vtitle').textContent='Blast';render();};
+}
+async function doImport(text){
+  const res=el('impres');
+  const raw=String(text||'').split(/[\s,;]+/).filter(Boolean);
+  const seen={},rows=[];
+  raw.forEach(r=>{const p=cleanNum(r); if(p&&!seen[p]){seen[p]=1;rows.push({phone:p,source:'import'});}});
+  if(!rows.length){res.innerHTML='<div class="err">No valid Indian mobile numbers found.</div>';return;}
+  const {error}=await sb.from('customers').upsert(rows,{onConflict:'phone',ignoreDuplicates:true});
+  if(error){res.innerHTML='<div class="err">'+esc(error.message)+'</div>';return;}
+  res.innerHTML='<div class="stat" style="padding:12px 16px"><span>Imported</span><b>'+rows.length+'</b></div>';
+  el('paste').value='';
+  CUSTOMERS=[];await loadCustomers();
+  rows.forEach(r=>PICK.add(r.phone));
+  toast(rows.length+' numbers added and selected');
+  vContacts();
+}
+
+/* ---------- blast ---------- */
+let SET_HDR='';
+async function vBlast(){
+  const {count}=await sb.from('customers').select('*',{count:'exact',head:true}).eq('opted_out',false);
+  if(!SET_HDR){const {data}=await sb.from('settings').select('value').eq('key','blast_header_image').maybeSingle();
+    SET_HDR=(data&&data.value)||'';}
+  const sel=PICK.size;
+  el('view').innerHTML=`<div class="stats" style="margin-bottom:14px">
+      <div class="stat c2"><span>Eligible Contacts</span><b>${count||0}</b></div>
+      <div class="stat c1"><span>Selected</span><b>${sel}</b></div></div>
+    ${sel?`<div class="selinfo" style="display:block;margin-bottom:12px">
+        Sending to the ${sel} contacts you picked. <button id="clr" style="text-decoration:underline">Clear selection</button>
+      </div>`:`<div class="selinfo" style="display:block;margin-bottom:12px;background:#FFF8E5;border-color:#F3DFA8;color:#7A5A00">
+        No contacts selected — this will go to the whole group below.
+        <button id="goc" style="text-decoration:underline">Pick contacts instead</button></div>`}
+    <label style="font-size:12px;font-weight:700;color:var(--muted)">Who${sel?' (ignored while a selection is active)':''}</label>
+    <select class="f" id="bf" ${sel?'disabled':''}><option value="all">Everyone</option>
+      <option value="active_30">Ordered in the last 30 days</option>
+      <option value="repeat">Repeat customers only</option></select>
+    <label style="font-size:12px;font-weight:700;color:var(--muted)">Approved template name</label>
+    <input class="f" id="bt" value="oceana_promo_en">
+    <label style="font-size:12px;font-weight:700;color:var(--muted)">Header image URL</label>
+    <input class="f" id="bi" placeholder="https://… .png" value="${esc(SET_HDR)}">
+    <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px">
+      Templates with an image header require an image on every send — Meta treats the one you
+      uploaded as a sample only. Put your offer creative on a public URL and paste it here.</div>
+    <div class="err" style="background:#FFF8E5;border-color:#F3DFA8;color:#7A5A00">
+      The template must already be approved in Meta, and this workflow must be active in n8n.
+      Sends about one per second — leave this tab open.</div>
+    <button class="btn" id="bgo">Send blast</button><div id="bres" style="margin-top:12px"></div>`;
+  const c=el('clr'); if(c) c.onclick=()=>{PICK.clear();vBlast();};
+  const g=el('goc'); if(g) g.onclick=()=>{VIEW='contacts';
+    [...el('nav').children].forEach(x=>x.setAttribute('aria-current',x.dataset.v==='contacts'));
+    el('vtitle').textContent='Contacts';render();};
+  el('bgo').onclick=async()=>{const b=el('bgo');b.disabled=true;b.textContent='Sending…';
+    try{const r=await hook('/oceana-blast',{filter:el('bf').disabled?'all':el('bf').value,
+        template_name:el('bt').value.trim(),language:'en',
+        header_image:el('bi').value.trim(),
+        phones:[...PICK]});
+     const j=await r.json();
+     el('bres').innerHTML=`<div class="stat ${j.sent?'c3':'c1'}"><span>Sent of ${j.attempted||0}</span><b>${j.sent||0}</b></div>`
+       +(j.error?`<div class="err" style="margin-top:10px"><b>Meta says:</b> ${esc(j.error)}</div>`:'');
+     if(el('bi').value.trim()&&el('bi').value.trim()!==SET_HDR){
+       await sb.from('settings').upsert({key:'blast_header_image',value:el('bi').value.trim()},{onConflict:'key'});
+       SET_HDR=el('bi').value.trim();}}
+    catch(e){el('bres').innerHTML='<div class="err">Blast did not complete. Check the workflow is active in n8n.</div>';}
+    b.disabled=false;b.textContent='Send blast';};
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,704 @@
+{
+  "name": "Oceana Blast Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oceana-blast",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-blast-sender-blast-webhook",
+      "name": "Blast Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "oceana-blast"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nvar hook = $('Blast Webhook').first().json;\nvar body = hook.body || hook;\n// An explicit list from the dashboard wins over the saved-contacts filter.\nvar phones = Array.isArray(body.phones) ? body.phones : [];\n\nreturn [{ json: {\n  phones: phones,\n  filter: body.filter || 'all',                       // all | active_30 | repeat\n  template_name: body.template_name || 'oceana_promo_en',\n  language: body.language || 'en',\n  header_image: body.header_image || '',   // filled from settings if blank\n  run_started_at: new Date().toISOString(),\n  run_id: 'blast_' + Date.now()\n} }];\n"
+      },
+      "id": "oceana-blast-sender-extract-params",
+      "name": "Extract Params",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/customers",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "opted_out",
+              "value": "=eq.false"
+            },
+            {
+              "name": "select",
+              "value": "phone,name,total_orders,last_order_date"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-blast-sender-get-customers",
+      "name": "Get Customers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nfunction cleanPhone(raw) {\n  var p = String(raw || '').replace(/[^0-9]/g, '');\n  if (p === '') { return ''; }\n  if (p.length === 11 && p.charAt(0) === '0') { return '91' + p.substring(1); }\n  if (p.length === 10 && '6789'.indexOf(p.charAt(0)) !== -1) { return '91' + p; }\n  if (p.length === 12 && p.substring(0, 2) === '91') { return p; }\n  if (p.length >= 11 && p.length <= 15) { return p; }\n  return '91' + p;\n}\n\nvar params = $('Extract Params').first().json;\n// The approved template carries an image header, so every send MUST include the\n// image parameter or Meta rejects it with a parameter-count error.\nvar hdr = params.header_image;\nif (!hdr) {\n  try { hdr = ($('Get Header Image').all().map(function(i){return i.json;})\n               .filter(function(r){return r && r.value;})[0] || {}).value || ''; } catch (e) { hdr = ''; }\n}\nvar raw = $input.all().map(function (i) { return i.json; });\nvar all = [];\nraw.forEach(function (r) { if (Array.isArray(r)) { all = all.concat(r); } else if (r && r.phone) { all.push(r); } });\n\n// If the dashboard sent a specific list, use exactly that and skip the filters.\nif (params.phones && params.phones.length) {\n  all = params.phones.map(function (p) { return { phone: p, name: '' }; });\n}\n\nvar cutoff = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));\nvar list = all.filter(function (c) { return c.phone && String(c.phone).trim() !== ''; });\n\nif (!params.phones.length && params.filter === 'active_30') {\n  list = list.filter(function (c) {\n    return c.last_order_date && (new Date(c.last_order_date) >= cutoff);\n  });\n} else if (!params.phones.length && params.filter === 'repeat') {\n  list = list.filter(function (c) { return Number(c.total_orders || 0) > 1; });\n}\n\n// The business's own number can never receive its own template - Meta rejects it\n// with (#100) Invalid parameter. Drop it before it wastes a send.\nvar SELF = '919663428354';\n\n// Deduplicate on the cleaned number so nobody is messaged twice in one blast\nvar seen = {};\nvar out = [];\nfor (var i = 0; i < list.length; i++) {\n  var p = cleanPhone(list[i].phone);\n  if (p === '' || p === SELF || seen[p]) { continue; }\n  seen[p] = true;\n  out.push({ json: { phone: p, name: list[i].name || '',\n                     template: params.template_name, run_id: params.run_id, language: params.language,\n                     header_image: hdr } });\n}\nif (out.length === 0) { return [{ json: { phone: '', empty: true } }]; }\nreturn out;\n"
+      },
+      "id": "oceana-blast-sender-filter-and-clean-phones",
+      "name": "Filter & Clean Phones",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "oceana-blast-sender-loop-over-customers",
+      "name": "Loop Over Customers",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1057952097409620/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.phone, type: \"template\", template: { name: $json.template, language: { code: $json.language }, components: [ { type: \"header\", parameters: [ { type: \"image\", image: { link: $json.header_image } } ] } ] } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "oceana-blast-sender-send-template",
+      "name": "Send Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1vNIxOEoQUki4NdE",
+          "name": "whatsapp token"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nvar res = $input.first().json;\nvar cust = $('Loop Over Customers').first().json;\n\nvar messageId = '';\ntry { messageId = res.messages[0].id || ''; } catch (e) { messageId = ''; }\nvar errorMsg = '';\ntry { errorMsg = res.error.message || ''; } catch (e) { errorMsg = ''; }\n\nvar failed = (messageId === '');\nvar httpErr = '';\ntry { httpErr = res.error && res.error.message ? res.error.message : ''; } catch (e) {}\nif (!errorMsg && httpErr) { errorMsg = httpErr; }\n\nreturn [{ json: {\n  run_id: cust.run_id,\n  phone: cust.phone,\n  blast_message_id: messageId,\n  blast_status: failed ? 'failed' : 'sent',\n  blast_sent_at: failed ? null : new Date().toISOString(),\n  blast_error: errorMsg\n} }];\n"
+      },
+      "id": "oceana-blast-sender-parse-send-result",
+      "name": "Parse Send Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/customers",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "=eq.{{ $json.phone }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ blast_message_id: $json.blast_message_id, blast_sent_at: $json.blast_sent_at, blast_status: $json.blast_status, blast_read_at: null }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-blast-sender-update-customer",
+      "name": "Update Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "id": "oceana-blast-sender-throttle-1s",
+      "name": "Throttle 1s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        100
+      ],
+      "webhookId": "oceana-blast-wait"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/blast_log",
+        "authentication": "genericCredentialType",
+        "options": {
+          "timeout": 10000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "run_id",
+              "value": "=eq.{{ $('Extract Params').first().json.run_id }}"
+            },
+            {
+              "name": "select",
+              "value": "phone,status,error"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "oceana-blast-sender-get-blast-summary",
+      "name": "Get Blast Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        -140
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nvar raw = $input.all().map(function (i) { return i.json; });\nvar rows = [];\nraw.forEach(function (r) {\n  if (Array.isArray(r)) { rows = rows.concat(r); }\n  else if (r && r.phone && r.status) { rows.push(r); }\n});\n\nvar sent = 0, failed = 0, firstError = '';\nrows.forEach(function (r) {\n  if (r.status === 'sent') { sent += 1; }\n  else { failed += 1; if (!firstError && r.error) { firstError = r.error; } }\n});\n\nvar attempted = sent + failed;\nvar skippedSelf = 0;\ntry { skippedSelf = $('Extract Params').first().json.skipped_self || 0; } catch (e) {}\n\nreturn [{ json: { success: true, attempted: attempted, sent: sent, failed: failed,\n  error: firstError, skipped_self: skippedSelf,\n  run_id: $('Extract Params').first().json.run_id } }];\n"
+      },
+      "id": "oceana-blast-sender-summarize-results",
+      "name": "Summarize Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "oceana-blast-sender-respond-to-dashboard",
+      "name": "Respond to Dashboard",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/settings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "=eq.blast_header_image"
+            },
+            {
+              "name": "select",
+              "value": "value"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "blast-hdr",
+      "name": "Get Header Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        770,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/blast_log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ run_id: $json.run_id, phone: $json.phone, status: $json.blast_status, message_id: $json.blast_message_id, error: String($json.blast_error||\"\").slice(0,300) }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "blast-log",
+      "name": "Log Attempt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3690,
+        -20
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tBotvgQ8GwWeQ5WO",
+          "name": "Oceana Supabase Key"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mvyeccwomwsgtzuxddye.supabase.co/rest/v1/rpc/staff_check",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_qdBxwwY06XTSEG5OKwCmaQ_r7KY3J5T"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization || 'Bearer none' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}"
+      },
+      "id": "c35fb204-46e6-4dce-bd6f-1964def30ac5",
+      "name": "Verify Staff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ec763291-b05d-49a1-a30b-ca340167e122",
+              "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3561a936-d0e5-4970-b6f4-dddbffc347a6",
+      "name": "Is Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "cabb8b2f-b1c2-4196-891e-a91ea5c8570a",
+      "name": "Respond Unauthorised",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Blast Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Params": {
+      "main": [
+        [
+          {
+            "node": "Get Header Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customers": {
+      "main": [
+        [
+          {
+            "node": "Filter & Clean Phones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Clean Phones": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Customers": {
+      "main": [
+        [
+          {
+            "node": "Get Blast Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Template": {
+      "main": [
+        [
+          {
+            "node": "Parse Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Send Result": {
+      "main": [
+        [
+          {
+            "node": "Log Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Customer": {
+      "main": [
+        [
+          {
+            "node": "Throttle 1s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Throttle 1s": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Blast Summary": {
+      "main": [
+        [
+          {
+            "node": "Summarize Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Header Image": {
+      "main": [
+        [
+          {
+            "node": "Get Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Attempt": {
+      "main": [
+        [
+          {
+            "node": "Update Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Staff": {
+      "main": [
+        [
+          {
+            "node": "Is Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Staff?": {
+      "main": [
+        [
+          {
+            "node": "Extract Params",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": [],
+  "id": "",
+  "meta": {}
+}

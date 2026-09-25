@@ -29,23 +29,34 @@ export default function Home() {
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
+  const [menuError, setMenuError] = useState(false);
+
+  const fetchMenu = async () => {
+    setIsLoadingMenu(true);
+    setMenuError(false);
+
+    try {
+      const res = await fetch('/api/menu', { cache: 'no-store' });
+      if (!res.ok) {
+        setMenuItems([]);
+        setMenuError(true);
+        return;
+      }
+
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      setMenuItems(items);
+      setMenuError(false);
+    } catch (err) {
+      console.error('Failed to fetch menu:', err);
+      setMenuItems([]);
+      setMenuError(true);
+    } finally {
+      setIsLoadingMenu(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const res = await fetch('/api/menu');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.items) {
-            setMenuItems(data.items);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch menu:', err);
-      } finally {
-        setIsLoadingMenu(false);
-      }
-    };
     fetchMenu();
   }, []);
 
@@ -181,7 +192,19 @@ export default function Home() {
             ))}
           </div>
           {isLoadingMenu && <div className="py-12 text-center text-gray-500">Loading menu...</div>}
-          {!isLoadingMenu && visibleItems.length === 0 && <div className="py-12 text-center text-gray-500">No dishes found. Try a different search.</div>}
+          {!isLoadingMenu && menuError && (
+            <div className="px-4 py-12 text-center">
+              <p className="text-gray-700 font-medium">Unable to load the menu right now. Please try again.</p>
+              <button
+                type="button"
+                onClick={fetchMenu}
+                className="mt-4 rounded-full bg-[#ef4f5f] px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {!isLoadingMenu && !menuError && visibleItems.length === 0 && <div className="py-12 text-center text-gray-500">No dishes are currently available.</div>}
         </section>
       </main>
 
