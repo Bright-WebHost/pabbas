@@ -13,7 +13,7 @@ export interface MenuItem {
   description: string;
   price: number;
   image: string;
-  vegetarian: boolean;
+  vegetarian?: boolean;
   badge?: string;
   featured?: boolean;
   options?: MenuOption[];
