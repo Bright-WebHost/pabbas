@@ -1,11 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const ORDER_STATUSES = [
-  "pending",
-  "confirmed",
+  "new",
   "preparing",
-  "ready",
-  "completed",
+  "ready_for_pickup",
+  "out_for_delivery",
+  "delivered",
   "cancelled",
 ] as const;
 
@@ -13,30 +13,42 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export interface DashboardOrderItem {
   id: string;
-  item_name_snapshot: string;
-  variant_name_snapshot: string | null;
+  order_id: string;
+  menu_item_id: string | null;
+  item_name: string;
   quantity: number;
-  line_total_paise: number;
+  unit_price: number;
+  size: string | null;
+  notes: string | null;
 }
 
 export interface DashboardOrder {
   id: string;
   order_number: string;
-  order_type: "delivery" | "pickup" | "dine-in";
-  order_status: OrderStatus;
-  payment_status: "pending" | "paid" | "failed";
-  payment_method: "upi" | "cash" | "online";
-  total_paise: number;
-  customer_name_snapshot: string;
-  customer_phone_snapshot: string;
-  delivery_address_snapshot: string | null;
-  landmark_snapshot: string | null;
-  pincode_snapshot: string | null;
-  table_id: string | null;
-  scheduled_time: string | null;
+  customer_phone: string;
+  customer_name: string | null;
+  items: string;
+  total: number;
+  status: OrderStatus;
+  order_type: "delivery" | "pickup" | "dine-in" | "takeaway";
+  source: string | null;
+  address: string | null;
+  landmark: string | null;
+  city: string | null;
+  pincode: string | null;
+  table_number: string | null;
+  confirmed_at: string | null;
+  amend_window_until: string | null;
+  amended_at: string | null;
+  amendment_count: number | null;
+  original_items: string | null;
+  cancel_reason: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
+  cancel_requested_at: string | null;
   created_at: string;
   updated_at: string;
-  items: DashboardOrderItem[];
+  items_json: Array<{ menu_item_id: string | null; item_name: string; quantity: number; unit_price: number }> | null;
 }
 
 export async function getDashboardOrders(): Promise<{
@@ -45,10 +57,11 @@ export async function getDashboardOrders(): Promise<{
 }> {
   try {
     const adminClient = createAdminClient();
+
     const { data: orderRows, error: ordersError } = await adminClient
       .from("orders")
       .select(
-        "id, order_number, order_type, order_status, payment_status, payment_method, total_paise, customer_name_snapshot, customer_phone_snapshot, delivery_address_snapshot, landmark_snapshot, pincode_snapshot, table_id, scheduled_time, created_at, updated_at"
+        "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json"
       )
       .order("created_at", { ascending: false })
       .limit(100);
@@ -57,7 +70,7 @@ export async function getDashboardOrders(): Promise<{
       return { orders: [], error: "Orders could not be loaded." };
     }
 
-    const rows = (orderRows ?? []) as Array<Omit<DashboardOrder, "items">>;
+    const rows = (orderRows ?? []) as DashboardOrder[];
     if (rows.length === 0) {
       return { orders: [], error: null };
     }
@@ -65,7 +78,7 @@ export async function getDashboardOrders(): Promise<{
     const orderIds = rows.map((order) => order.id);
     const { data: itemRows, error: itemsError } = await adminClient
       .from("order_items")
-      .select("id, order_id, item_name_snapshot, variant_name_snapshot, quantity, line_total_paise")
+      .select("id, order_id, menu_item_id, item_name, quantity, unit_price, size, notes")
       .in("order_id", orderIds)
       .order("created_at", { ascending: true });
 
@@ -78,10 +91,13 @@ export async function getDashboardOrders(): Promise<{
       const orderItems = itemsByOrder.get(item.order_id) ?? [];
       orderItems.push({
         id: item.id,
-        item_name_snapshot: item.item_name_snapshot,
-        variant_name_snapshot: item.variant_name_snapshot,
+        order_id: item.order_id,
+        menu_item_id: item.menu_item_id,
+        item_name: item.item_name,
         quantity: item.quantity,
-        line_total_paise: item.line_total_paise,
+        unit_price: item.unit_price,
+        size: item.size,
+        notes: item.notes,
       });
       itemsByOrder.set(item.order_id, orderItems);
     }
@@ -89,7 +105,12 @@ export async function getDashboardOrders(): Promise<{
     return {
       orders: rows.map((order) => ({
         ...order,
-        items: itemsByOrder.get(order.id) ?? [],
+        items: order.items ?? "",
+        items_json: order.items_json ?? null,
+        total: Number(order.total ?? 0),
+        status: (order.status as OrderStatus) ?? "new",
+        order_type: (order.order_type as DashboardOrder["order_type"]) ?? "delivery",
+        amendment_count: Number(order.amendment_count ?? 0),
       })),
       error: null,
     };

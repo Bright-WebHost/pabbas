@@ -1,8 +1,7 @@
-export default function DashboardPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Dashboard (Under Construction)</h1>
-      <p className="text-[var(--muted)]">Phase 1 Dashboard Foundation Active.</p>
-    </div>
-  );
+import { getDashboardOrders } from "@/lib/orders/queries";
+import OrdersBoard from "./orders/OrdersBoard";
+
+export default async function DashboardPage() {
+  const { orders, error } = await getDashboardOrders();
+  return <OrdersBoard orders={orders} error={error} />;
 }
