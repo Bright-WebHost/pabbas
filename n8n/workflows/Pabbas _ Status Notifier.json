@@ -304,7 +304,7 @@
             },
             {
               "name": "Authorization",
-              "value": "={{ $json.headers.authorization || \"Bearer \" + ($env.SUPABASE_SERVICE_ROLE_KEY || \"YOUR_SERVICE_ROLE_KEY\") }}"
+              "value": "={{ \"Bearer \" + ($json.body.staff_token || $json.staff_token || \"\") }}"
             },
             {
               "name": "Content-Type",
