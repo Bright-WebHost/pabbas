@@ -12,19 +12,18 @@
           ]
         }
       },
-      "id": "pabbas-rating-request-every-10-minutes",
+      "id": "a3cfa3e5-6fc8-4bde-9919-dce1ce815278",
       "name": "Every 10 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        200,
-        200
+        -672,
+        80
       ]
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/pending_ratings",
+        "url": "={{ $env.SUPABASE_URL ||'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/pending_ratings",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
         "sendQuery": true,
@@ -53,50 +52,46 @@
           "timeout": 15000
         }
       },
-      "id": "pabbas-rating-request-find-delivered",
+      "id": "1d7b5ae0-3c9e-4c7a-8703-48a2cd04bfe6",
       "name": "Find Delivered",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        430,
-        200
+        -480,
+        80
       ],
+      "alwaysOutputData": false,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
-      },
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "parameters": {
-        "batchSize": 1,
         "options": {}
       },
-      "id": "pabbas-rating-request-loop-orders",
+      "id": "9d70254d-acef-4db6-b7db-02435e763b7e",
       "name": "Loop Orders",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        650,
-        200
+        -272,
+        128
       ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "JavaScript",
-        "jsCode": "const o = $input.first().json; if (!o || !o.customer_phone) return [{ json: { skip: true } }]; const name = o.customer_name ? ' ' + String(o.customer_name).split(' ')[0] : ''; const msg = 'Hope you enjoyed your meal' + name + '!\n\nHow was order ' + o.order_number + '? Tap a rating below, or reply with a number from 1 to 5.'; return [{ json: { skip: false, phone: o.customer_phone, order_number: o.order_number, outgoing: { type: 'interactive', interactive: { type: 'button', body: { text: msg }, action: { buttons: [ { type: 'reply', reply: { id: 'rate_5', title: '5 - Excellent' } }, { type: 'reply', reply: { id: 'rate_4', title: '4 - Good' } }, { type: 'reply', reply: { id: 'rate_3', title: '3 - Okay' } } ] } } } } }];"
+        "jsCode": "const o = $input.first().json;\n\nif (!o || !o.customer_phone) {\n  return [{ json: { skip: true } }];\n}\n\nconst name = o.customer_name\n  ? ' ' + String(o.customer_name).split(' ')[0]\n  : '';\n\nconst msg =\n  'Hope you enjoyed your meal' +\n  name +\n  '!\\n\\nHow was order ' +\n  o.order_number +\n  '? Tap a rating below, or reply with a number from 1 to 5.';\n\nreturn [{\n  json: {\n    skip: false,\n    phone: o.customer_phone,\n    order_number: o.order_number,\n    outgoing: {\n      type: 'interactive',\n      interactive: {\n        type: 'button',\n        body: {\n          text: msg\n        },\n        action: {\n          buttons: [\n            {\n              type: 'reply',\n              reply: {\n                id: 'rate_5',\n                title: '5 - Excellent'\n              }\n            },\n            {\n              type: 'reply',\n              reply: {\n                id: 'rate_4',\n                title: '4 - Good'\n              }\n            },\n            {\n              type: 'reply',\n              reply: {\n                id: 'rate_3',\n                title: '3 - Okay'\n              }\n            }\n          ]\n        }\n      }\n    }\n  }\n}];"
       },
-      "id": "pabbas-rating-request-build-ask",
+      "id": "312d48c1-0327-4022-ae61-7c22f6921dc3",
       "name": "Build Ask",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        870,
-        200
+        0,
+        192
       ]
     },
     {
@@ -105,12 +100,6 @@
         "url": "https://api.ycloud.com/whatsapp/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify(Object.assign({ to: $json.phone }, $json.outgoing)) }}",
-        "options": {
-          "timeout": 15000
-        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -119,35 +108,38 @@
               "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ to: $json.phone }, $json.outgoing)) }}",
+        "options": {
+          "timeout": 15000
         }
       },
-      "id": "pabbas-rating-request-send-ask",
+      "id": "59a1840e-2245-4fca-8c80-428fa426fdeb",
       "name": "Send Ask (TODO: verify YCloud payload)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1090,
-        120
+        224,
+        192
       ],
-      "disabled": true,
+      "alwaysOutputData": true,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "Pabbas_YCloud_WhatsApp_Token_ID",
-          "name": "Pabbas YCloud WhatsApp Token"
+          "id": "x4SuAc2J4iQHp2E0",
+          "name": "x-pabbas-whatsapp-secret"
         }
       },
-      "alwaysOutputData": true,
+      "disabled": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/reviews",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/reviews",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ order_number: $('Build Ask').first().json.order_number, phone: $('Build Ask').first().json.phone, asked_at: new Date().toISOString() }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -161,63 +153,57 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order_number: $('Build Ask').first().json.order_number, phone: $('Build Ask').first().json.phone, asked_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 15000
         }
       },
-      "id": "pabbas-rating-request-reserve-review",
+      "id": "4ee70a38-81f9-4d2e-bc69-fca338e8897c",
       "name": "Reserve Review",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1310,
-        120
+        448,
+        192
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
       },
-      "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "amount": 2,
-        "unit": "seconds"
+        "amount": 2
       },
-      "id": "pabbas-rating-request-wait-2s",
+      "id": "944d53d5-efa4-4ff6-a457-ca094d3698cb",
       "name": "Wait 2s",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        1530,
-        120
+        656,
+        192
       ],
       "webhookId": "pabbas-rate-wait"
     },
     {
       "parameters": {},
-      "id": "pabbas-rating-request-done",
+      "id": "6deb0c91-8965-4485-ba30-ede92d8131c9",
       "name": "Done",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        870,
-        -60
+        864,
+        64
       ]
     }
   ],
-  "active": false,
   "pinData": {},
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Kolkata"
-  },
-  "tags": [],
-  "id": "",
-  "meta": {},
   "connections": {
     "Every 10 Minutes": {
       "main": [
@@ -243,6 +229,13 @@
     },
     "Loop Orders": {
       "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Build Ask",
@@ -289,12 +282,24 @@
       "main": [
         [
           {
-            "node": "Done",
+            "node": "Loop Orders",
             "type": "main",
             "index": 0
           }
         ]
       ]
     }
-  }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3ffdb04a-f154-42e7-9436-8f14630b5ebd",
+  "meta": {
+    "instanceId": "b8ff127f317074cc5bc37023e1f534bbf5d4eb46850ad650a2eff410073b60b6"
+  },
+  "nodeGroups": [],
+  "id": "E6vpM4ea1sG4QCzW",
+  "tags": []
 }

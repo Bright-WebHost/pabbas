@@ -5,7 +5,8 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "pabbas-status",
-        "responseMode": "onReceived",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -17,35 +18,33 @@
           }
         }
       },
-      "id": "pabbas-status-webhook",
+      "id": "2963a580-1226-4ed3-ad8d-f98ccb5c7064",
       "name": "Status Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        200,
-        200
+        -16,
+        208
       ],
       "webhookId": "pabbas-status",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "Pabbas_WhatsApp_Inbound_Secret_ID",
-          "name": "Pabbas WhatsApp Inbound Secret"
+          "id": "x4SuAc2J4iQHp2E0",
+          "name": "x-pabbas-whatsapp-secret"
         }
       }
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "JavaScript",
-        "jsCode": "const hook = $input.first().json; const d = hook.body || hook; const who = $('Verify Staff').first().json || {}; const allowed = ['new', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled']; let status = String(d.status || '').trim(); const orderNum = String(d.order_number || '').trim(); if (status === 'confirmed') status = 'preparing'; if (orderNum === '' || allowed.indexOf(status) === -1) return [{ json: { error: true, reason: 'Invalid order_number or status' } }]; return [{ json: { order_number: orderNum, status, staff: String(d.agent_name || who.body?.email || 'staff'), error: false } }];"
+        "jsCode": "for (const item of $input.all()) {\n  if (item.json && item.json.body) {\n    item.json.order_number = item.json.body.order_number;\n    item.json.status = item.json.body.status;\n  }\n}\nreturn $input.all();"
       },
-      "id": "pabbas-status-extract-data",
+      "id": "26066344-85f5-4050-add3-8c4a08a5efc9",
       "name": "Extract Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        430,
-        200
+        432,
+        16
       ]
     },
     {
@@ -56,22 +55,30 @@
               "value1": "={{ $json.error }}",
               "operation": "false"
             }
-          ]
-        }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
       },
-      "id": "pabbas-status-valid-status",
+      "id": "41782426-9bd2-4e59-a4a0-6b4909a5d6d4",
       "name": "Valid Status?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        650,
-        200
+        592,
+        -96
       ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/orders",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/orders",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
         "sendQuery": true,
@@ -83,9 +90,6 @@
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString() } : { status: $json.status }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -99,40 +103,41 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString() } : { status: $json.status }) }}",
         "options": {
           "timeout": 10000
         }
       },
-      "id": "pabbas-status-update-status",
+      "id": "5dcb9758-3b31-404f-80bb-4b157387e3e8",
       "name": "Update Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        870,
-        120
+        912,
+        -208
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
-      },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      }
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
         "language": "JavaScript",
-        "jsCode": "const rows = $input.first().json; const order = Array.isArray(rows) ? (rows[0] || null) : (rows || null); if (order && typeof order === 'object' && Object.keys(order).length === 0) return [{ json: { skip: true } }]; if (!order || !order.customer_phone) return [{ json: { skip: true } }]; const name = order.customer_name ? ' ' + String(order.customer_name).split(' ')[0] : ''; const num = order.order_number || ''; const status = $('Extract Data').first().json.status; const messages = { preparing: 'Hi' + name + ', your Pabbas order *' + num + '* has been accepted and our kitchen is preparing it now.', out_for_delivery: 'Good news' + name + '! Your order *' + num + '* is on its way. Expect it in 20-35 minutes.', ready_for_pickup: 'Hi' + name + ', your order *' + num + '* is ready for pickup.', delivered: 'Delivered! Hope you enjoy your meal' + name + '.\n\nHow was it? Reply with a number from 1 to 5.\n(1 = poor, 5 = excellent)', cancelled: 'Hi' + name + ', your order *' + num + '* has been cancelled by the restaurant.' }; const msg = messages[status]; if (!msg) return [{ json: { skip: true } }]; return [{ json: { skip: false, phone: String(order.customer_phone), message: msg, order_number: num, status } }];"
+        "jsCode": "for (const item of $input.all()) {\n  const order = item.json;\n  let msg = \"\";\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n      // Sometimes Supabase returns an array for updates\n      Object.assign(order, order[0]);\n  }\n  \n  switch(order.status) {\n    case 'preparing':\n      msg = `Hi ${order.customer_name || 'there'}, your order #${order.order_number} is now being prepared!`;\n      break;\n    case 'ready_for_pickup':\n      msg = `Hi ${order.customer_name || 'there'}, your order #${order.order_number} is ready for pickup!`;\n      break;\n    case 'out_for_delivery':\n      msg = `Hi ${order.customer_name || 'there'}, your order #${order.order_number} is out for delivery!`;\n      break;\n    case 'delivered':\n      msg = `Hi ${order.customer_name || 'there'}, your order #${order.order_number} has been delivered. Enjoy!`;\n      break;\n    case 'cancelled':\n      msg = `Hi ${order.customer_name || 'there'}, your order #${order.order_number} has been cancelled.`;\n      break;\n    default:\n      skip = true;\n  }\n  \n  item.json.phone = order.customer_phone;\n  item.json.message = msg;\n  item.json.skip = skip;\n}\nreturn $input.all();"
       },
-      "id": "pabbas-status-build-message",
+      "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
       "name": "Build Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1090,
-        120
+        1136,
+        -208
       ]
     },
     {
@@ -143,67 +148,68 @@
               "value1": "={{ $json.skip }}",
               "operation": "false"
             }
-          ]
-        }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
       },
-      "id": "pabbas-status-should-notify",
+      "id": "ba959761-4572-4248-80b8-736275bb81e6",
       "name": "Should Notify?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1310,
-        120
+        944,
+        64
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.ycloud.com/whatsapp/messages",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ to: $json.phone, text: { body: $json.message } }) }}",
-        "options": {
-          "timeout": 15000
-        },
+        "url": "https://api.ycloud.com/v2/whatsapp/messages",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "d5502caecd15e608b38bb515f76d5f35"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ to: $json.phone, type: 'text', text: { body: $json.message } }) }}",
+        "options": {
+          "timeout": 15000
         }
       },
-      "id": "pabbas-status-send-whatsapp",
-      "name": "Send WhatsApp (TODO: verify YCloud payload)",
+      "id": "1e0d03f3-1cf5-4a19-bff6-776c48de73b8",
+      "name": "Send YCloud WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1530,
-        40
+        1264,
+        -32
       ],
-      "disabled": true,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "Pabbas_YCloud_WhatsApp_Token_ID",
-          "name": "Pabbas YCloud WhatsApp Token"
-        }
-      },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "disabled": false,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/messages",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/messages",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ phone: $('Build Message').first().json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: $('Build Message').first().json.message }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -213,26 +219,29 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Build Message').first().json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: $('Build Message').first().json.message }) }}",
         "options": {
           "timeout": 10000
         }
       },
-      "id": "pabbas-status-log-message",
+      "id": "8294b215-20d4-45b2-a58c-bbac8a6fae4b",
       "name": "Log Message",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1530,
-        220
+        1488,
+        -48
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
       },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -249,19 +258,18 @@
           }
         }
       },
-      "id": "pabbas-status-respond-success",
+      "id": "8ba8e9ac-4269-46f1-aa2a-deae22a556ed",
       "name": "Respond Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1750,
-        120
+        1520,
+        352
       ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseCode": 400,
         "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
         "options": {
           "responseHeaders": {
@@ -274,20 +282,19 @@
           }
         }
       },
-      "id": "pabbas-status-respond-error",
+      "id": "e2d141c3-bf06-4e9a-aaeb-97e285724906",
       "name": "Respond Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        870,
-        340
+        640,
+        160
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || \"https://YOUR_PROJECT_REF.supabase.co\" }}/rest/v1/rpc/staff_check",
-        "authentication": "none",
+        "url": "={{ $env.SUPABASE_URL || \"https://clqzctntkwzahdfjeqlx.supabase.co\" }}/rest/v1/rpc/staff_check",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -305,25 +312,25 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
         "options": {
-          "timeout": 10000,
           "response": {
             "response": {
               "fullResponse": true,
               "neverError": true
             }
-          }
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({}) }}"
+          },
+          "timeout": 10000
+        }
       },
-      "id": "pabbas-status-verify-staff",
+      "id": "acce89ad-93bb-417d-88d4-38897fba9075",
       "name": "Verify Staff",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        220,
+        0,
         0
       ],
       "alwaysOutputData": true,
@@ -354,19 +361,18 @@
         },
         "options": {}
       },
-      "id": "pabbas-status-is-staff",
+      "id": "84a8d1e6-c970-4be5-a56c-1f724cc3ceda",
       "name": "Is Staff?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        440,
+        224,
         0
       ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseCode": 401,
         "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
         "options": {
           "responseHeaders": {
@@ -379,25 +385,17 @@
           }
         }
       },
-      "id": "pabbas-status-respond-unauthorised",
+      "id": "cc3db720-c807-42b5-8d82-8be20261366f",
       "name": "Respond Unauthorised",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        660,
-        220
+        208,
+        240
       ]
     }
   ],
-  "active": false,
   "pinData": {},
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Kolkata"
-  },
-  "tags": [],
-  "id": "",
-  "meta": {},
   "connections": {
     "Status Webhook": {
       "main": [
@@ -494,7 +492,7 @@
       "main": [
         [
           {
-            "node": "Send WhatsApp (TODO: verify YCloud payload)",
+            "node": "Send YCloud WhatsApp",
             "type": "main",
             "index": 0
           }
@@ -502,17 +500,6 @@
         [
           {
             "node": "Respond Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send WhatsApp (TODO: verify YCloud payload)": {
-      "main": [
-        [
-          {
-            "node": "Log Message",
             "type": "main",
             "index": 0
           }
@@ -529,6 +516,30 @@
           }
         ]
       ]
+    },
+    "Send YCloud WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Log Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
-  }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5c48d3ef-82a7-403d-a4e0-72db4e77cde3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b8ff127f317074cc5bc37023e1f534bbf5d4eb46850ad650a2eff410073b60b6"
+  },
+  "nodeGroups": [],
+  "id": "24IaEnLI3RCYU6da",
+  "tags": []
 }

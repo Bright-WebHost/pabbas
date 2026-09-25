@@ -5,7 +5,8 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "pabbas-agent-reply",
-        "responseMode": "onReceived",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -17,35 +18,33 @@
           }
         }
       },
-      "id": "pabbas-agent-reply-webhook",
+      "id": "7a4b1612-42fd-477a-a630-e1e140694d6c",
       "name": "Agent Reply Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        200,
-        200
+        -192,
+        80
       ],
       "webhookId": "pabbas-agent-reply",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "Pabbas_WhatsApp_Inbound_Secret_ID",
-          "name": "Pabbas WhatsApp Inbound Secret"
+          "id": "x4SuAc2J4iQHp2E0",
+          "name": "x-pabbas-whatsapp-secret"
         }
       }
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "JavaScript",
-        "jsCode": "const hook = $input.first().json; const body = hook.body || hook; const who = $('Verify Staff').first().json || {}; const cleanPhone = (raw) => { const p = String(raw || '').replace(/[^0-9]/g, ''); if (p === '') return ''; if (p.length === 11 && p.charAt(0) === '0') return '91' + p.substring(1); if (p.length === 10 && '6789'.indexOf(p.charAt(0)) !== -1) return '91' + p; if (p.length === 12 && p.substring(0, 2) === '91') return p; if (p.length >= 11 && p.length <= 15) return p; return '91' + p; }; const phone = cleanPhone(body.phone); const message = String(body.message || '').trim(); const agent = String(body.agent_name || who.body?.email || 'Staff').trim(); if (phone === '' || message === '') return [{ json: { error: true, reason: 'Missing phone or message' } }]; if (message.length > 4000) return [{ json: { error: true, reason: 'Message exceeds WhatsApp 4096 char limit' } }]; return [{ json: { phone, message, agent_name: agent, error: false } }];"
+        "language": "JavaScript"
       },
-      "id": "pabbas-agent-reply-validate",
+      "id": "d6fc0ee1-dced-46e6-8ff6-cac67b2fc2d1",
       "name": "Validate Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        430,
-        200
+        288,
+        -176
       ]
     },
     {
@@ -56,22 +55,30 @@
               "value1": "={{ $json.error }}",
               "operation": "false"
             }
-          ]
-        }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
       },
-      "id": "pabbas-agent-reply-valid",
+      "id": "b1672eb4-61c4-4212-814a-69981ac4baee",
       "name": "Is Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        650,
-        200
+        304,
+        64
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/rpc/staff_check",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/rpc/staff_check",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
         "sendHeaders": true,
@@ -95,24 +102,30 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({}) }}",
         "options": {
-          "timeout": 10000,
           "response": {
             "response": {
               "fullResponse": true,
               "neverError": true
             }
-          }
+          },
+          "timeout": 10000
         }
       },
-      "id": "pabbas-agent-reply-verify-staff",
+      "id": "a3bdcf89-082a-4f07-bf69-4099c52fd7cd",
       "name": "Verify Staff",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        200,
-        20
+        -192,
+        -112
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "RImgl1ED9KhO0wG4",
+          "name": "Supabase Service Role"
+        }
+      }
     },
     {
       "parameters": {
@@ -120,12 +133,6 @@
         "url": "https://api.ycloud.com/whatsapp/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ to: $json.phone, text: { body: $json.message } }) }}",
-        "options": {
-          "timeout": 15000
-        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -134,35 +141,32 @@
               "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ to: $json.phone, text: { body: $json.message } }) }}",
+        "options": {
+          "timeout": 15000
         }
       },
-      "id": "pabbas-agent-reply-send-whatsapp",
+      "id": "fb9336f8-d912-44ce-9f9c-20ca04c3aed7",
       "name": "Send WhatsApp Reply (TODO: verify YCloud payload)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        870,
-        120
+        480,
+        -16
       ],
+      "alwaysOutputData": true,
       "disabled": true,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "Pabbas_YCloud_WhatsApp_Token_ID",
-          "name": "Pabbas YCloud WhatsApp Token"
-        }
-      },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/messages",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/messages",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, direction: 'outbound', sender: 'agent', message_type: 'text', content: $('Validate Input').first().json.message }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -176,31 +180,34 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, direction: 'outbound', sender: 'agent', message_type: 'text', content: $('Validate Input').first().json.message }) }}",
         "options": {
           "timeout": 10000
         }
       },
-      "id": "pabbas-agent-reply-log-agent-message",
+      "id": "886722d8-5fd4-4e33-a3fb-ffb9a72c7e75",
       "name": "Log Agent Message",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1090,
-        120
+        704,
+        -16
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
       },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/chat_sessions",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/chat_sessions",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
         "sendQuery": true,
@@ -212,9 +219,6 @@
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, ai_enabled: false, ai_disabled_at: new Date().toISOString(), ai_disabled_by: $('Validate Input').first().json.agent_name, last_human_activity_at: new Date().toISOString() }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -228,26 +232,29 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, ai_enabled: false, ai_disabled_at: new Date().toISOString(), ai_disabled_by: $('Validate Input').first().json.agent_name, last_human_activity_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 10000
         }
       },
-      "id": "pabbas-agent-reply-take-over",
+      "id": "c982707f-fbf1-4121-ac69-12e478b4932b",
       "name": "Take Over Session",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1310,
-        120
+        928,
+        -16
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
       },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -264,19 +271,18 @@
           }
         }
       },
-      "id": "pabbas-agent-reply-respond-success",
+      "id": "74b26af0-e122-41a0-bd9e-5febf2ea6755",
       "name": "Respond Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1530,
-        120
+        1152,
+        -16
       ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseCode": 400,
         "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
         "options": {
           "responseHeaders": {
@@ -289,13 +295,13 @@
           }
         }
       },
-      "id": "pabbas-agent-reply-respond-error",
+      "id": "91f6fba5-344d-448f-82d7-eda0782dec82",
       "name": "Respond Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        870,
-        340
+        480,
+        224
       ]
     },
     {
@@ -323,19 +329,18 @@
         },
         "options": {}
       },
-      "id": "pabbas-agent-reply-is-staff",
+      "id": "ca9389ec-b9c3-4afe-8d13-535cecafc3e1",
       "name": "Is Staff?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        440,
-        0
+        48,
+        -128
       ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseCode": 401,
         "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
         "options": {
           "responseHeaders": {
@@ -348,25 +353,17 @@
           }
         }
       },
-      "id": "pabbas-agent-reply-respond-unauthorised",
+      "id": "847f2517-51a0-4cef-9b40-abab8d8102d7",
       "name": "Respond Unauthorised",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        660,
-        220
+        112,
+        160
       ]
     }
   ],
-  "active": false,
   "pinData": {},
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Kolkata"
-  },
-  "tags": [],
-  "id": "",
-  "meta": {},
   "connections": {
     "Agent Reply Webhook": {
       "main": [
@@ -470,5 +467,18 @@
         ]
       ]
     }
-  }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c243bc29-d025-4699-ba33-c03347fbde2e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b8ff127f317074cc5bc37023e1f534bbf5d4eb46850ad650a2eff410073b60b6"
+  },
+  "nodeGroups": [],
+  "id": "bgDd5V7r7LaLo0qb",
+  "tags": []
 }

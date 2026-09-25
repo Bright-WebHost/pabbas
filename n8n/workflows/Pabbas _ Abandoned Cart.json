@@ -12,19 +12,18 @@
           ]
         }
       },
-      "id": "pabbas-abandoned-cart-every-10-minutes",
+      "id": "0c34053f-9507-48bd-bffe-c2064e3cff58",
       "name": "Every 10 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        200,
-        200
+        -3872,
+        192
       ]
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/abandoned_carts",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/abandoned_carts",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
         "sendQuery": true,
@@ -49,41 +48,38 @@
           "timeout": 15000
         }
       },
-      "id": "pabbas-abandoned-cart-find-abandoned",
+      "id": "05fc11c3-7e2d-4d50-978c-d4b4c7f53f01",
       "name": "Find Abandoned",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        430,
-        200
+        -3648,
+        192
       ],
+      "alwaysOutputData": false,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
-      },
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "parameters": {
-        "batchSize": 1,
         "options": {}
       },
-      "id": "pabbas-abandoned-cart-loop-carts",
+      "id": "1942394c-9a07-48c4-adc1-35a7d861d912",
       "name": "Loop Carts",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        650,
-        200
+        -3424,
+        192
       ]
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/app_customers",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/app_customers",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
         "sendQuery": true,
@@ -100,6 +96,10 @@
             {
               "name": "select",
               "value": "id,channel_user_id,phone,name"
+            },
+            {
+              "name": "limit",
+              "value": "1"
             }
           ]
         },
@@ -116,78 +116,83 @@
           "timeout": 15000
         }
       },
-      "id": "pabbas-abandoned-cart-resolve-customer-identity",
+      "id": "f898251b-f806-4883-94a0-4ce51fb56170",
       "name": "Resolve Customer Identity",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        870,
-        200
+        -3200,
+        192
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
-      },
-      "alwaysOutputData": true,
-      "onError": "stopWorkflow"
+      }
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "JavaScript",
-        "jsCode": "const cart = $input.first().json || {}; const rows = $input.all().flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]).filter(Boolean); const customerRows = rows.filter((row) => row && (row.id || row.channel_user_id || row.phone)); const phone = cart.phone || rows[0]?.phone || ''; if (!phone) return [{ json: { skip: true, reason: 'missing_cart_phone', cart } }]; if (customerRows.length === 0) return [{ json: { skip: true, reason: 'customer_identity_not_found', phone, cart } }]; if (customerRows.length > 1) return [{ json: { skip: true, reason: 'ambiguous_customer_identity', phone, matches: customerRows.slice(0, 5), cart } }]; const customer = customerRows[0]; return [{ json: { skip: false, phone, cart, customer_id: customer.id, channel_user_id: customer.channel_user_id, customer_phone: customer.phone || phone, customer_name: customer.name || 'WhatsApp Customer' } }];"
+        "jsCode": "const items = $input.all();\n\nif (items.length === 0 || !items[0].json?.id || !items[0].json?.channel_user_id) {\n  return [{\n    json: {\n      identity_valid: false\n    }\n  }];\n}\n\nconst customer = items[0].json;\n\n// Preserve the original abandoned-cart data from Loop Carts\nconst cart = $('Loop Carts').item.json;\n\nreturn [{\n  json: {\n    ...cart,\n    identity_valid: true,\n    customer_id: customer.id,\n    channel_user_id: customer.channel_user_id,\n    customer_phone: customer.phone,\n    customer_name: customer.name\n  }\n}];"
       },
-      "id": "pabbas-abandoned-cart-validate-customer-identity",
+      "id": "b85b49ce-3f28-414a-85a9-1730af1b403c",
       "name": "Validate Customer Identity",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1090,
-        200
+        -2992,
+        192
       ]
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
             {
-              "value1": "={{ $json.skip }}",
-              "operation": "false"
+              "id": "2895efcd-68dc-4919-a9ee-edf02c2f5b53",
+              "leftValue": "={{ $json.identity_valid }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "pabbas-abandoned-cart-customer-identity-valid",
+      "id": "c4359b80-a799-4555-933b-ed9429472d88",
       "name": "Customer Identity Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1310,
-        200
+        -2768,
+        192
       ]
     },
     {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "JavaScript",
-        "jsCode": "return $input.all();"
-      },
-      "id": "pabbas-abandoned-cart-skip-invalid-identity",
+      "parameters": {},
+      "id": "554005ab-f368-4202-9525-f47b95f83c8c",
       "name": "Skip Invalid Identity",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        1310,
-        420
+        -2768,
+        400
       ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
-        "authentication": "none",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -210,74 +215,80 @@
           "parameters": [
             {
               "name": "x-pabbas-ai-secret",
-              "value": "={{ $env.PABBAS_AI_WEBHOOK_SECRET }}"
+              "value": "={{ $env.LwnUc63SrvzJRE5hmSE4B7C1EmGoom1JlRTS/LTjqotl19jNZZScHT+X6tXaZqcs }}"
             }
           ]
         },
         "options": {
-          "timeout": 20000,
-          "ignoreHttpStatusCodes": false
+          "timeout": 20000
         }
       },
-      "id": "pabbas-abandoned-cart-resolve-secure-session",
+      "id": "62829894-3f57-40eb-8480-5854ed02f511",
       "name": "Resolve Secure Customer Session",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1530,
-        200
+        -2544,
+        192
       ],
-      "alwaysOutputData": true,
-      "onError": "stopWorkflow"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "JavaScript",
-        "jsCode": "const rs = (n) => 'Rs ' + Number(n || 0).toLocaleString('en-IN'); const input = $input.first().json || {}; const c = input.cart || {}; const phone = input.phone || c.phone || ''; const ctaUrl = input.cta_url || input.ctaUrl || ''; if (!phone) return [{ json: { skip: true, reason: 'missing_cart_phone', phone } }]; if (!ctaUrl) return [{ json: { skip: true, reason: 'missing_cta_url', phone } }]; const items = Array.isArray(c.items) ? c.items : []; const names = items.slice(0, 3).map((i) => i.name).join(', '); const more = items.length > 3 ? ' and ' + (items.length - 3) + ' more' : ''; const message = 'You left ' + (names || 'a few items') + more + ' in your cart (' + rs(c.total) + ').\n\nStill hungry? Tap below and we will get it moving.'; return [{ json: { skip: false, phone, cta_url: ctaUrl, outgoing: { type: 'interactive', interactive: { type: 'cta_url', body: { text: message }, action: { name: 'cta_url', parameters: { display_text: 'Finish Order', url: ctaUrl } } } } }];"
+        "jsCode": "const session = $input.first().json;\nconst cart = $('Loop Carts').item.json;\n\nconst ctaUrl = session.cta_url;\n\nif (!ctaUrl || !cart.phone) {\n  return [{\n    json: {\n      ...cart,\n      skip: true\n    }\n  }];\n}\n\nconst rs = (n) => 'Rs ' + Number(n || 0).toLocaleString('en-IN');\n\nconst items = Array.isArray(cart.items) ? cart.items : [];\n\nconst names = items\n  .slice(0, 3)\n  .map((i) => i.name)\n  .filter(Boolean)\n  .join(', ');\n\nconst more = items.length > 3\n  ? ' and ' + (items.length - 3) + ' more'\n  : '';\n\nconst message =\n  'You left ' +\n  (names || 'a few items') +\n  more +\n  ' in your cart (' +\n  rs(cart.total) +\n  ').\\n\\nStill hungry? Tap below and we will get it moving.';\n\nreturn [{\n  json: {\n    ...cart,\n    skip: false,\n    phone: cart.phone,\n    cta_url: ctaUrl,\n\n    outgoing: {\n      type: 'interactive',\n      interactive: {\n        type: 'cta_url',\n        body: {\n          text: message\n        },\n        action: {\n          name: 'cta_url',\n          parameters: {\n            display_text: 'Finish Order',\n            url: ctaUrl\n          }\n        }\n      }\n    }\n  }\n}];"
       },
-      "id": "pabbas-abandoned-cart-build-nudge",
+      "id": "7de618a0-088d-4a74-93fc-4ee64683850f",
       "name": "Build Nudge",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1750,
-        200
+        -2320,
+        192
       ]
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
             {
-              "value1": "={{ $json.skip }}",
-              "operation": "false"
+              "id": "14df0f06-53bf-48c6-a8c6-76acaf3f8c8e",
+              "leftValue": "={{ $json.cta_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "pabbas-abandoned-cart-cta-valid",
+      "id": "c9ac4eec-7290-424e-87c0-596572b9c68a",
       "name": "CTA Ready?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1970,
-        200
+        -2112,
+        192
       ]
     },
     {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "JavaScript",
-        "jsCode": "return $input.all();"
-      },
-      "id": "pabbas-abandoned-cart-skip-invalid-cta",
+      "parameters": {},
+      "id": "c62242ef-5519-47ad-95a1-7309f424c251",
       "name": "Skip Invalid CTA",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        1970,
-        420
+        -2112,
+        400
       ]
     },
     {
@@ -286,12 +297,6 @@
         "url": "https://api.ycloud.com/whatsapp/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify(Object.assign({ to: $json.phone }, $json.outgoing)) }}",
-        "options": {
-          "timeout": 15000
-        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -300,30 +305,36 @@
               "value": "application/json"
             }
           ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({ to: $json.phone }, $json.outgoing)) }}",
+        "options": {
+          "timeout": 15000
         }
       },
-      "id": "pabbas-abandoned-cart-send-nudge",
+      "id": "5a113dda-cd61-405a-9d9d-63f9f8183bbd",
       "name": "Send Nudge (TODO: verify YCloud payload)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2190,
-        120
+        -1888,
+        112
       ],
-      "disabled": true,
+      "alwaysOutputData": true,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "Pabbas_YCloud_WhatsApp_Token_ID",
-          "name": "Pabbas YCloud WhatsApp Token"
+          "id": "x4SuAc2J4iQHp2E0",
+          "name": "x-pabbas-whatsapp-secret"
         }
       },
-      "alwaysOutputData": true,
+      "disabled": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/carts",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/carts",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
         "sendQuery": true,
@@ -335,9 +346,6 @@
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ nudged_at: new Date().toISOString() }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -351,36 +359,35 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ nudged_at: new Date().toISOString() }) }}",
         "options": {
           "timeout": 15000
         }
       },
-      "id": "pabbas-abandoned-cart-mark-nudged",
+      "id": "48c3411c-5b0e-4631-b1be-dc8490a4de89",
       "name": "Mark Nudged",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2410,
-        120
+        -1664,
+        112
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
-      },
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || 'https://YOUR_PROJECT_REF.supabase.co' }}/rest/v1/messages",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/messages",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpCustomAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: '[abandoned cart nudge]' }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -394,37 +401,31 @@
             }
           ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: '[abandoned cart nudge]' }) }}",
         "options": {
           "timeout": 15000
         }
       },
-      "id": "pabbas-abandoned-cart-log-nudge",
+      "id": "f1d261ef-a7a3-4f4c-bea3-f10812687fb6",
       "name": "Log Nudge",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2630,
-        120
+        -1440,
+        112
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "httpCustomAuth": {
-          "id": "Supabase_Service_Role_ID",
+          "id": "RImgl1ED9KhO0wG4",
           "name": "Supabase Service Role"
         }
-      },
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      }
     }
   ],
-  "active": false,
   "pinData": {},
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Asia/Kolkata"
-  },
-  "tags": [],
-  "id": "",
-  "meta": {},
   "connections": {
     "Every 10 Minutes": {
       "main": [
@@ -561,5 +562,17 @@
         ]
       ]
     }
-  }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8a9e97c1-9cfd-438d-93d2-223d9594d125",
+  "meta": {
+    "instanceId": "b8ff127f317074cc5bc37023e1f534bbf5d4eb46850ad650a2eff410073b60b6"
+  },
+  "nodeGroups": [],
+  "id": "FMeFu5eQfywZMEuo",
+  "tags": []
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
+import { notifyStatusWebhook } from "./actions";
 
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
@@ -44,8 +45,8 @@ const BOARD_COLUMNS: Array<{ key: "new" | "preparing" | "ready" | "delivered"; l
 
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   new: ["preparing", "cancelled"],
-  preparing: ["ready_for_pickup", "cancelled"],
-  ready_for_pickup: ["out_for_delivery", "cancelled"],
+  preparing: ["ready_for_pickup", "out_for_delivery", "cancelled"],
+  ready_for_pickup: ["delivered", "cancelled"],
   out_for_delivery: ["delivered", "cancelled"],
   delivered: [],
   cancelled: [],
@@ -690,6 +691,15 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
       setStatusMessage(`Order ${order.order_number} updated to ${statusLabels[nextStatus]}.`);
       setSelectedOrder(null);
       await refreshOrders();
+
+      try {
+        const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus);
+        if (!notifyResult.success) {
+          console.error("Failed to notify customer:", notifyResult.error);
+        }
+      } catch (notifyErr) {
+        console.error("Webhook integration error:", notifyErr);
+      }
     } catch {
       setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: previousStatus } : item)));
       setStatusMessage(`Failed to update order ${order.order_number}.`);
