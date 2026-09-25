@@ -1,6 +1,16 @@
+"use client";
+
 import Link from "next/link";
 
 export default function Sidebar() {
+  const handleRefresh = () => {
+    window.dispatchEvent(new CustomEvent("pabbas-refresh-orders"));
+  };
+
+  const handleSoundToggle = () => {
+    window.dispatchEvent(new CustomEvent("pabbas-toggle-sound"));
+  };
+
   return (
     <aside className="w-[212px] bg-[var(--navy)] text-white p-5 sticky top-0 h-screen flex flex-col">
       <div className="text-center py-2 pb-4">
@@ -21,8 +31,19 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-2 border-t border-[#223040] pt-4">
-        <button className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors">
+        <button
+          type="button"
+          onClick={handleRefresh}
+          className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
+        >
           ↻ Refresh Now
+        </button>
+        <button
+          type="button"
+          onClick={handleSoundToggle}
+          className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
+        >
+          🔔 Enable sound
         </button>
         <button className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors">
           Sign out

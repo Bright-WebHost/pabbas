@@ -7,6 +7,16 @@ import type { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
 
+const RANGE_OPTIONS = [
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "week", label: "This Week" },
+  { key: "month", label: "This Month" },
+  { key: "all", label: "All Time" },
+] as const;
+
+type RangeKey = (typeof RANGE_OPTIONS)[number]["key"];
+
 const statusLabels: Record<OrderStatus, string> = {
   new: "New",
   preparing: "Preparing",
@@ -24,6 +34,13 @@ const statusStyles: Record<OrderStatus, string> = {
   delivered: "bg-[var(--c-done)] text-[var(--c-done-t)] border-[var(--c-done-b)]",
   cancelled: "bg-[#F3F4F6] text-[#667085] border-[#D0D5DD]",
 };
+
+const BOARD_COLUMNS: Array<{ key: "new" | "preparing" | "ready" | "delivered"; label: string; className: string }> = [
+  { key: "new", label: "New", className: "new" },
+  { key: "preparing", label: "Preparing", className: "preparing" },
+  { key: "ready", label: "Ready / Out", className: "ready" },
+  { key: "delivered", label: "Delivered", className: "delivered" },
+];
 
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   new: ["preparing", "cancelled"],
@@ -102,13 +119,75 @@ function buildItemList(order: DashboardOrder) {
   }
 
   const summary = order.items || "";
-  return summary
-    ? [{ id: `${order.id}-summary`, name: summary, quantity: 1, unit_price: order.total }]
-    : [];
+  return summary ? [{ id: `${order.id}-summary`, name: summary, quantity: 1, unit_price: order.total }] : [];
 }
 
 function canTransitionStatus(current: OrderStatus, next: OrderStatus) {
   return (STATUS_TRANSITIONS[current] ?? []).includes(next);
+}
+
+function inRange(order: DashboardOrder, range: RangeKey) {
+  const createdAt = new Date(order.created_at).getTime();
+  const now = Date.now();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  if (range === "all") return true;
+  if (range === "today") return createdAt >= todayStart.getTime();
+  if (range === "yesterday") {
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const yesterdayEnd = new Date(todayStart);
+    return createdAt >= yesterdayStart.getTime() && createdAt < yesterdayEnd.getTime();
+  }
+  if (range === "week") {
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - 6);
+    return createdAt >= weekStart.getTime();
+  }
+  if (range === "month") {
+    const monthStart = new Date(todayStart);
+    monthStart.setDate(monthStart.getDate() - 29);
+    return createdAt >= monthStart.getTime();
+  }
+  return createdAt >= now - 24 * 60 * 60 * 1000;
+}
+
+function getBoardColumn(order: DashboardOrder) {
+  if (order.status === "new") return "new";
+  if (order.status === "preparing") return "preparing";
+  if (order.status === "ready_for_pickup" || order.status === "out_for_delivery") return "ready";
+  if (order.status === "delivered") return "delivered";
+  return "new";
+}
+
+function getAgeMinutes(order: DashboardOrder) {
+  return Math.max(0, Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000));
+}
+
+function getAgeLabel(order: DashboardOrder) {
+  const minutes = getAgeMinutes(order);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const leftoverMinutes = minutes % 60;
+  return `${hours}h ${leftoverMinutes}m`;
+}
+
+function getSlideAction(order: DashboardOrder): { label: string; nextStatus: OrderStatus; accent: string } | null {
+  if (order.status === "new") {
+    return { label: "Slide to accept & cook", nextStatus: "preparing", accent: "#C0392B" };
+  }
+
+  if (order.status === "preparing") {
+    const nextStatus: OrderStatus = order.order_type === "delivery" ? "out_for_delivery" : "ready_for_pickup";
+    return { label: "Slide to ready / out", nextStatus, accent: "#1A5FA8" };
+  }
+
+  if (order.status === "ready_for_pickup" || order.status === "out_for_delivery") {
+    return { label: "Slide to delivered", nextStatus: "delivered", accent: "#5B3FBF" };
+  }
+
+  return null;
 }
 
 async function fetchDashboardOrders() {
@@ -226,35 +305,134 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OrderCard({ order, onOpen, now }: { order: DashboardOrder; onOpen: () => void; now: number }) {
+function printOrder(order: DashboardOrder) {
+  if (typeof window === "undefined") return;
+  const printWindow = window.open("", "_blank", "width=420,height=640");
+  if (!printWindow) return;
+
+  const items = buildItemList(order).map((item) => `${item.quantity} × ${item.name} — ${money(item.unit_price * item.quantity)}`).join("<br/>");
+  printWindow.document.write(`
+    <html>
+      <head><title>${order.order_number}</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 20px; color: #10151C;">
+        <h2>${order.order_number}</h2>
+        <p><strong>Customer:</strong> ${order.customer_name || "Guest"} · ${order.customer_phone}</p>
+        <p><strong>Status:</strong> ${statusLabels[order.status]}</p>
+        <p><strong>Total:</strong> ${money(order.total)}</p>
+        <div>${items || "No items"}</div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => printWindow.print(), 250);
+}
+
+function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrder; onOpen: () => void; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus) => void; now: number }) {
   const items = buildItemList(order);
   const itemCount = items.reduce((total, item) => total + item.quantity, 0);
+  const slideAction = getSlideAction(order);
   const countdown = formatCountdown(order, now);
+  const isAgeWarning = getAgeMinutes(order) >= 15;
 
   return (
-    <button type="button" onClick={onOpen} className="w-full rounded-xl border border-[var(--line)] bg-white p-4 text-left shadow-[0_2px_8px_rgba(16,21,28,0.04)] transition hover:-translate-y-0.5 hover:border-[#C9D1DB] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--red)] focus:ring-offset-2">
-      <div className="flex items-start justify-between gap-3">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="rounded-[14px] border border-[var(--line)] bg-white p-3.5 shadow-[0_2px_6px_rgba(16,21,28,0.06)] transition hover:-translate-y-0.5 hover:border-[#C9D1DB] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--red)] focus:ring-offset-2"
+    >
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-extrabold text-[var(--ink)]">{order.order_number}</h3>
-          <p className="mt-1 text-xs text-[var(--muted)]">{dateTime(order.created_at)}</p>
+          <div className="text-[14.5px] font-extrabold tracking-[-0.2px] text-[var(--ink)]">{order.order_number}</div>
+          <div className="mt-1 text-[12px] text-[var(--muted)]">{order.customer_name || "Guest"} · {order.customer_phone}</div>
+          <div className="mt-1 text-[12px] text-[var(--muted)]">{dateTime(order.created_at)}</div>
         </div>
-        <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${statusStyles[order.status]}`}>
-          {statusLabels[order.status]}
-        </span>
-      </div>
-      <div className="mt-4 flex items-start justify-between gap-3 border-t border-[var(--line)] pt-3">
-        <div>
-          <p className="text-sm font-bold">{order.customer_name || "Guest"}</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">{normalizeOrderType(order.order_type)} · {itemCount} item{itemCount === 1 ? "" : "s"}</p>
+        <div className="text-right">
+          <div className="text-[16px] font-extrabold text-[var(--red2)]">{money(order.total)}</div>
         </div>
-        <p className="text-base font-extrabold text-[var(--red2)]">{money(order.total)}</p>
       </div>
-      <p className="mt-3 truncate text-xs text-[var(--muted)]">{destinationFor(order)}</p>
-      <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-bold">
-        <span className={countdown.isOverdue ? "text-red-600" : "text-[var(--red2)]"}>{countdown.label}</span>
-        <span className="text-[var(--muted)]">View details →</span>
+
+      <div className="mt-2 text-[13px] leading-5 text-[var(--ink)]">{items.length > 0 ? items.map((item) => `${item.quantity} × ${item.name}`).join(", ") : order.items || "No items listed"}</div>
+
+      {order.order_type === "delivery" && (order.address || order.landmark || order.pincode) ? (
+        <div className="mt-2 text-[12px] text-[var(--muted)]">📍 {destinationFor(order)}</div>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span className="rounded-[6px] bg-[#F1F3F6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[var(--muted)]">{normalizeOrderType(order.order_type)}</span>
+        {order.source && <span className="rounded-[6px] bg-[#F1F3F6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[var(--muted)]">{order.source}</span>}
+        {Number(order.amendment_count ?? 0) > 0 && <span className="rounded-[6px] bg-[#FFEFD6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[#9A5B00]">Amended ×{order.amendment_count}</span>}
+        {order.cancel_requested_at && order.status !== "cancelled" && order.status !== "delivered" && (
+          <span className="rounded-[6px] border border-[#F5C6CB] bg-[#FDE8E8] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[#B42318]">Cancel request</span>
+        )}
+        {order.status === "cancelled" && order.cancelled_by && (
+          <span className="rounded-[6px] bg-[#F1F3F6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[var(--muted)]">By {String(order.cancelled_by).replace(/^staff:/, "")}</span>
+        )}
+        <span className={`ml-auto text-[11.5px] font-bold ${countdown.isOverdue ? "text-[var(--danger)]" : isAgeWarning ? "text-[var(--warn)]" : "text-[var(--muted)]"}`}>{countdown.label}</span>
       </div>
-    </button>
+
+      {slideAction && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onStatusChange(order, slideAction.nextStatus);
+          }}
+          className="relative mt-3 h-[42px] w-full overflow-hidden rounded-[10px] border border-[var(--line)] bg-[#F1F3F6] text-left"
+          aria-label={`Move order ${order.order_number} to ${statusLabels[slideAction.nextStatus]}`}
+        >
+          <span className="absolute inset-y-0 left-0 w-[64%] rounded-r-[8px] opacity-20" style={{ background: slideAction.accent }} />
+          <span className="absolute inset-0 grid place-items-center px-3 text-[12.5px] font-bold text-[var(--muted)]">{slideAction.label}</span>
+          <span className="absolute top-[3px] left-[3px] grid h-[34px] w-[50px] place-items-center rounded-[8px] text-xl font-extrabold text-white" style={{ background: slideAction.accent }}>›</span>
+        </button>
+      )}
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {order.status === "preparing" && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onStatusChange(order, order.order_type === "delivery" ? "out_for_delivery" : "ready_for_pickup");
+            }}
+            className="rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-[12px] font-semibold text-[var(--muted)]"
+          >
+            Ready for pickup
+          </button>
+        )}
+        {order.status !== "cancelled" && order.status !== "delivered" && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onStatusChange(order, "cancelled");
+            }}
+            className="rounded-lg border border-[#F5C6CB] bg-[var(--tint)] px-2 py-1.5 text-[12px] font-semibold text-[var(--red2)]"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            printOrder(order);
+          }}
+          className="ml-auto rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-[12px] font-semibold text-[var(--muted)]"
+        >
+          Print
+        </button>
+      </div>
+
+      <div className="mt-2 text-[11px] text-[var(--muted)]">{itemCount} item{itemCount === 1 ? "" : "s"} · {getAgeLabel(order)} old</div>
+    </div>
   );
 }
 
@@ -325,12 +503,14 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | OrderStatus>("all");
   const [orderType, setOrderType] = useState<"all" | DashboardOrder["order_type"]>("all");
+  const [range, setRange] = useState<RangeKey>("today");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
   const [alertOrder, setAlertOrder] = useState<DashboardOrder | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [cancelledOpen, setCancelledOpen] = useState(false);
 
   const supabase = useRef(createClient());
   const knownIdsRef = useRef(new Set(initialOrders.map((order) => order.id)));
@@ -338,7 +518,6 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
   const initialLoadCompleteRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const soundTimerRef = useRef<number | null>(null);
-  const activeAlertIdRef = useRef<string | null>(null);
   const soundEnabledRef = useRef(false);
 
   const stopSound = useCallback(() => {
@@ -346,7 +525,6 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
       window.clearInterval(soundTimerRef.current);
       soundTimerRef.current = null;
     }
-    activeAlertIdRef.current = null;
     soundEnabledRef.current = false;
     setSoundEnabled(false);
   }, []);
@@ -399,17 +577,6 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
     }
   }, []);
 
-  const acknowledgeAlert = useCallback(() => {
-    if (!alertOrder) return;
-    stopSound();
-    setAlertOrder(null);
-  }, [alertOrder, stopSound]);
-
-  const enableSound = useCallback(async () => {
-    setSoundEnabled(true);
-    startSound();
-  }, [startSound]);
-
   const refreshOrders = useCallback(async () => {
     try {
       const latestOrders = await fetchDashboardOrders();
@@ -428,7 +595,6 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
         const dedupeKey = newestOrder.id || newestOrder.order_number;
         if (!alertSeenRef.current.has(dedupeKey)) {
           alertSeenRef.current.add(dedupeKey);
-          activeAlertIdRef.current = newestOrder.id;
           setAlertOrder(newestOrder);
           startSound();
         }
@@ -450,15 +616,29 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
   }, [refreshOrders]);
 
   useEffect(() => {
-    const channel = supabase.current.channel("pabbas-orders-live");
+    const handleRefreshRequest = () => {
+      void refreshOrders();
+    };
 
-    channel.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "orders" },
-      () => {
-        void refreshOrders();
-      }
-    );
+    const handleSoundToggle = () => {
+      setSoundEnabled((current) => {
+        const next = !current;
+        if (next) {
+          startSound();
+        } else {
+          stopSound();
+        }
+        return next;
+      });
+    };
+
+    window.addEventListener("pabbas-refresh-orders", handleRefreshRequest);
+    window.addEventListener("pabbas-toggle-sound", handleSoundToggle);
+
+    const channel = supabase.current.channel("pabbas-orders-live");
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+      void refreshOrders();
+    });
 
     void channel.subscribe((status) => {
       if (status === "CHANNEL_ERROR") {
@@ -471,11 +651,13 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
     }, 5000);
 
     return () => {
+      window.removeEventListener("pabbas-refresh-orders", handleRefreshRequest);
+      window.removeEventListener("pabbas-toggle-sound", handleSoundToggle);
       window.clearInterval(poller);
       supabase.current.removeChannel(channel);
       stopSound();
     };
-  }, [refreshOrders, stopSound]);
+  }, [refreshOrders, startSound, stopSound]);
 
   const handleStatusChange = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus) => {
     if (!canTransitionStatus(order.status, nextStatus)) {
@@ -500,10 +682,7 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
 
     try {
       const ordersTable: any = supabase.current.from("orders");
-      const { error: updateError } = await ordersTable
-        .update(updates)
-        .eq("id", order.id);
-
+      const { error: updateError } = await ordersTable.update(updates).eq("id", order.id);
       if (updateError) {
         throw updateError;
       }
@@ -520,22 +699,81 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     return orders.filter((order) => {
+      const matchesRange = inRange(order, range);
       const matchesSearch = !query || [order.order_number, order.customer_name || "", order.customer_phone].some((value) => value.toLowerCase().includes(query));
-      return matchesSearch && (status === "all" || order.status === status) && (orderType === "all" || order.order_type === orderType);
+      const matchesStatus = status === "all" || order.status === status;
+      const matchesType = orderType === "all" || order.order_type === orderType;
+      return matchesRange && matchesSearch && matchesStatus && matchesType;
     });
-  }, [orderType, orders, search, status]);
+  }, [orderType, orders, range, search, status]);
+
+  const visibleOrders = filteredOrders.filter((order) => order.status !== "cancelled");
+  const cancelledOrders = filteredOrders.filter((order) => order.status === "cancelled");
+
+  const totalRevenue = visibleOrders.reduce((sum, order) => sum + Number(order.total ?? 0), 0);
+  const awaitingAccept = visibleOrders.filter((order) => getBoardColumn(order) === "new").length;
+  const inTheKitchen = visibleOrders.filter((order) => order.status === "preparing").length;
+  const totalOrderCount = visibleOrders.length;
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--red2)]">Live production view</p>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Orders</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Orders grouped by live status and updated from the current database.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[13px] font-extrabold uppercase tracking-[0.3px] text-[var(--muted)]">Filter:</span>
+          <div className="flex flex-wrap gap-2">
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                aria-pressed={range === option.key}
+                onClick={() => setRange(option.key)}
+                className={`rounded-full border px-4 py-2 text-[13px] font-bold transition ${
+                  range === option.key
+                    ? "border-[var(--red)] bg-[var(--red)] text-white shadow-[0_8px_20px_rgba(226,55,68,0.18)]"
+                    : "border-[var(--line)] bg-white text-[var(--muted)] hover:border-[#CBD3DC]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-bold text-[var(--muted)]">
-          {filteredOrders.length} of {orders.length} loaded
-        </span>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search order, name or phone"
+            className="min-w-[220px] rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--red)]"
+          />
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as "all" | OrderStatus)}
+            className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--red)]"
+          >
+            <option value="all">All statuses</option>
+            {Object.entries(statusLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          <select
+            value={orderType}
+            onChange={(event) => setOrderType(event.target.value as "all" | DashboardOrder["order_type"])}
+            className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--red)]"
+          >
+            <option value="all">All types</option>
+            <option value="delivery">Delivery</option>
+            <option value="pickup">Pickup</option>
+            <option value="dine-in">Dine-in</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Revenue" value={money(totalRevenue)} tone="red" />
+        <StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" />
+        <StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="purple" />
+        <StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="amber" />
       </div>
 
       {statusMessage && (
@@ -544,37 +782,55 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
         </div>
       )}
 
-      <div className="grid gap-3 rounded-xl border border-[var(--line)] bg-white p-3 sm:grid-cols-[minmax(220px,1fr)_160px_160px_auto]">
-        <label className="sr-only" htmlFor="order-search">Search orders</label>
-        <input id="order-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search order, name, or phone" className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--red)]" />
-        <label className="sr-only" htmlFor="status-filter">Filter by status</label>
-        <select id="status-filter" value={status} onChange={(event) => setStatus(event.target.value as "all" | OrderStatus)} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--red)]">
-          <option value="all">All statuses</option>
-          {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-        <label className="sr-only" htmlFor="type-filter">Filter by order type</label>
-        <select id="type-filter" value={orderType} onChange={(event) => setOrderType(event.target.value as "all" | DashboardOrder["order_type"])} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--red)]">
-          <option value="all">All types</option>
-          <option value="delivery">Delivery</option>
-          <option value="pickup">Pickup</option>
-          <option value="dine-in">Dine-in</option>
-        </select>
-        <button type="button" onClick={() => { setSearch(""); setStatus("all"); setOrderType("all"); }} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-bold text-[var(--muted)] hover:text-[var(--ink)]">Clear</button>
+      {error && <div className="rounded-xl border border-[#F5C6CB] bg-[var(--tint)] px-4 py-3 text-sm font-semibold text-[var(--red2)]">{error}</div>}
+
+      <div className="grid gap-4 xl:grid-cols-4">
+        {BOARD_COLUMNS.map((column) => {
+          const columnOrders = visibleOrders.filter((order) => getBoardColumn(order) === column.key);
+          return (
+            <div key={column.key} className={`min-w-0 rounded-[14px] ${column.key === "new" ? "bg-[#FFF0F1]" : column.key === "preparing" ? "bg-[#EAF3FF]" : column.key === "ready" ? "bg-[#F2EEFF]" : "bg-[#EAF8EF]"} p-3`}>
+              <div className="mb-3 flex items-center justify-between gap-2 rounded-[12px] border border-transparent px-1 py-1">
+                <div className="text-[16px] font-extrabold tracking-[-0.2px] text-[var(--ink)]">{column.label}</div>
+                <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/80 px-1.5 text-[12px] font-bold text-[var(--muted)]">{columnOrders.length}</span>
+              </div>
+
+              <div className="space-y-3">
+                {columnOrders.length > 0 ? (
+                  columnOrders.map((order) => (
+                    <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} now={now} />
+                  ))
+                ) : (
+                  <div className="rounded-[12px] border border-dashed border-[var(--line)] bg-white/60 px-3 py-8 text-center text-[12px] text-[var(--muted)]">Nothing here</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {error && <div className="rounded-xl border border-[#F5C6CB] bg-[var(--tint)] px-4 py-3 text-sm font-semibold text-[var(--red2)]">{error}</div>}
-      {!error && orders.length === 0 && <div className="rounded-xl border border-dashed border-[var(--line)] bg-white px-5 py-12 text-center text-sm text-[var(--muted)]">No production orders are available.</div>}
-      {!error && orders.length > 0 && filteredOrders.length === 0 && <div className="rounded-xl border border-dashed border-[var(--line)] bg-white px-5 py-12 text-center text-sm text-[var(--muted)]">No orders match these filters.</div>}
-
-      {filteredOrders.length > 0 && <div className="grid gap-4 overflow-x-auto pb-2 xl:grid-cols-3 2xl:grid-cols-6">
-        {(Object.keys(statusLabels) as OrderStatus[]).map((columnStatus) => {
-          const statusOrders = filteredOrders.filter((order) => order.status === columnStatus);
-          return <section key={columnStatus} className="min-w-[280px] rounded-xl border border-[var(--line)] bg-[#F8FAFB] p-3">
-            <div className="mb-3 flex items-center justify-between gap-2"><h3 className="text-sm font-extrabold">{statusLabels[columnStatus]}</h3><span className="grid h-6 min-w-6 place-items-center rounded-full bg-white px-1.5 text-xs font-bold text-[var(--muted)]">{statusOrders.length}</span></div>
-            <div className="space-y-3">{statusOrders.length > 0 ? statusOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)} now={now} />) : <p className="rounded-lg border border-dashed border-[var(--line)] px-3 py-5 text-center text-xs text-[var(--muted)]">No orders</p>}</div>
-          </section>;
-        })}
-      </div>}
+      <div className="rounded-[14px] border border-[var(--line)] bg-white overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setCancelledOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-[14px] font-bold text-[var(--muted)]"
+        >
+          <span>Cancelled</span>
+          <span>{cancelledOrders.length} {cancelledOpen ? "▴" : "▾"}</span>
+        </button>
+        {cancelledOpen && (
+          <div className="border-t border-[var(--line)] p-3">
+            {cancelledOrders.length > 0 ? (
+              <div className="space-y-3">
+                {cancelledOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} now={now} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[12px] border border-dashed border-[var(--line)] bg-[#F8FAFB] px-3 py-8 text-center text-[12px] text-[var(--muted)]">None</div>
+            )}
+          </div>
+        )}
+      </div>
 
       {selectedOrder && (
         <OrderDetails
@@ -593,7 +849,7 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
             setAlertOrder(null);
           }}
           onEnableSound={() => {
-            void enableSound();
+            void startSound();
           }}
           soundEnabled={soundEnabled}
           audioBlocked={audioBlocked}
@@ -601,5 +857,21 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
         />
       )}
     </section>
+  );
+}
+
+function StatCard({ label, value, tone }: { label: string; value: string; tone: "red" | "blue" | "purple" | "amber" }) {
+  const toneClasses = {
+    red: "text-[var(--red)]",
+    blue: "text-[#1A5FA8]",
+    purple: "text-[#5B3FBF]",
+    amber: "text-[#B8730B]",
+  }[tone];
+
+  return (
+    <div className="rounded-[16px] border border-[var(--line)] bg-white p-5 shadow-[0_1px_3px_rgba(16,21,28,0.05)]">
+      <span className="mb-3 block text-[12px] font-extrabold uppercase tracking-[1.3px] text-[var(--muted)]">{label}</span>
+      <b className={`block text-[40px] font-extrabold leading-none tracking-[-1.5px] ${toneClasses}`}>{value}</b>
+    </div>
   );
 }
