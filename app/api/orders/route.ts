@@ -220,7 +220,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 })
     }
 
-    // --- Fire-and-forget: notify customer via WhatsApp ---
+    // --- Notify customer via WhatsApp ---
     try {
       const notifyUrl = process.env.N8N_ORDER_CREATED_WEBHOOK_URL || 'https://staff.brightmedia.tech/webhook/pabbas-order-created'
       const notifySecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET || process.env.PABBAS_N8N_WEBHOOK_SECRET || ''
@@ -241,25 +241,24 @@ export async function POST(request: Request) {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 5000)
 
-      fetch(notifyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-pabbas-whatsapp-secret': notifySecret,
-        },
-        body: JSON.stringify(notifyPayload),
-        signal: controller.signal,
-      })
-        .then((res) => {
-          clearTimeout(timeout)
-          if (!res.ok) {
-            console.error(`[POST /api/orders] Order notification webhook returned ${res.status}`)
-          }
+      try {
+        const res = await fetch(notifyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-pabbas-whatsapp-secret': notifySecret,
+          },
+          body: JSON.stringify(notifyPayload),
+          signal: controller.signal,
         })
-        .catch((notifyErr) => {
-          clearTimeout(timeout)
-          console.error('[POST /api/orders] Order notification failed (non-blocking):', notifyErr?.message || 'Unknown error')
-        })
+        clearTimeout(timeout)
+        if (!res.ok) {
+          console.error(`[POST /api/orders] Order notification webhook returned ${res.status}`)
+        }
+      } catch (notifyErr: any) {
+        clearTimeout(timeout)
+        console.error('[POST /api/orders] Order notification failed (non-blocking):', notifyErr?.message || 'Unknown error')
+      }
     } catch (notifyErr: any) {
       console.error('[POST /api/orders] Order notification setup failed:', notifyErr?.message || 'Unknown error')
     }
