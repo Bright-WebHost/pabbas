@@ -28,9 +28,9 @@ export interface OrderingSessionPayload {
 }
 
 function getSecret(): string {
-  const secret = process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+  const secret = process.env.SESSION_SECRET || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY /* Fallback to prevent breaking existing sessions during migration */
   if (!secret) {
-    throw new Error('SESSION_SECRET or SUPABASE_SERVICE_ROLE_KEY must be set for cookie signing.')
+    throw new Error('SESSION_SECRET or SUPABASE_SECRET_KEY must be set for cookie signing.')
   }
   return secret
 }

@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseServiceRoleKey = process.env.SUPABASE_SECRET_KEY || '';
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
   console.error('❌ Error: Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');

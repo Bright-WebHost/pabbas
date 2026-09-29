@@ -315,7 +315,7 @@ The Pabbas web frontend is a modern Next.js (App Router) application. It is stri
 The Next.js app relies heavily on environment variables for security.
 - `NEXT_PUBLIC_SUPABASE_URL`: Public endpoint for Supabase.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public anonymous key.
-- `SUPABASE_SERVICE_ROLE_KEY`: **SECRET!** Used only in protected API routes (like token generation or polling mock messages) to bypass RLS. Never exposed to the browser.
+- `SUPABASE_SECRET_KEY`: **SECRET!** Used only in protected API routes (like token generation or polling mock messages) to bypass RLS. Never exposed to the browser.
 
 
 # 7. Supabase Database
@@ -664,7 +664,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=<YOUR_SUPABASE_URL>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<YOUR_ANON_KEY>
-SUPABASE_SERVICE_ROLE_KEY=<YOUR_SERVICE_ROLE_KEY>
+SUPABASE_SECRET_KEY=<YOUR_SERVICE_ROLE_KEY>
 
 # n8n Webhook
 N8N_WEBHOOK_URL=http://localhost:5678/webhook/pabbas-order-event
@@ -680,7 +680,7 @@ N8N_WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
 1. Start n8n (via Desktop app, Docker, or Cloud).
 2. Import the `Pabbas | Orders | Event Receiver` workflow.
 3. Configure the **Header Auth** credential matching your `N8N_WEBHOOK_SECRET`.
-4. Configure the **Supabase Custom Auth** credentials inside n8n to match your `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+4. Configure the **Supabase Custom Auth** credentials inside n8n to match your `SUPABASE_URL` and `SUPABASE_SECRET_KEY`.
 5. Ensure the workflow is **Active**.
 
 ## 4. Running the Next.js Application
@@ -716,7 +716,7 @@ The following scenarios have been rigorously tested and verified in the current 
 - [x] **Session Security:** Navigating directly to `/` without a valid token correctly blocks access and redirects.
 - [x] **Replay Protection:** Attempting to consume the same WhatsApp token twice fails.
 - [x] **Identity Isolation:** Modifying local storage or cookies does not grant access to another customer's `customer_id` via RLS.
-- [x] **Secret Protection:** `SUPABASE_SERVICE_ROLE_KEY` is completely hidden from the browser bundle.
+- [x] **Secret Protection:** `SUPABASE_SECRET_KEY` is completely hidden from the browser bundle.
 
 ## Menu & Checkout Tests
 - [x] **Authoritative Pricing:** Modifying the cart price in the browser DevTools does not affect the final order total calculated by the Supabase RPC.
@@ -766,7 +766,7 @@ This document outlines real issues encountered during development and how they w
 **Fix:** Run the Phase 7D reconciliation script to manually reset `PROCESSING` events back to `PENDING`.
 
 ## 5. Environment Variables Missing
-**Symptom:** Supabase Admin functions throw an error `Missing SUPABASE_SERVICE_ROLE_KEY`.
+**Symptom:** Supabase Admin functions throw an error `Missing SUPABASE_SECRET_KEY`.
 **Cause:** Running isolated `.ts` scripts directly via `npx tsx` does not automatically load `.env.local` in the same way `next dev` does.
 **Fix:** Use `dotenvx run -- npx tsx <script.ts>` to inject the environment variables.
 

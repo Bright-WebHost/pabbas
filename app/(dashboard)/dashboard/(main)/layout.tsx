@@ -16,9 +16,8 @@ export default async function DashboardLayout({
     redirect("/dashboard/login");
   }
 
-  // Verify staff authorization using service_role on server
-  const adminClient = createAdminClient();
-  const { data: staffData } = await adminClient
+  // Verify staff authorization using authenticated client on server
+  const { data: staffData } = await supabase
     .from("staff_members")
     .select("email")
     .eq("email", user.email)

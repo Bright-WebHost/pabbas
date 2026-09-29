@@ -25,6 +25,6 @@ This document outlines real issues encountered during development and how they w
 **Fix:** Run the Phase 7D reconciliation script to manually reset `PROCESSING` events back to `PENDING`.
 
 ## 5. Environment Variables Missing
-**Symptom:** Supabase Admin functions throw an error `Missing SUPABASE_SERVICE_ROLE_KEY`.
+**Symptom:** Supabase Admin functions throw an error `Missing SUPABASE_SECRET_KEY`.
 **Cause:** Running isolated `.ts` scripts directly via `npx tsx` does not automatically load `.env.local` in the same way `next dev` does.
 **Fix:** Use `dotenvx run -- npx tsx <script.ts>` to inject the environment variables.

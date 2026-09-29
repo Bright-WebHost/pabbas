@@ -19,7 +19,7 @@ export function createAdminClient() {
   if (adminClient) return adminClient
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  const serviceKey = process.env.SUPABASE_SECRET_KEY?.trim()
 
   if (!url || !serviceKey || !url.startsWith('http')) {
     throw new Error('Supabase server configuration is incomplete.')

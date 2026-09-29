@@ -6,7 +6,7 @@ The following scenarios have been rigorously tested and verified in the current 
 - [x] **Session Security:** Navigating directly to `/` without a valid token correctly blocks access and redirects.
 - [x] **Replay Protection:** Attempting to consume the same WhatsApp token twice fails.
 - [x] **Identity Isolation:** Modifying local storage or cookies does not grant access to another customer's `customer_id` via RLS.
-- [x] **Secret Protection:** `SUPABASE_SERVICE_ROLE_KEY` is completely hidden from the browser bundle.
+- [x] **Secret Protection:** `SUPABASE_SECRET_KEY` is completely hidden from the browser bundle.
 
 ## Menu & Checkout Tests
 - [x] **Authoritative Pricing:** Modifying the cart price in the browser DevTools does not affect the final order total calculated by the Supabase RPC.

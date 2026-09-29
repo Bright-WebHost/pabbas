@@ -206,7 +206,7 @@ async function fetchDashboardOrders() {
   return (data ?? []) as DashboardOrder[];
 }
 
-function OrderDetails({ order, onClose, now, onStatusChange }: { order: DashboardOrder; onClose: () => void; now: number; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus) => void }) {
+function OrderDetails({ order, onClose, now, onStatusChange }: { order: DashboardOrder; onClose: () => void; now: number; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void }) {
   const items = buildItemList(order);
   const countdown = formatCountdown(order, now);
   const actions = STATUS_TRANSITIONS[order.status] ?? [];
@@ -284,7 +284,10 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
             {order.status !== "cancelled" && order.status !== "delivered" && (
               <button
                 type="button"
-                onClick={() => onStatusChange(order, "cancelled")}
+                onClick={() => {
+                  const reason = window.prompt("Please enter a reason for cancellation (sent to customer):");
+                  if (reason !== null) onStatusChange(order, "cancelled", reason);
+                }}
                 className="rounded-lg border border-[#F5C6CB] bg-[var(--tint)] px-3 py-2 text-xs font-bold text-[var(--red2)]"
               >
                 Cancel order
@@ -329,7 +332,7 @@ function printOrder(order: DashboardOrder) {
   setTimeout(() => printWindow.print(), 250);
 }
 
-function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrder; onOpen: () => void; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus) => void; now: number }) {
+function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrder; onOpen: () => void; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void; now: number }) {
   const items = buildItemList(order);
   const itemCount = items.reduce((total, item) => total + item.quantity, 0);
   const slideAction = getSlideAction(order);
@@ -367,7 +370,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className="rounded-[6px] bg-[#F1F3F6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[var(--muted)]">{normalizeOrderType(order.order_type)}</span>
+        <span className={`rounded-[6px] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] ${order.order_type === 'delivery' ? 'bg-[#EBF5FF] text-[#1A5FA8]' : order.order_type === 'dine-in' ? 'bg-[#F3E8FF] text-[#6B21A8]' : 'bg-[#FFF7E6] text-[#9A6700]'}`}>{normalizeOrderType(order.order_type)}</span>
         {order.source && <span className="rounded-[6px] bg-[#F1F3F6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[var(--muted)]">{order.source}</span>}
         {Number(order.amendment_count ?? 0) > 0 && <span className="rounded-[6px] bg-[#FFEFD6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[#9A5B00]">Amended ×{order.amendment_count}</span>}
         {order.cancel_requested_at && order.status !== "cancelled" && order.status !== "delivered" && (
@@ -413,7 +416,8 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onStatusChange(order, "cancelled");
+              const reason = window.prompt("Please enter a reason for cancellation (sent to customer):");
+              if (reason !== null) onStatusChange(order, "cancelled", reason);
             }}
             className="rounded-lg border border-[#F5C6CB] bg-[var(--tint)] px-2 py-1.5 text-[12px] font-semibold text-[var(--red2)]"
           >
@@ -660,7 +664,7 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
     };
   }, [refreshOrders, startSound, stopSound]);
 
-  const handleStatusChange = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus) => {
+  const handleStatusChange = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => {
     if (!canTransitionStatus(order.status, nextStatus)) {
       setStatusMessage(`Invalid update: ${statusLabels[order.status]} → ${statusLabels[nextStatus]}.`);
       return;
@@ -678,7 +682,7 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
     if (nextStatus === "cancelled") {
       updates.cancelled_by = "staff";
       updates.cancelled_at = new Date().toISOString();
-      updates.cancel_reason = "staff_cancelled";
+      updates.cancel_reason = reason || "staff_cancelled";
     }
 
     try {
@@ -693,7 +697,7 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
       await refreshOrders();
 
       try {
-        const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus);
+        const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, nextStatus === "cancelled" ? updates.cancel_reason : undefined);
         if (!notifyResult.success) {
           console.error("Failed to notify customer:", notifyResult.error);
         }

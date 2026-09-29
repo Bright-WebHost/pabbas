@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-export async function notifyStatusWebhook(order_number: string, status: string) {
+export async function notifyStatusWebhook(order_number: string, status: string, cancel_reason?: string) {
   try {
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -19,7 +19,7 @@ export async function notifyStatusWebhook(order_number: string, status: string) 
         "Authorization": authHeader,
         "x-pabbas-whatsapp-secret": secret,
       },
-      body: JSON.stringify({ order_number, status, staff_token: session?.access_token || "" }),
+      body: JSON.stringify({ order_number, status, cancel_reason: cancel_reason || null, staff_token: session?.access_token || "" }),
     });
 
     if (!response.ok) {

@@ -28,8 +28,7 @@ export async function login(_previousState: { error: string }, formData: FormDat
   }
 
   // Double check authorization immediately (optional but good practice)
-  const adminClient = createAdminClient()
-  const { data: staffData } = await adminClient
+  const { data: staffData } = await supabase
     .from('staff_members')
     .select('email')
     .eq('email', data.user.email!)

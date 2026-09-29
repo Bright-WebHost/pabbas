@@ -20,7 +20,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=<YOUR_SUPABASE_URL>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<YOUR_ANON_KEY>
-SUPABASE_SERVICE_ROLE_KEY=<YOUR_SERVICE_ROLE_KEY>
+SUPABASE_SECRET_KEY=<YOUR_SERVICE_ROLE_KEY>
 
 # n8n Webhook
 N8N_WEBHOOK_URL=http://localhost:5678/webhook/pabbas-order-event
@@ -36,7 +36,7 @@ N8N_WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
 1. Start n8n (via Desktop app, Docker, or Cloud).
 2. Import the `Pabbas | Orders | Event Receiver` workflow.
 3. Configure the **Header Auth** credential matching your `N8N_WEBHOOK_SECRET`.
-4. Configure the **Supabase Custom Auth** credentials inside n8n to match your `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+4. Configure the **Supabase Custom Auth** credentials inside n8n to match your `SUPABASE_URL` and `SUPABASE_SECRET_KEY`.
 5. Ensure the workflow is **Active**.
 
 ## 4. Running the Next.js Application

@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
   const handleRefresh = () => {
     window.dispatchEvent(new CustomEvent("pabbas-refresh-orders"));
   };
@@ -22,12 +27,12 @@ export default function Sidebar() {
       </div>
 
       <nav className="mt-6 flex flex-col gap-1 flex-1">
-        <SidebarLink href="/dashboard" label="🧾 Orders" active />
-        <SidebarLink href="/dashboard/chat" label="💬 Live Chat" />
-        <SidebarLink href="/dashboard/menu" label="📋 Menu" />
-        <SidebarLink href="/dashboard/stats" label="📊 Analytics" />
-        <SidebarLink href="/dashboard/contacts" label="👥 Contacts" />
-        <SidebarLink href="/dashboard/blast" label="📣 Blast" />
+        <SidebarLink href="/dashboard" label="🧾 Orders" active={pathname === "/dashboard"} />
+        <SidebarLink href="/dashboard/chat" label="💬 Live Chat" active={pathname === "/dashboard/chat"} />
+        <SidebarLink href="/dashboard/menu" label="📋 Menu" active={pathname === "/dashboard/menu"} />
+        <SidebarLink href="/dashboard/stats" label="📊 Analytics" active={pathname === "/dashboard/stats"} />
+        <SidebarLink href="/dashboard/contacts" label="👥 Contacts" active={pathname === "/dashboard/contacts"} />
+        <SidebarLink href="/dashboard/blast" label="📣 Blast" active={pathname === "/dashboard/blast"} />
       </nav>
 
       <div className="mt-auto flex flex-col gap-2 border-t border-[#223040] pt-4">
@@ -45,7 +50,13 @@ export default function Sidebar() {
         >
           🔔 Enable sound
         </button>
-        <button className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors">
+        <button 
+          onClick={async () => {
+            await supabase.auth.signOut();
+            router.push("/dashboard/login");
+          }}
+          className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
+        >
           Sign out
         </button>
       </div>

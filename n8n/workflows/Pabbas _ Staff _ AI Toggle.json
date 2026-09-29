@@ -77,11 +77,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_ROLE_KEY' }}"
+              "value": "={{ $env.SUPABASE_SECRET_KEY || 'YOUR_SERVICE_ROLE_KEY' }}"
             },
             {
               "name": "Authorization",
-              "value": "={{ $json.headers?.authorization || 'Bearer ' + ($env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_ROLE_KEY') }}"
+              "value": "={{ $json.headers?.authorization || 'Bearer ' + ($env.SUPABASE_SECRET_KEY || 'YOUR_SERVICE_ROLE_KEY') }}"
             },
             {
               "name": "Content-Type",

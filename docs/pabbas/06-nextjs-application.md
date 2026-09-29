@@ -34,4 +34,4 @@ The Pabbas web frontend is a modern Next.js (App Router) application. It is stri
 The Next.js app relies heavily on environment variables for security.
 - `NEXT_PUBLIC_SUPABASE_URL`: Public endpoint for Supabase.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public anonymous key.
-- `SUPABASE_SERVICE_ROLE_KEY`: **SECRET!** Used only in protected API routes (like token generation or polling mock messages) to bypass RLS. Never exposed to the browser.
+- `SUPABASE_SECRET_KEY`: **SECRET!** Used only in protected API routes (like token generation or polling mock messages) to bypass RLS. Never exposed to the browser.

@@ -16,7 +16,7 @@ export async function sendAgentReply(phone: string, message: string) {
       .from("staff_members")
       .select("name")
       .eq("email", session.user.email)
-      .single();
+      .maybeSingle();
       
     const agentName = staffData?.name || "Staff";
 
@@ -64,7 +64,7 @@ export async function toggleAiSession(phone: string, enabled: boolean) {
       .from("staff_members")
       .select("name")
       .eq("email", session.user.email)
-      .single();
+      .maybeSingle();
       
     const agentName = staffData?.name || "Staff";
 
