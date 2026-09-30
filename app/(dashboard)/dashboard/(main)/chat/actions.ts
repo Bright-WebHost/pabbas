@@ -27,6 +27,9 @@ export async function sendAgentReply(phone: string, message: string) {
       phone,
       message,
       agent_name: agentName,
+      headers: {
+        authorization: `Bearer ${session.access_token}`
+      }
     };
 
     const res = await fetch(webhookUrl, {
@@ -75,6 +78,9 @@ export async function toggleAiSession(phone: string, enabled: boolean) {
       phone,
       enabled,
       agent_name: agentName,
+      headers: {
+        authorization: `Bearer ${session.access_token}`
+      }
     };
 
     const res = await fetch(webhookUrl, {

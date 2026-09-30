@@ -22,7 +22,7 @@ export async function sendBlast(filter: string, templateName: string, headerImag
       return { success: false, error: "Not a staff member" };
     }
 
-    const webhookUrl = process.env.N8N_BLAST_WEBHOOK_URL || "https://n8n.brightmedia.tech/webhook/pabbas-blast";
+    const webhookUrl = process.env.N8N_BLAST_WEBHOOK_URL || "https://staff.brightmedia.tech/webhook/pabbas-blast";
 
     const payload = {
       filter,
@@ -30,6 +30,9 @@ export async function sendBlast(filter: string, templateName: string, headerImag
       language: "en",
       header_image: headerImage,
       phones,
+      headers: {
+        authorization: `Bearer ${session.access_token}`
+      }
     };
 
     const res = await fetch(webhookUrl, {

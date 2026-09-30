@@ -8,7 +8,7 @@ import { CartItem, CustomerDetails, MenuItem, OrderType, PaymentMethod } from "@
 import { useAuth } from "@/components/auth/AuthProvider";
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
-const initialDetails: CustomerDetails = { name: "", phone: "", address: "", landmark: "", pincode: "", pickupDate: "", pickupTime: "19:00", payment: "upi" };
+const initialDetails: CustomerDetails = { name: "", phone: "", address: "", landmark: "", pincode: "", pickupDate: "", pickupTime: "19:00", payment: "cash" };
 
 type Screen = "welcome" | "menu" | "checkout" | "confirmed";
 
@@ -17,6 +17,7 @@ export default function Home() {
   const [orderType, setOrderType] = useState<OrderType>("delivery");
   const [table, setTable] = useState("No table / Takeaway");
   const [category, setCategory] = useState("All");
+  const [dietFilter, setDietFilter] = useState<"All" | "Veg" | "Non-veg">("All");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [details, setDetails] = useState<CustomerDetails>(initialDetails);
@@ -60,7 +61,14 @@ export default function Home() {
     fetchMenu();
   }, []);
 
-  const visibleItems = useMemo(() => menuItems.filter((item) => `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(search.toLowerCase()) && (category === "All" || displayCategory(item.category) === category)), [category, search, menuItems]);
+  const visibleItems = useMemo(() => {
+    return menuItems.filter((item) => {
+      const matchSearch = `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(search.toLowerCase());
+      const matchCat = category === "All" || displayCategory(item.category) === category;
+      const matchDiet = dietFilter === "All" || (dietFilter === "Veg" ? item.vegetarian : !item.vegetarian);
+      return matchSearch && matchCat && matchDiet;
+    });
+  }, [category, search, menuItems, dietFilter]);
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = cart.reduce((sum, line) => sum + line.item.price * line.quantity, 0);
   const deliveryFee = orderType === "delivery" && subtotal > 0 ? 35 : 0;
@@ -171,14 +179,14 @@ export default function Home() {
       
       <RestaurantInfo orderType={orderType} table={table} />
 
-      <nav aria-label="Menu categories" className="sticky top-[64px] z-30 flex gap-3 overflow-x-auto bg-white px-4 py-3 border-b border-gray-100 shadow-[0_2px_4px_rgba(0,0,0,0.02)] no-scrollbar">
-        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-[13px] font-medium shrink-0 text-gray-700">
-          <SlidersHorizontal size={14}/> Filters <ChevronDown size={14}/>
+      <nav aria-label="Menu categories" className="sticky top-[64px] z-30 flex gap-3 overflow-x-auto bg-white px-4 py-3 border-b border-gray-100 shadow-[0_2px_15px_rgba(0,0,0,0.04)] no-scrollbar">
+        <button onClick={() => setMenuMenuOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-[13px] font-bold shrink-0 text-gray-700 transition">
+          <SlidersHorizontal size={14}/> {category === "All" ? "Categories" : category} <ChevronDown size={14}/>
         </button>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-[13px] font-medium shrink-0 text-gray-700">
+        <button onClick={() => setDietFilter(prev => prev === "Veg" ? "All" : "Veg")} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-[13px] font-bold shrink-0 transition ${dietFilter === "Veg" ? "bg-green-50 border-green-200 text-green-700 shadow-sm" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}>
           <span className="w-3.5 h-3.5 border-[1.5px] border-green-600 flex items-center justify-center rounded-[2px]"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span></span> Veg
         </button>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-[13px] font-medium shrink-0 text-gray-700">
+        <button onClick={() => setDietFilter(prev => prev === "Non-veg" ? "All" : "Non-veg")} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-[13px] font-bold shrink-0 transition ${dietFilter === "Non-veg" ? "bg-red-50 border-red-200 text-red-700 shadow-sm" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}>
           <span className="w-3.5 h-3.5 border-[1.5px] border-red-700 flex items-center justify-center rounded-[2px]"><span className="w-1.5 h-1.5 bg-red-700 rounded-full"></span></span> Non-veg
         </button>
       </nav>
@@ -328,46 +336,40 @@ function Welcome({ orderType, setOrderType }: { orderType: OrderType; setOrderTy
 }
 
 function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: MenuItem; quantity: number; onAdd: (item: MenuItem, amount?: number) => void; onChange: (id: string, delta: number) => void; onDetails: (item: MenuItem) => void; }) { 
-  return <article className="flex gap-4 bg-white w-full py-5 px-4 border-b border-gray-100 border-dashed">
-    <div className="flex-1 min-w-0 pr-2">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] ${item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${item.vegetarian ? 'bg-green-600' : 'bg-red-700'}`}></span>
+  return <article onClick={() => item.options ? onDetails(item) : null} className={`flex gap-4 bg-white w-full py-5 px-4 border-b border-gray-100 ${item.options ? 'cursor-pointer' : ''} hover:bg-gray-50/50 transition duration-300`}>
+    <div className="flex-1 min-w-0 pr-2 pt-1">
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[3px] ${item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
+          <span className={`w-2 h-2 rounded-full ${item.vegetarian ? 'bg-green-600' : 'bg-red-700'}`}></span>
         </span>
-        {item.badge && <span className="text-blue-600 text-[11px] font-bold tracking-wide uppercase">{item.badge}</span>}
+        {item.badge && <span className="bg-[#fff0f1] text-[#ef4f5f] px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-[#ffc9ce]">{item.badge}</span>}
       </div>
-      <h3 className="font-bold text-gray-800 text-[17px] leading-tight mb-1.5">{item.name}</h3>
-      <div className="flex items-center gap-2 mb-2">
-         <span className="font-bold text-gray-800 text-[15px]">{money(item.price)}</span>
-         {item.price > 150 && <span className="text-gray-400 text-[13px] line-through">{money(item.price + 100)}</span>}
+      <h3 className="font-extrabold text-gray-900 text-[18px] leading-tight mb-2 tracking-tight">{item.name}</h3>
+      <div className="flex items-center gap-2 mb-2.5">
+         <span className="font-extrabold text-gray-900 text-[16px]">{money(item.price)}</span>
+         {item.price > 150 && <span className="text-gray-400 text-[13px] line-through font-medium">{money(item.price + 100)}</span>}
       </div>
-      {item.description && <p className="text-gray-500 text-[13px] line-clamp-2 leading-[1.4] mb-3">{item.description}</p>}
-      
-      <div className="flex items-center gap-3 mb-2">
-        <button className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full text-gray-500 hover:bg-gray-50"><Bookmark size={15}/></button>
-        <button className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-full text-gray-500 hover:bg-gray-50"><Share2 size={15}/></button>
-      </div>
+      {item.description && <p className="text-gray-500 text-[13px] line-clamp-2 leading-[1.5] font-medium">{item.description}</p>}
     </div>
     
-    <div className="relative w-[140px] shrink-0 flex flex-col items-center">
-      <div className="w-[140px] h-[140px] rounded-[18px] overflow-hidden shadow-sm">
-        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+    <div className="relative w-[140px] shrink-0 flex flex-col items-center justify-center pb-3">
+      <div className="w-[140px] h-[140px] rounded-[24px] overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.08)] border border-gray-100">
+        <img src={item.image} alt={item.name} className="w-full h-full object-cover transform hover:scale-105 transition duration-500" />
       </div>
       
-      <div className="absolute -bottom-[18px] w-[116px]">
+      <div className="absolute -bottom-1 w-[120px] z-10">
         {quantity > 0 ? (
-          <div className="flex items-center justify-between bg-[#e23744] text-white border border-[#e23744] rounded-[10px] h-[36px] shadow-sm px-2.5 font-bold">
-            <button onClick={() => onChange(item.id, -1)} className="p-1 h-full flex items-center"><Minus size={18} strokeWidth={3} /></button>
+          <div className="flex items-center justify-between bg-[#ef4f5f] text-white rounded-xl h-[40px] shadow-lg shadow-red-500/30 px-3 font-bold" onClick={e => e.stopPropagation()}>
+            <button onClick={() => onChange(item.id, -1)} className="p-1 h-full flex items-center active:scale-90 transition"><Minus size={18} strokeWidth={3} /></button>
             <span className="text-[16px]">{quantity}</span>
-            <button onClick={() => onChange(item.id, 1)} className="p-1 h-full flex items-center"><Plus size={18} strokeWidth={3} /></button>
+            <button onClick={() => onChange(item.id, 1)} className="p-1 h-full flex items-center active:scale-90 transition"><Plus size={18} strokeWidth={3} /></button>
           </div>
         ) : (
-          <button onClick={() => item.options ? onDetails(item) : onAdd(item)} className="w-full bg-white text-[#ef4f5f] border-[1px] border-[#ffc9ce] shadow-md shadow-red-500/10 rounded-[10px] h-[36px] font-extrabold text-[15px] tracking-wide flex justify-center items-center gap-1 active:scale-95 transition-transform">
-            ADD <Plus size={14} strokeWidth={3} />
+          <button onClick={(e) => { e.stopPropagation(); item.options ? onDetails(item) : onAdd(item); }} className="w-full bg-white text-[#ef4f5f] border-[1.5px] border-[#ef4f5f] shadow-xl shadow-red-500/10 rounded-xl h-[40px] font-extrabold text-[16px] tracking-wide flex justify-center items-center gap-1 hover:bg-[#fff0f1] active:scale-95 transition-all">
+            ADD <Plus size={16} strokeWidth={3} />
           </button>
         )}
       </div>
-      <span className="text-[10px] text-gray-400 mt-[22px] text-center w-full block">customisable</span>
     </div>
   </article> 
 }
@@ -793,8 +795,9 @@ function Checkout({
             <h2 className="text-[17px] font-bold mb-4 text-gray-800">Payment Method</h2>
             <div className="grid grid-cols-3 gap-3">
               {(["upi", "cash", "online"] as PaymentMethod[]).map((method) => 
-                <button key={method} onClick={() => setDetails({ ...details, payment: method })} className={`flex items-center justify-center p-3.5 rounded-xl border-2 font-bold text-[14px] transition ${details.payment === method ? "border-[#ef4f5f] text-[#ef4f5f] bg-[#fff0f1]" : "border-gray-100 text-gray-600 bg-gray-50"}`}>
+                <button key={method} disabled={method !== "cash"} onClick={() => setDetails({ ...details, payment: method })} className={`relative flex flex-col items-center justify-center p-3.5 rounded-xl border-2 font-bold text-[14px] transition ${details.payment === method ? "border-[#ef4f5f] text-[#ef4f5f] bg-[#fff0f1]" : "border-gray-100 text-gray-600 bg-gray-50"} ${method !== "cash" ? "opacity-50 cursor-not-allowed" : ""}`}>
                   {method === "upi" ? "UPI" : method === "cash" ? "Cash" : "Card"}
+                  {method !== "cash" && <span className="absolute -top-2.5 bg-gray-200 text-gray-600 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full border border-white">Coming Soon</span>}
                 </button>
               )}
             </div>
