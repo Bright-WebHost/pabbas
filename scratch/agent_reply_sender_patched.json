@@ -1,0 +1,986 @@
+{
+  "id": "bgDd5V7r7LaLo0qb",
+  "name": "Pabbas | Agent Reply Sender",
+  "description": null,
+  "active": true,
+  "activeVersionId": "744f69da-3003-4c86-a1aa-23d32116b4af",
+  "createdAt": "2026-09-23T06:04:09.507Z",
+  "updatedAt": "2026-09-28T11:14:03.429Z",
+  "isArchived": false,
+  "versionId": "744f69da-3003-4c86-a1aa-23d32116b4af",
+  "versionCounter": 35,
+  "sourceWorkflowId": null,
+  "triggerCount": 1,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pabbas-agent-reply",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "7a4b1612-42fd-477a-a630-e1e140694d6c",
+      "name": "Agent Reply Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        80
+      ],
+      "webhookId": "pabbas-agent-reply",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Xcg9YUaVyqTFWiDm",
+          "name": "x-pabbas-whatsapp-secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "id": "d6fc0ee1-dced-46e6-8ff6-cac67b2fc2d1",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.error }}",
+              "operation": "false"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "b1672eb4-61c4-4212-814a-69981ac4baee",
+      "name": "Is Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        304,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/staff_check",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNjMxMDksImV4cCI6MjEwNTYzOTEwOX0.FE20KE6UeqQfDEWsargczPt8tsX1qWHDY6DQnCXJQzA"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "a3bdcf89-082a-4f07-bf69-4099c52fd7cd",
+      "name": "Verify Staff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -192,
+        -112
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, direction: 'outbound', sender: 'agent', message_type: 'text', content: $('Validate Input').first().json.message }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "886722d8-5fd4-4e33-a3fb-ffb9a72c7e75",
+      "name": "Log Agent Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        704,
+        -16
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "RImgl1ED9KhO0wG4",
+          "name": "Supabase Service Role"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/chat_sessions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "phone"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, ai_enabled: false, ai_disabled_at: new Date().toISOString(), ai_disabled_by: $('Validate Input').first().json.agent_name, last_human_activity_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "c982707f-fbf1-4121-ac69-12e478b4932b",
+      "name": "Take Over Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        928,
+        -16
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "RImgl1ED9KhO0wG4",
+          "name": "Supabase Service Role"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, phone: $('Validate Input').first().json.phone }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "74b26af0-e122-41a0-bd9e-5febf2ea6755",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1152,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "91f6fba5-344d-448f-82d7-eda0782dec82",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "pabbas-agent-reply-is-staff-check",
+              "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ca9389ec-b9c3-4afe-8d13-535cecafc3e1",
+      "name": "Is Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        48,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "847f2517-51a0-4cef-9b40-abab8d8102d7",
+      "name": "Respond Unauthorised",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ycloud.com/v2/whatsapp/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "2fe76241b7ddf5aef333ebf96dcaeeb1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: $json.phone,\n  type: 'text',\n  text: {\n    body: $json.message\n  }\n}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fb9336f8-d912-44ce-9f9c-20ca04c3aed7",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        -16
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Agent Reply Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Staff": {
+      "main": [
+        [
+          {
+            "node": "Is Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Staff?": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Agent Message": {
+      "main": [
+        [
+          {
+            "node": "Take Over Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Take Over Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Log Agent Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "bgDd5V7r7LaLo0qb",
+      "projectId": "nA9h8O54aEZhDQ9B",
+      "project": {
+        "id": "nA9h8O54aEZhDQ9B",
+        "name": "Maithri Maithri <smaithri039@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
+        "createdAt": "2026-09-09T06:43:52.178Z",
+        "updatedAt": "2026-09-09T06:45:10.777Z"
+      },
+      "createdAt": "2026-09-23T06:04:09.508Z",
+      "updatedAt": "2026-09-23T06:04:09.508Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "744f69da-3003-4c86-a1aa-23d32116b4af",
+    "workflowId": "bgDd5V7r7LaLo0qb",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "pabbas-agent-reply",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "7a4b1612-42fd-477a-a630-e1e140694d6c",
+        "name": "Agent Reply Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -192,
+          80
+        ],
+        "webhookId": "pabbas-agent-reply",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Xcg9YUaVyqTFWiDm",
+            "name": "x-pabbas-whatsapp-secret"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+        },
+        "id": "d6fc0ee1-dced-46e6-8ff6-cac67b2fc2d1",
+        "name": "Validate Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          288,
+          -176
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{ $json.error }}",
+                "operation": "false"
+              }
+            ],
+            "combinator": "and",
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            }
+          },
+          "options": {}
+        },
+        "id": "b1672eb4-61c4-4212-814a-69981ac4baee",
+        "name": "Is Valid?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          304,
+          64
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/staff_check",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "=sb_publishable_NS4iJJ729lIw0VCm9cN_Qg_rCNk-bMc\n"
+              },
+              {
+                "name": "Authorization",
+                "value": "={{ $json.headers.authorization }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({}) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true
+              }
+            },
+            "timeout": 10000
+          }
+        },
+        "id": "a3bdcf89-082a-4f07-bf69-4099c52fd7cd",
+        "name": "Verify Staff",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -192,
+          -112
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "httpCustomAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, direction: 'outbound', sender: 'agent', message_type: 'text', content: $('Validate Input').first().json.message }) }}",
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "id": "886722d8-5fd4-4e33-a3fb-ffb9a72c7e75",
+        "name": "Log Agent Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          704,
+          -16
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpCustomAuth": {
+            "id": "RImgl1ED9KhO0wG4",
+            "name": "Supabase Service Role"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.SUPABASE_URL || 'https://clqzctntkwzahdfjeqlx.supabase.co' }}/rest/v1/chat_sessions",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "httpCustomAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "on_conflict",
+                "value": "phone"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "resolution=merge-duplicates,return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ phone: $('Validate Input').first().json.phone, ai_enabled: false, ai_disabled_at: new Date().toISOString(), ai_disabled_by: $('Validate Input').first().json.agent_name, last_human_activity_at: new Date().toISOString() }) }}",
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "id": "c982707f-fbf1-4121-ac69-12e478b4932b",
+        "name": "Take Over Session",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          928,
+          -16
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpCustomAuth": {
+            "id": "RImgl1ED9KhO0wG4",
+            "name": "Supabase Service Role"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: true, phone: $('Validate Input').first().json.phone }) }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "74b26af0-e122-41a0-bd9e-5febf2ea6755",
+        "name": "Respond Success",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          1152,
+          -16
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "91f6fba5-344d-448f-82d7-eda0782dec82",
+        "name": "Respond Error",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          480,
+          224
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "pabbas-agent-reply-is-staff-check",
+                "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "ca9389ec-b9c3-4afe-8d13-535cecafc3e1",
+        "name": "Is Staff?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          48,
+          -128
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "847f2517-51a0-4cef-9b40-abab8d8102d7",
+        "name": "Respond Unauthorised",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          112,
+          160
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.ycloud.com/v2/whatsapp/messages",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-API-Key",
+                "value": "2fe76241b7ddf5aef333ebf96dcaeeb1"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "=={{ JSON.stringify({\n  from: '+919180348124',\n  to: $json.phone,\n  type: 'text',\n  text: {\n    body: $json.message\n  }\n}) }}",
+          "options": {
+            "timeout": 15000
+          }
+        },
+        "id": "fb9336f8-d912-44ce-9f9c-20ca04c3aed7",
+        "name": "Send WhatsApp Reply",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          480,
+          -16
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      }
+    ],
+    "connections": {
+      "Agent Reply Webhook": {
+        "main": [
+          [
+            {
+              "node": "Verify Staff",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verify Staff": {
+        "main": [
+          [
+            {
+              "node": "Is Staff?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Staff?": {
+        "main": [
+          [
+            {
+              "node": "Validate Input",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Unauthorised",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Input": {
+        "main": [
+          [
+            {
+              "node": "Is Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Valid?": {
+        "main": [
+          [
+            {
+              "node": "Send WhatsApp Reply",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Agent Message": {
+        "main": [
+          [
+            {
+              "node": "Take Over Session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Take Over Session": {
+        "main": [
+          [
+            {
+              "node": "Respond Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send WhatsApp Reply": {
+        "main": [
+          [
+            {
+              "node": "Log Agent Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Maithri Maithri",
+    "name": "Version 744f69da",
+    "description": "",
+    "autosaved": true,
+    "createdAt": "2026-09-28T11:14:03.430Z",
+    "updatedAt": "2026-09-28T11:14:20.000Z",
+    "workflowPublishHistory": [
+      {
+        "id": 212,
+        "workflowId": "bgDd5V7r7LaLo0qb",
+        "versionId": "744f69da-3003-4c86-a1aa-23d32116b4af",
+        "event": "activated",
+        "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
+        "createdAt": "2026-09-28T11:14:20.079Z"
+      }
+    ]
+  }
+}

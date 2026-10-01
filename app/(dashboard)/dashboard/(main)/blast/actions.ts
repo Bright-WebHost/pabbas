@@ -50,8 +50,10 @@ export async function uploadYCloudMedia(formData: FormData) {
       throw new Error(`Upload failed: ${res.status}`);
     }
 
-    const mediaId = await res.text();
-    return { success: true, media_id: mediaId.trim() };
+    const rawResponse = await res.text();
+    // YCloud may return multiple media IDs separated by newlines — use only the first one
+    const mediaId = rawResponse.trim().split('\n')[0].trim();
+    return { success: true, media_id: mediaId };
   } catch (err: any) {
     console.error("uploadYCloudMedia error:", err);
     return { success: false, error: err.message };
