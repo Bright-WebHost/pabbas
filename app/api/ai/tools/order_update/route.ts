@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     .select('quantity, unit_price')
     .eq('order_id', order_id)
 
-  const newTotal = (orderItems || []).reduce((sum, item) => sum + (item.quantity * Number(item.unit_price)), 0)
+  const newTotal = (orderItems || []).reduce((sum: number, item: { quantity: number; unit_price: number }) => sum + (item.quantity * Number(item.unit_price)), 0)
 
   await adminClient.from('orders').update({ total_amount: newTotal }).eq('id', order_id)
 
