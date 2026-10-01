@@ -38,7 +38,7 @@ export async function uploadYCloudMedia(formData: FormData) {
     const apiKey = process.env.YCLOUD_API_KEY;
     if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
 
-    const res = await fetch("https://api.ycloud.com/v2/whatsapp/media/upload", {
+    const res = await fetch("https://api.ycloud.com/v2/whatsapp/media/%2B919180348124/upload", {
       method: "POST",
       headers: { "X-API-Key": apiKey },
       body: formData
@@ -50,10 +50,8 @@ export async function uploadYCloudMedia(formData: FormData) {
       throw new Error(`Upload failed: ${res.status}`);
     }
 
-    const rawResponse = await res.text();
-    // YCloud may return multiple media IDs separated by newlines — use only the first one
-    const mediaId = rawResponse.trim().split('\n')[0].trim();
-    return { success: true, media_id: mediaId };
+    const json = await res.json();
+    return { success: true, media_id: json.id };
   } catch (err: any) {
     console.error("uploadYCloudMedia error:", err);
     return { success: false, error: err.message };
