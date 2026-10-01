@@ -11,8 +11,15 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const aiSecret = request.headers.get('x-pabbas-ai-secret')?.trim()
+    const expectedSecret = process.env.PABBAS_AI_WEBHOOK_SECRET?.trim()
+    
+    if (!expectedSecret || aiSecret !== expectedSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const supabase = createAdminClient()
 
     // Fetch active menu items from the actual production schema
@@ -31,7 +38,7 @@ export async function GET() {
     const menu = (items as any[]).map((item) => ({
       id: item.id,
       item_number: item.item_number,
-      name: item.item_name,
+      item_name: item.item_name,
       category: item.category || 'Uncategorized',
       description: item.description || '',
       price: item.price,

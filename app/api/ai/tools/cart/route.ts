@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 function formatCartResponse(items: any[]) {
   if (!items || items.length === 0) return { empty: true, items: [], total: 0 }
-  const total = items.reduce((sum: number, item: any) => sum + ((item.price || 0) * item.quantity), 0)
+  const total = items.reduce((sum: number, item: any) => sum + ((item.unit_price || item.price || 0) * item.quantity), 0)
   return { empty: false, items, total }
 }
 
@@ -84,8 +84,8 @@ export async function POST(request: Request) {
       } else {
         currentItems.push({
           menu_item_id: menuItem.id,
-          name: menuItem.item_name,
-          price: menuItem.price,
+          item_name: menuItem.item_name,
+          unit_price: menuItem.price,
           quantity: qty
         })
       }

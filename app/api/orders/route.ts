@@ -17,12 +17,27 @@ function isValidPositiveInteger(value: unknown): value is number {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSessionCookie()
-    if (!session || !session.customerId) {
-      return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+    const aiSecret = request.headers.get('x-pabbas-ai-secret')?.trim()
+    const isAiBackend = aiSecret && aiSecret === process.env.PABBAS_AI_WEBHOOK_SECRET?.trim()
+
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
-    const body = await request.json()
+    let sessionCustomerId: string | null = null
+
+    if (isAiBackend && body.customer_id) {
+      sessionCustomerId = body.customer_id
+    } else {
+      const session = await getSessionCookie()
+      if (!session || !session.customerId) {
+        return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+      }
+      sessionCustomerId = session.customerId
+    }
     const {
       order_type,
       customer_name,
@@ -52,7 +67,7 @@ export async function POST(request: Request) {
     const { data: customerData } = await adminClient
       .from('app_customers')
       .select('name, phone')
-      .eq('id', session.customerId)
+      .eq('id', sessionCustomerId)
       .single()
 
     const resolvedName = typeof customer_name === 'string' && customer_name.trim() ? customer_name.trim() : customerData?.name || 'Valued Customer'
