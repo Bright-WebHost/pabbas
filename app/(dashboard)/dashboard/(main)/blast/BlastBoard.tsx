@@ -2,18 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Megaphone, Send, Info, CheckSquare } from "lucide-react";
-import { sendBlast } from "./actions";
+import { Loader2, Megaphone, Send, Info, CheckSquare, UploadCloud } from "lucide-react";
+import { sendBlast, getYCloudTemplates, uploadYCloudMedia } from "./actions";
 
 export default function BlastBoard() {
   const [eligibleCount, setEligibleCount] = useState(0);
-  const [headerImage, setHeaderImage] = useState("");
-  const [templateName, setTemplateName] = useState("pabbas_promo_en");
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ sent?: number; attempted?: number; error?: string } | null>(null);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
+  
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplateName, setSelectedTemplateName] = useState("");
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
 
   const supabase = createClient();
 
@@ -21,7 +23,6 @@ export default function BlastBoard() {
     async function fetchData() {
       setLoading(true);
       try {
-        // Fetch count of eligible customers
         const { count } = await supabase
           .from("customers")
           .select("*", { count: "exact", head: true })
@@ -29,15 +30,12 @@ export default function BlastBoard() {
         
         if (count !== null) setEligibleCount(count);
 
-        // Fetch settings for blast header image
-        const { data } = await supabase
-          .from("settings")
-          .select("value")
-          .eq("key", "blast_header_image")
-          .maybeSingle();
-        
-        if (data && (data as any).value) {
-          setHeaderImage((data as any).value);
+        const tpls = await getYCloudTemplates();
+        if (tpls.success && tpls.templates) {
+          setTemplates(tpls.templates);
+          if (tpls.templates.length > 0) {
+            setSelectedTemplateName(tpls.templates[0].name);
+          }
         }
       } catch (e) {
         console.error(e);
@@ -47,7 +45,6 @@ export default function BlastBoard() {
     }
     fetchData();
 
-    // Check for passed selection
     const saved = sessionStorage.getItem("pabbas_blast_selection");
     if (saved) {
       try {
@@ -59,18 +56,53 @@ export default function BlastBoard() {
     }
   }, [supabase]);
 
+  const selectedTemplate = templates.find((t) => t.name === selectedTemplateName);
+  const headerComponent = selectedTemplate?.components?.find((c: any) => c.type === "HEADER");
+  const requiresMedia = headerComponent?.format === "IMAGE" || headerComponent?.format === "VIDEO" || headerComponent?.format === "DOCUMENT";
+
   const handleSend = async () => {
+    if (!selectedTemplate) return;
     setSending(true);
     setResult(null);
+
     try {
-      // Save header image to settings if changed
-      if (headerImage) {
-        await supabase
-          .from("settings")
-          .upsert({ key: "blast_header_image", value: headerImage } as any, { onConflict: "key" });
+      const components: any[] = [];
+
+      // Handle media if required
+      if (requiresMedia) {
+        if (!mediaFile) {
+          setResult({ error: "Please select a media file for this template's header." });
+          setSending(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", mediaFile);
+        const uploadRes = await uploadYCloudMedia(formData);
+        
+        if (!uploadRes.success || !uploadRes.media_id) {
+          throw new Error(uploadRes.error || "Failed to upload media");
+        }
+
+        const typeMap: any = {
+          "IMAGE": "image",
+          "VIDEO": "video",
+          "DOCUMENT": "document"
+        };
+        const mediaType = typeMap[headerComponent.format] || "image";
+
+        components.push({
+          type: "header",
+          parameters: [
+            {
+              type: mediaType,
+              [mediaType]: { id: uploadRes.media_id }
+            }
+          ]
+        });
       }
 
-      const res = await sendBlast(filter, templateName, headerImage, selectedPhones);
+      const res = await sendBlast(filter, selectedTemplateName, components, selectedPhones);
       if (res.success && res.data) {
         setResult({
           sent: res.data.sent || 0,
@@ -97,7 +129,6 @@ export default function BlastBoard() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
           <div className="flex items-center gap-2 text-blue-800 mb-2 font-bold uppercase tracking-wider text-xs">
@@ -150,43 +181,64 @@ export default function BlastBoard() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">Approved template name</label>
-          <input
+          <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">Select Template</label>
+          <select
             className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm font-medium focus:border-red-500 focus:outline-none"
-            value={templateName}
-            onChange={(e) => setTemplateName(e.target.value)}
-          />
+            value={selectedTemplateName}
+            onChange={(e) => {
+              setSelectedTemplateName(e.target.value);
+              setMediaFile(null);
+            }}
+          >
+            {templates.length === 0 && <option value="">No approved templates found</option>}
+            {templates.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name} ({t.language})
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">Header image URL</label>
-          <input
-            className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm font-medium focus:border-red-500 focus:outline-none"
-            placeholder="https://... .png"
-            value={headerImage}
-            onChange={(e) => setHeaderImage(e.target.value)}
-          />
-          <p className="mt-2 text-xs text-gray-500">
-            Templates with an image header require an image on every send. Put your offer creative on a public URL and paste it here.
-          </p>
-        </div>
+        {requiresMedia && (
+          <div>
+            <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">
+              Campaign Media ({headerComponent.format})
+            </label>
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <UploadCloud className="w-8 h-8 mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500">
+                  <span className="font-semibold">Click to upload</span> {mediaFile ? mediaFile.name : `a campaign ${headerComponent.format.toLowerCase()}`}
+                </p>
+              </div>
+              <input 
+                type="file" 
+                className="hidden" 
+                accept={headerComponent.format === "IMAGE" ? "image/*" : headerComponent.format === "VIDEO" ? "video/*" : "*/*"}
+                onChange={(e) => setMediaFile(e.target.files?.[0] || null)} 
+              />
+            </label>
+            <p className="mt-2 text-xs text-gray-500">
+              This template requires a {headerComponent.format.toLowerCase()} header. It will be securely uploaded to YCloud before sending.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800 flex items-start gap-3">
         <Info className="h-5 w-5 shrink-0 mt-0.5" />
         <p>
-          The template must already be approved in Meta, and this workflow must be active in n8n.
-          Sends about one per second — leave this tab open.
+          Sends about one per second — leave this tab open until complete. Do a test run first!
         </p>
       </div>
 
       <button
         onClick={handleSend}
-        disabled={sending}
+        disabled={sending || (requiresMedia && !mediaFile)}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-4 text-base font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-50 transition"
       >
         {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-        {sending ? "Sending Blast..." : "Send Blast"}
+        {sending ? "Processing & Sending..." : "Send Blast"}
       </button>
 
       {result && (

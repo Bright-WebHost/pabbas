@@ -3,7 +3,61 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function sendBlast(filter: string, templateName: string, headerImage: string, phones: string[] = []) {
+export async function getYCloudTemplates() {
+  try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { success: false, error: "Unauthorized" };
+
+    const apiKey = process.env.YCLOUD_API_KEY;
+    if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
+
+    const res = await fetch("https://api.ycloud.com/v2/whatsapp/templates?limit=50", {
+      headers: { "X-API-Key": apiKey }
+    });
+
+    if (!res.ok) throw new Error(`YCloud API error: ${res.status}`);
+    const data = await res.json();
+    
+    // Filter for approved/sendable templates
+    const templates = (data.items || []).filter((t: any) => t.status === "APPROVED" || t.status === "ACTIVE");
+    return { success: true, templates };
+  } catch (err: any) {
+    console.error("getYCloudTemplates error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function uploadYCloudMedia(formData: FormData) {
+  try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { success: false, error: "Unauthorized" };
+
+    const apiKey = process.env.YCLOUD_API_KEY;
+    if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
+
+    const res = await fetch("https://api.ycloud.com/v2/whatsapp/media/upload", {
+      method: "POST",
+      headers: { "X-API-Key": apiKey },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const errTxt = await res.text();
+      console.error("YCloud Media Upload Error:", errTxt);
+      throw new Error(`Upload failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return { success: true, media_id: data.id };
+  } catch (err: any) {
+    console.error("uploadYCloudMedia error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function sendBlast(filter: string, templateName: string, components: any[], phones: string[] = []) {
   try {
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -22,13 +76,27 @@ export async function sendBlast(filter: string, templateName: string, headerImag
       return { success: false, error: "Not a staff member" };
     }
 
+    // Server-side validation
+    const apiKey = process.env.YCLOUD_API_KEY;
+    if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
+
+    const tplRes = await fetch(`https://api.ycloud.com/v2/whatsapp/templates?name=${templateName}`, {
+      headers: { "X-API-Key": apiKey }
+    });
+    const tplData = await tplRes.json();
+    const template = (tplData.items || []).find((t: any) => t.name === templateName && t.status === "APPROVED");
+    if (!template) {
+      return { success: false, error: "Template not found or not approved" };
+    }
+
     const webhookUrl = process.env.N8N_BLAST_WEBHOOK_URL || "https://staff.brightmedia.tech/webhook/pabbas-blast";
 
     const payload = {
       filter,
       template_name: templateName,
-      language: "en",
-      header_image: headerImage,
+      language: template.language || "en",
+      components,
+      ycloud_api_key: apiKey,
       phones,
       headers: {
         authorization: `Bearer ${session.access_token}`
