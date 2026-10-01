@@ -13,7 +13,8 @@ export async function getYCloudTemplates() {
     if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
 
     const res = await fetch("https://api.ycloud.com/v2/whatsapp/templates?limit=50", {
-      headers: { "X-API-Key": apiKey }
+      headers: { "X-API-Key": apiKey },
+      cache: "no-store"
     });
 
     if (!res.ok) throw new Error(`YCloud API error: ${res.status}`);

@@ -36,6 +36,8 @@ export default function BlastBoard() {
           if (tpls.templates.length > 0) {
             setSelectedTemplateName(tpls.templates[0].name);
           }
+        } else {
+          alert("Error fetching templates: " + (tpls.error || "Unknown"));
         }
       } catch (e) {
         console.error(e);
