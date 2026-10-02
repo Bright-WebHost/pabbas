@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useOrderManager } from "./OrderManagerProvider";
-import { motion, useMotionValue, useTransform } from "framer-motion";
 import { DashboardOrder } from "@/lib/orders/queries";
+import { SlideAction } from "@/components/dashboard/ui/SlideAction";
 
 const statusLabels: Record<string, string> = {
   new: "New Order",
@@ -83,50 +83,17 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SlideToAcknowledge({ onAcknowledge }: { onAcknowledge: () => void }) {
-  const x = useMotionValue(0);
-  const opacity = useTransform(x, [0, 200], [1, 0]);
-  const bg = useTransform(x, [0, 250], ["#e23744", "#34C759"]);
-
-  const handleDragEnd = (event: any, info: any) => {
-    if (info.offset.x > 200) {
-      onAcknowledge();
-    }
-  };
-
-  return (
-    <div className="relative flex h-14 w-full items-center overflow-hidden rounded-xl bg-[#F8FAFB] border border-[#e2e8f0]">
-      <motion.div className="absolute inset-0 z-0" style={{ backgroundColor: bg as any, opacity: 0.1 }} />
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <motion.span style={{ opacity }} className="text-sm font-extrabold uppercase tracking-widest text-[#e23744]">
-          Slide to Acknowledge
-        </motion.span>
-      </div>
-      <motion.div
-        drag="x"
-        dragConstraints={{ left: 0, right: 260 }}
-        dragElastic={0}
-        onDragEnd={handleDragEnd}
-        whileTap={{ cursor: "grabbing" }}
-        className="relative z-10 flex h-full w-16 cursor-grab items-center justify-center rounded-xl bg-[var(--red)] shadow-lg"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="13 17 18 12 13 7"></polyline>
-          <polyline points="6 17 11 12 6 7"></polyline>
-        </svg>
-      </motion.div>
-    </div>
-  );
-}
 
 export function GlobalNewOrderPopup() {
-  const { queuedNewOrders, acknowledgeOrder } = useOrderManager();
+  const { queuedNewOrders, acknowledgeOrder, updateOrderStatus } = useOrderManager();
   const [now, setNow] = useState(Date.now());
+  const [prepTime, setPrepTime] = useState<number>(15);
 
   const newOrder = queuedNewOrders.length > 0 ? queuedNewOrders[0] : null;
 
   useEffect(() => {
     if (!newOrder) return;
+    setPrepTime(15); // Reset prep time for each new order
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [newOrder]);
@@ -135,47 +102,115 @@ export function GlobalNewOrderPopup() {
 
   const countdown = formatCountdown(newOrder, now);
   const items = buildItemList(newOrder);
+  const PREP_TIMES = [15, 30, 45, 60];
+
+  const handleAccept = async () => {
+    try {
+      // In a real DB, we would save prepTime to an `estimated_prep_time_mins` column here
+      await updateOrderStatus(newOrder, "preparing");
+    } catch (e) {
+      console.error(e);
+    }
+    acknowledgeOrder(newOrder.id);
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#10151C]/70 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-[#F1D7B5] bg-white p-5 shadow-2xl">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--red2)]">New incoming order</p>
-            <h3 className="mt-2 text-2xl font-extrabold">{newOrder.order_number}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111A26]/80 p-4 backdrop-blur-sm transition-all duration-300">
+      <div className="w-full max-w-2xl rounded-[20px] bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2)] flex flex-col max-h-[90vh]">
+        
+        {/* Header */}
+        <div className="flex items-start justify-between border-b border-[var(--line)] pb-5">
+          <div className="flex flex-col">
+            <span className="text-[12px] font-extrabold tracking-[2px] uppercase text-[#C0392B] mb-1">
+              New Incoming Order
+            </span>
+            <h2 className="text-[32px] leading-none font-extrabold tracking-[-1px] text-[var(--ink)]">
+              {newOrder.order_number}
+            </h2>
           </div>
-          <div className="flex flex-col items-end gap-1">
-             <span className="rounded-full bg-[#FFF7E6] px-3 py-1 text-xs font-bold text-[#9A6700]">{statusLabels[newOrder.status] || "New"}</span>
-             {queuedNewOrders.length > 1 && (
-               <span className="text-xs font-bold text-[var(--red2)]">+{queuedNewOrders.length - 1} more in queue</span>
-             )}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-[#FFF7E6] border border-[#F3D28B] px-3 py-1.5 text-[13px] font-bold text-[#9A6700]">
+                {normalizeOrderType(newOrder.order_type)}
+              </span>
+            </div>
+            {queuedNewOrders.length > 1 && (
+              <span className="rounded-full bg-[#FFF0F1] border border-[#F5C2C6] px-3 py-1 text-[12px] font-bold text-[#C0392B]">
+                +{queuedNewOrders.length - 1} more in queue
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <InfoBlock label="Customer" value={`${newOrder.customer_name || "Guest"} · ${newOrder.customer_phone}`} />
-          <InfoBlock label="Type" value={normalizeOrderType(newOrder.order_type)} />
-          <InfoBlock label="Total" value={money(newOrder.total)} />
-          <InfoBlock label="Countdown" value={countdown.label} />
-          <InfoBlock label="Received" value={dateTime(newOrder.created_at)} />
-          <InfoBlock label="Address" value={[newOrder.address, newOrder.landmark, newOrder.pincode].filter(Boolean).join(", ") || newOrder.table_number || "—"} />
+        {/* Customer & Order Info */}
+        <div className="grid grid-cols-2 gap-6 py-5 border-b border-[var(--line)] shrink-0">
+          <div className="flex flex-col">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">Customer</span>
+            <span className="text-[15px] font-bold text-[var(--ink)]">{newOrder.customer_name || "Guest"}</span>
+            <span className="text-[14px] font-medium text-[var(--muted)]">{newOrder.customer_phone}</span>
+          </div>
+          
+          <div className="flex flex-col items-end text-right">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">Total Amount</span>
+            <span className="text-[24px] leading-none font-extrabold text-[var(--red2)]">{money(newOrder.total)}</span>
+            <span className="text-[13px] font-bold text-[var(--muted)] mt-1">
+              Received {dateTime(newOrder.created_at).split(", ")[1]}
+            </span>
+          </div>
+          
+          {(newOrder.order_type === "delivery" && (newOrder.address || newOrder.landmark || newOrder.pincode)) && (
+            <div className="col-span-2 bg-[#F8FAFB] p-3 rounded-xl border border-[var(--line)]">
+              <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-1">Delivery Address</span>
+              <span className="text-[14px] font-medium text-[var(--ink)]">📍 {[newOrder.address, newOrder.landmark, newOrder.pincode].filter(Boolean).join(", ")}</span>
+            </div>
+          )}
         </div>
 
-        <div className="mt-4 rounded-xl border border-[var(--line)] bg-[#FBFCFD] p-3 max-h-48 overflow-y-auto">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Items</p>
-          <div className="space-y-2 text-sm">
+        {/* Items List */}
+        <div className="flex-1 min-h-[120px] overflow-y-auto py-5">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-3">Order Items</span>
+          <div className="space-y-2">
             {items.map((item: any) => (
-              <div key={item.id} className="flex items-center justify-between gap-3">
-                <span>{item.quantity} × {item.name}</span>
-                <span className="font-bold">{money(item.unit_price * item.quantity)}</span>
+              <div key={item.id} className="flex justify-between items-start p-3 bg-[#F8FAFB] border border-[var(--line)] rounded-xl">
+                <div className="flex gap-3">
+                  <span className="font-extrabold text-[15px] text-[var(--ink)] w-[24px]">{item.quantity}×</span>
+                  <span className="font-bold text-[15px] text-[var(--ink)]">{item.name}</span>
+                </div>
+                <span className="font-bold text-[15px] text-[var(--ink)]">{money(item.unit_price * item.quantity)}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="mt-5">
-          <SlideToAcknowledge onAcknowledge={() => acknowledgeOrder(newOrder.id)} />
+        {/* Actions (Prep Time & Slide) */}
+        <div className="pt-5 border-t border-[var(--line)] shrink-0 bg-white">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-3 text-center">
+            Select Preparation Time
+          </span>
+          <div className="flex gap-2 justify-center mb-6">
+            {PREP_TIMES.map(time => (
+              <button
+                key={time}
+                onClick={() => setPrepTime(time)}
+                className={`w-[60px] h-[48px] rounded-[12px] font-extrabold text-[15px] transition-all
+                  ${prepTime === time 
+                    ? "bg-[#C0392B] text-white shadow-[0_4px_12px_rgba(192,57,43,0.3)] border-transparent" 
+                    : "bg-white text-[var(--ink)] border border-[var(--line)] hover:border-[#C0392B] hover:text-[#C0392B]"
+                  }`}
+              >
+                {time}m
+              </button>
+            ))}
+          </div>
+
+          <SlideAction
+            label="Slide to Accept & Cook"
+            baseColor="#F8FAFB"
+            accentColor="#C0392B"
+            onAcknowledge={handleAccept}
+          />
         </div>
+
       </div>
     </div>
   );

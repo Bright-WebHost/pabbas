@@ -3,12 +3,12 @@
   "name": "Pabbas | Production | WhatsApp AI Order Bridge",
   "description": null,
   "active": true,
-  "activeVersionId": "79b4c8ac-cb34-491b-974c-a7fdf460d870",
+  "activeVersionId": "9120010a-4402-47a7-90b9-9440dba04dd2",
   "createdAt": "2026-09-23T04:03:01.708Z",
-  "updatedAt": "2026-09-30T09:19:09.650Z",
+  "updatedAt": "2026-10-01T11:01:34.303Z",
   "isArchived": false,
-  "versionId": "79b4c8ac-cb34-491b-974c-a7fdf460d870",
-  "versionCounter": 277,
+  "versionId": "9120010a-4402-47a7-90b9-9440dba04dd2",
+  "versionCounter": 286,
   "sourceWorkflowId": null,
   "triggerCount": 1,
   "nodes": [
@@ -603,32 +603,21 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/orders",
+        "url": "https://pabbas-one.vercel.app/api/orders",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items,\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=representation"
-            },
-            {
-              "name": "apikey",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ customer_phone: $json.customer_phone, customer_name: $json.customer_name || '', items: $json.items.map(item => item.name + ' x' + item.quantity).join(', '), items_json: $json.items, total: $json.total, status: 'draft', order_type: $json.order_type, source: 'whatsapp' }) }}",
-        "options": {}
+        }
       },
       "id": "2e3f4ad0-17bc-46ac-852b-3a7b6dd06863",
       "name": "Create Draft Order",
@@ -745,7 +734,7 @@
     },
     {
       "parameters": {
-        "jsCode": "/*\n * PABBAS - BUILD OUTBOUND MESSAGE\n * Updated to properly handle deterministic Welcome and Menu CTAs.\n */\n\nconst input = $input.first()?.json || {};\nconst inbound = $('Extract Inbound Message').first()?.json || {};\nconst route = $('Route Inbound Message').first()?.json || {};\n\nconst phone = String(input.customer_phone || input.phone || inbound.phone || route.customer_phone || '').trim();\nconst customerName = String(input.customer_name || input.name || inbound.customer_name || route.customer_name || '').trim();\nconst channelUserId = String(input.channel_user_id || inbound.channel_user_id || '').trim();\n\nconst ctaUrl = String(input.cta_url || '').trim();\n\nconst action = String(input.action || route.action || 'reply').toLowerCase();\nconst orderNumber = String(input.order_number || route.order_number || '').trim();\nconst result = String(input.result || '').trim();\n\nlet reply = String(input.reply || input.log_text || '').trim();\n\nif (!reply && route.response) {\n  reply = String(route.response.log_text || route.response.reply || '').trim();\n}\n\nif (!phone) {\n  throw new Error('Build Outbound Message: customer phone is missing.');\n}\n\nlet text = reply || 'Pabbas could not process that request.';\nlet interactive = null;\n\nconst firstName = customerName ? customerName.split(/\\s+/)[0] : '';\nconst nameGreeting = firstName ? `Hey ${firstName}!` : `Hey there!`;\n\n// ==================================================\n// ACTION ROUTING\n// ==================================================\n\nif (action === 'create' || action === 'amend') {\n  const items = Array.isArray(input.items_json) && input.items_json.length ? input.items_json : Array.isArray(input.items) ? input.items : [];\n  const lines = items.map((item) => `${String(item?.name || 'Item').trim()} x${Number(item?.quantity || 1)}`).join('\\n');\n  const total = Number(input.total || 0);\n\n  text = `${action === 'create' ? 'Order draft' : 'Order updated'}${orderNumber ? ` ${orderNumber}` : ''}:\\n${lines || 'No items'}\\nTotal: Rs ${total.toFixed(2)}\\n\\nPlease confirm your order.`;\n\n  if (orderNumber) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_confirm:${orderNumber}`, title: 'Confirm order' } },\n          { type: 'reply', reply: { id: `btn_cancel:${orderNumber}`, title: 'Cancel order' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'confirm') {\n  text = `Order ${orderNumber || ''} confirmation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'cancel') {\n  text = `Order ${orderNumber || ''} cancellation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'welcome') {\n  text = `${nameGreeting} \ud83d\udc4b Welcome to Pabbas! \ud83c\udf68\\n\\nWhat are you craving today? \ud83d\ude0b\\n\\nI can help you order directly on WhatsApp, explore our menu, or answer any questions.\\n\\nChoose an option below \ud83d\udc47`;\n  \n  if (ctaUrl) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_order`, title: '\ud83d\udecd\ufe0f Order on WhatsApp' } },\n          { type: 'reply', reply: { id: `btn_menu`, title: '\ud83c\udf66 Explore Menu' } }, // Fallback reply button incase URL fails\n          { type: 'reply', reply: { id: `btn_ask`, title: '\ud83d\udcac Ask Me Anything' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'menu_cta') {\n  text = reply || `Sure! \ud83c\udf66 You can explore the full menu and place an order securely here.`;\n  if (ctaUrl) {\n    interactive = {\n      type: 'cta_url',\n      body: { text },\n      action: {\n        name: 'cta_url',\n        parameters: {\n          display_text: '\ud83c\udf66 Explore Menu',\n          url: ctaUrl\n        }\n      }\n    };\n  }\n}\nelse if (action === 'start_whatsapp_order') {\n  text = `Absolutely! \ud83d\ude0b What would you like to order?`;\n}\nelse if (action === 'start_questions') {\n  text = `Of course! \ud83d\ude0a What would you like to know?`;\n}\nelse if (action === 'reply') {\n  text = `${reply}`;\n}\n\n\n\n// --------------------------------------------------\n// FINAL OUTGOING PAYLOAD\n// --------------------------------------------------\n\nconst outgoing = interactive\n  ? {\n      type: 'interactive',\n      interactive\n    }\n  : {\n      type: 'text',\n      text: {\n        body: text\n      }\n    };\n\n\n// --------------------------------------------------\n// RETURN\n// --------------------------------------------------\n\nreturn [\n  {\n    json: {\n\n      customer_phone: phone,\n\n      customer_name: customerName,\n\n      channel_user_id: channelUserId,\n\n      order_number: orderNumber || null,\n\n      action,\n\n      log_text: text,\n\n      outgoing,\n\n      ycloud_payload: {\n        from: '+919180348124',\n        to: phone,\n        ...outgoing\n      }\n    }\n  }\n];"
+        "jsCode": "/*\n * PABBAS - BUILD OUTBOUND MESSAGE\n * Updated to properly handle deterministic Welcome and Menu CTAs.\n */\n\nconst input = $input.first()?.json || {};\nconst inbound = $('Extract Inbound Message').first()?.json || {};\nconst route = $('Route Inbound Message').first()?.json || {};\n\nconst phone = String(input.customer_phone || input.phone || inbound.phone || route.customer_phone || '').trim();\nconst customerName = String(input.customer_name || input.name || inbound.customer_name || route.customer_name || '').trim();\nconst channelUserId = String(input.channel_user_id || inbound.channel_user_id || '').trim();\n\nconst ctaUrl = String(input.cta_url || '').trim();\n\nconst action = String(input.action || route.action || 'reply').toLowerCase();\nconst orderNumber = String(input.order_number || route.order_number || '').trim();\nconst result = String(input.result || '').trim();\n\nlet reply = String(input.reply || input.log_text || '').trim();\n\nif (!reply && route.response) {\n  reply = String(route.response.log_text || route.response.reply || '').trim();\n}\n\nif (!phone) {\n  throw new Error('Build Outbound Message: customer phone is missing.');\n}\n\nlet text = reply || 'Pabbas could not process that request.';\nlet interactive = null;\n\nconst firstName = customerName ? customerName.split(/\\s+/)[0] : '';\nconst nameGreeting = firstName ? `Hey ${firstName}!` : `Hey there!`;\n\n// ==================================================\n// ACTION ROUTING\n// ==================================================\n\nif (action === 'create' || action === 'amend') {\n  const items = Array.isArray(input.items_json) && input.items_json.length ? input.items_json : Array.isArray(input.items) ? input.items : [];\n  const lines = items.map((item) => `${String(item?.name || 'Item').trim()} x${Number(item?.quantity || 1)}`).join('\\n');\n  const total = Number(input.total || 0);\n\n  text = `${action === 'create' ? 'Order draft' : 'Order updated'}${orderNumber ? ` ${orderNumber}` : ''}:\\n${lines || 'No items'}\\nTotal: Rs ${total.toFixed(2)}\\n\\nPlease confirm your order.`;\n\n  if (orderNumber) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_confirm:${orderNumber}`, title: 'Confirm order' } },\n          { type: 'reply', reply: { id: `btn_cancel:${orderNumber}`, title: 'Cancel order' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'confirm') {\n  text = `Order ${orderNumber || ''} confirmation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'cancel') {\n  text = `Order ${orderNumber || ''} cancellation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'greet') {\n  text = `${nameGreeting} \ud83d\udc4b Welcome to Pabbas! \ud83c\udf68\\n\\nHow can I help you today?`;\n}\nelse if (action === 'welcome') {\n  text = `${nameGreeting} \ud83d\udc4b Welcome to Pabbas! \ud83c\udf68\\n\\nWhat are you craving today? \ud83d\ude0b\\n\\nI can help you order directly on WhatsApp, explore our menu, or answer any questions.\\n\\nChoose an option below \ud83d\udc47`;\n  \n  if (ctaUrl) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_order`, title: '\ud83d\udecd\ufe0f Order on WhatsApp' } },\n          { type: 'reply', reply: { id: `btn_menu`, title: '\ud83c\udf66 Explore Menu' } }, // Fallback reply button incase URL fails\n          { type: 'reply', reply: { id: `btn_ask`, title: '\ud83d\udcac Ask Me Anything' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'menu_cta') {\n  text = reply || `Sure! \ud83c\udf66 You can explore the full menu and place an order securely here.`;\n  if (ctaUrl) {\n    interactive = {\n      type: 'cta_url',\n      body: { text },\n      action: {\n        name: 'cta_url',\n        parameters: {\n          display_text: '\ud83c\udf66 Explore Menu',\n          url: ctaUrl\n        }\n      }\n    };\n  }\n}\nelse if (action === 'start_whatsapp_order') {\n  text = `Absolutely! \ud83d\ude0b What would you like to order?`;\n}\nelse if (action === 'start_questions') {\n  text = `Of course! \ud83d\ude0a What would you like to know?`;\n}\nelse if (action === 'reply') {\n  text = `${reply}`;\n}\n\n\n\n// --------------------------------------------------\n// FINAL OUTGOING PAYLOAD\n// --------------------------------------------------\n\nconst outgoing = interactive\n  ? {\n      type: 'interactive',\n      interactive\n    }\n  : {\n      type: 'text',\n      text: {\n        body: text\n      }\n    };\n\n\n// --------------------------------------------------\n// RETURN\n// --------------------------------------------------\n\nreturn [\n  {\n    json: {\n\n      customer_phone: phone,\n\n      customer_name: customerName,\n\n      channel_user_id: channelUserId,\n\n      order_number: orderNumber || null,\n\n      action,\n\n      log_text: text,\n\n      outgoing,\n\n      ycloud_payload: {\n        from: '+919180348124',\n        to: phone,\n        ...outgoing\n      }\n    }\n  }\n];"
       },
       "id": "369a8c5a-466b-4843-9458-48c45b27ade5",
       "name": "Build Outbound Message",
@@ -865,16 +854,17 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "x-pabbas-ai-secret",
-              "value": "LwnUc63SrvzJRE5hmSE4B7C1EmGoom1JlRTS/LTjqotl19jNZZScHT+X6tXaZqcs"
-            },
-            {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "authentication": "none"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
@@ -923,11 +913,12 @@
           "parameters": [
             {
               "name": "x-pabbas-ai-secret",
-              "value": "LwnUc63SrvzJRE5hmSE4B7C1EmGoom1JlRTS/LTjqotl19jNZZScHT+X6tXaZqcs"
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "authentication": "none"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
@@ -947,7 +938,7 @@
           "parameters": [
             {
               "name": "x-pabbas-ai-secret",
-              "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
         },
@@ -955,7 +946,8 @@
         "specifyBody": "json",
         "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
         "name": "Pabbas Business Info",
-        "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods."
+        "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods.",
+        "authentication": "none"
       },
       "id": "3a538756-6617-49aa-85c6-22c0b6a9f63d",
       "name": "Pabbas Business Info",
@@ -975,7 +967,7 @@
           "parameters": [
             {
               "name": "x-pabbas-ai-secret",
-              "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
         },
@@ -983,7 +975,9 @@
         "specifyBody": "json",
         "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
         "name": "Pabbas Cart",
-        "description": "Use this to add items, remove items, or view the current shopping cart. Provide action (add, remove, view), menu_item_id, and quantity."
+        "description": "Use this to add items, remove items, or get the current shopping cart. Provide action (add, remove, get), menu_item_id, and quantity.",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth"
       },
       "id": "1cc5849d-bc9f-407c-ac0a-a0013dfc5234",
       "name": "Pabbas Cart",
@@ -1003,7 +997,7 @@
           "parameters": [
             {
               "name": "x-pabbas-ai-secret",
-              "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
         },
@@ -1011,7 +1005,8 @@
         "specifyBody": "json",
         "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
         "name": "Pabbas Order Status",
-        "description": "Use this to check the status of the customer's most recent order."
+        "description": "Use this to check the status of the customer's most recent order.",
+        "authentication": "none"
       },
       "id": "576a68aa-1c61-44c3-ab11-26c332cb3f65",
       "name": "Pabbas Order Status",
@@ -1031,7 +1026,7 @@
           "parameters": [
             {
               "name": "x-pabbas-ai-secret",
-              "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
         },
@@ -1039,7 +1034,8 @@
         "specifyBody": "json",
         "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
         "name": "Pabbas Order Update",
-        "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity."
+        "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity.",
+        "authentication": "none"
       },
       "id": "d330d386-f722-49bb-81ae-19c56b171372",
       "name": "Pabbas Order Update",
@@ -1067,7 +1063,8 @@
       "position": [
         700,
         200
-      ]
+      ],
+      "id": "17e1045f-836e-4593-85cb-e416f2545282"
     },
     {
       "parameters": {
@@ -1097,7 +1094,8 @@
       "position": [
         900,
         100
-      ]
+      ],
+      "id": "cbb111df-f343-42c6-8e3b-297b04e0e411"
     },
     {
       "parameters": {
@@ -1117,7 +1115,8 @@
           "id": "qoyVBVk1ojHK9xi0",
           "name": "OpenAI account"
         }
-      }
+      },
+      "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313"
     },
     {
       "parameters": {
@@ -1129,6 +1128,78 @@
       "position": [
         1300,
         100
+      ],
+      "id": "b24ab83a-0185-4100-b26c-fb4901f8f73c"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/menu",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "options": {},
+        "name": "Pabbas Menu",
+        "description": "Use this to search the menu and get menu_item_id before adding to cart.",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "id": "menu-tool-1234",
+      "name": "Pabbas Menu",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        -2152,
+        1836
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $('Extract Inbound Message').first().json.phone }}"
+            },
+            {
+              "name": "channel_user_id",
+              "value": "={{ $('Extract Inbound Message').first().json.channel_user_id }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $('Extract Inbound Message').first().json.customer_name || 'Customer' }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "id": "lookup-customer-id",
+      "name": "Lookup Trusted Customer Identity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -3240,
+        1536
       ]
     }
   ],
@@ -1148,7 +1219,7 @@
       "main": [
         [
           {
-            "node": "Look Up Message ID",
+            "node": "Lookup Trusted Customer Identity",
             "type": "main",
             "index": 0
           }
@@ -1570,6 +1641,28 @@
           }
         ]
       ]
+    },
+    "Pabbas Menu": {
+      "ai_tool": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Trusted Customer Identity": {
+      "main": [
+        [
+          {
+            "node": "Look Up Message ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "nodeGroups": [],
@@ -1604,7 +1697,7 @@
     }
   ],
   "activeVersion": {
-    "versionId": "79b4c8ac-cb34-491b-974c-a7fdf460d870",
+    "versionId": "9120010a-4402-47a7-90b9-9440dba04dd2",
     "workflowId": "BfhcbxFiXa4Vga51",
     "nodes": [
       {
@@ -1632,7 +1725,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const event = $input.first().json.body || $input.first().json;\nconst data = event.data || {};\nconst message =\n  data.message ||\n  data.whatsappInboundMessage ||\n  event.message ||\n  event.whatsappInboundMessage ||\n  {};\n\nconst profile = data.customerProfile || data.profile || {};\n\nconst type = String(message.type || 'text');\n\nlet content =\n  message.text?.body ||\n  message.body ||\n  '';\n\nif (type === 'interactive') {\n  content =\n    message.interactive?.button_reply?.id ||\n    message.interactive?.list_reply?.id ||\n    '';\n}\n\nif (type === 'button') {\n  content = message.button?.text || '';\n}\n\nif (type === 'image') {\n  content = message.image?.caption || '[image]';\n}\n\nif (type === 'audio' || type === 'voice') {\n  content = '[voice note]';\n}\n\nreturn [{\n  json: {\n    event_type: event.type || '',\n    message_id: String(\n      message.id ||\n      data.messageId ||\n      event.messageId ||\n      event.id ||\n      ''\n    ),\n\n    phone: String(\n      message.from ||\n      message.sender?.phone ||\n      data.from ||\n      event.from ||\n      ''\n    ),\n\n    // IMPORTANT:\n    // Use YCloud's real BSUID when available.\n    // Never fall back to phone number.\n    channel_user_id: message.fromUserId\n      ? String(message.fromUserId)\n      : null,\n\n    customer_name: String(\n      profile.name ||\n      message.customerProfile?.name ||\n      ''\n    ),\n\n    message_type: type,\n    content: String(content),\n    direction: 'inbound',\n    sender: 'customer',\n    ai_intent: ''\n  }\n}];"
+          "jsCode": "const event = $input.first().json.body || $input.first().json;\nconst data = event.data || {};\nconst message =\n  data.message ||\n  data.whatsappInboundMessage ||\n  event.message ||\n  event.whatsappInboundMessage ||\n  {};\n\nconst profile = data.customerProfile || data.profile || {};\n\nconst type = String(message.type || 'text');\n\nlet content =\n  message.text?.body ||\n  message.body ||\n  '';\n\nif (type === 'interactive') {\n  content =\n    message.interactive?.button_reply?.id ||\n    message.interactive?.list_reply?.id ||\n    '';\n}\n\nif (type === 'button') {\n  content = message.button?.text || '';\n}\n\nif (type === 'image') {\n  content = message.image?.caption || '[image]';\n}\n\nif (type === 'audio' || type === 'voice') {\n  content = '[voice note]';\n}\n\nreturn [{\n  json: {\n    event_type: event.type || '',\n    message_id: String(\n      message.id ||\n      data.messageId ||\n      event.messageId ||\n      event.id ||\n      ''\n    ),\n\n    phone: String(\n      message.from ||\n      message.sender?.phone ||\n      data.from ||\n      event.from ||\n      ''\n    ),\n\n    // IMPORTANT:\n    // Use YCloud's real BSUID when available.\n    // Never fall back to phone number.\n    channel_user_id: message.fromUserId\n      ? String(message.fromUserId)\n      : null,\n\n    customer_name: String(\n      profile.name ||\n      message.customerProfile?.name ||\n      ''\n    ),\n\n    message_type: type,\n    content: String(content),\n    direction: 'inbound',\n    sender: 'customer',\n    ai_intent: '',\n    audio_link: message.audio?.link || message.voice?.link || null\n  }\n}];"
         },
         "id": "be289c60-8de6-4816-a7ab-8dbde9f55812",
         "name": "Extract Inbound Message",
@@ -2198,32 +2291,21 @@
       {
         "parameters": {
           "method": "POST",
-          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/orders",
+          "url": "https://pabbas-one.vercel.app/api/orders",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items,\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
               {
-                "name": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "name": "Prefer",
-                "value": "return=representation"
-              },
-              {
-                "name": "apikey",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
-              },
-              {
-                "name": "Authorization",
-                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ customer_phone: $json.customer_phone, customer_name: $json.customer_name || '', items: $json.items.map(item => item.name + ' x' + item.quantity).join(', '), items_json: $json.items, total: $json.total, status: 'draft', order_type: $json.order_type, source: 'whatsapp' }) }}",
-          "options": {}
+          }
         },
         "id": "2e3f4ad0-17bc-46ac-852b-3a7b6dd06863",
         "name": "Create Draft Order",
@@ -2340,7 +2422,7 @@
       },
       {
         "parameters": {
-          "jsCode": "/*\n * PABBAS - BUILD OUTBOUND MESSAGE\n * Updated to properly handle deterministic Welcome and Menu CTAs.\n */\n\nconst input = $input.first()?.json || {};\nconst inbound = $('Extract Inbound Message').first()?.json || {};\nconst route = $('Route Inbound Message').first()?.json || {};\n\nconst phone = String(input.customer_phone || input.phone || inbound.phone || route.customer_phone || '').trim();\nconst customerName = String(input.customer_name || input.name || inbound.customer_name || route.customer_name || '').trim();\nconst channelUserId = String(input.channel_user_id || inbound.channel_user_id || '').trim();\n\nconst ctaUrl = String(input.cta_url || '').trim();\n\nconst action = String(input.action || route.action || 'reply').toLowerCase();\nconst orderNumber = String(input.order_number || route.order_number || '').trim();\nconst result = String(input.result || '').trim();\n\nlet reply = String(input.reply || input.log_text || '').trim();\n\nif (!reply && route.response) {\n  reply = String(route.response.log_text || route.response.reply || '').trim();\n}\n\nif (!phone) {\n  throw new Error('Build Outbound Message: customer phone is missing.');\n}\n\nlet text = reply || 'Pabbas could not process that request.';\nlet interactive = null;\n\nconst firstName = customerName ? customerName.split(/\\s+/)[0] : '';\nconst nameGreeting = firstName ? `Hey ${firstName}!` : `Hey there!`;\n\n// ==================================================\n// ACTION ROUTING\n// ==================================================\n\nif (action === 'create' || action === 'amend') {\n  const items = Array.isArray(input.items_json) && input.items_json.length ? input.items_json : Array.isArray(input.items) ? input.items : [];\n  const lines = items.map((item) => `${String(item?.name || 'Item').trim()} x${Number(item?.quantity || 1)}`).join('\\n');\n  const total = Number(input.total || 0);\n\n  text = `${action === 'create' ? 'Order draft' : 'Order updated'}${orderNumber ? ` ${orderNumber}` : ''}:\\n${lines || 'No items'}\\nTotal: Rs ${total.toFixed(2)}\\n\\nPlease confirm your order.`;\n\n  if (orderNumber) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_confirm:${orderNumber}`, title: 'Confirm order' } },\n          { type: 'reply', reply: { id: `btn_cancel:${orderNumber}`, title: 'Cancel order' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'confirm') {\n  text = `Order ${orderNumber || ''} confirmation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'cancel') {\n  text = `Order ${orderNumber || ''} cancellation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'welcome') {\n  text = `${nameGreeting} \ud83d\udc4b Welcome to Pabbas! \ud83c\udf68\\n\\nWhat are you craving today? \ud83d\ude0b\\n\\nI can help you order directly on WhatsApp, explore our menu, or answer any questions.\\n\\nChoose an option below \ud83d\udc47`;\n  \n  if (ctaUrl) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_order`, title: '\ud83d\udecd\ufe0f Order on WhatsApp' } },\n          { type: 'reply', reply: { id: `btn_menu`, title: '\ud83c\udf66 Explore Menu' } }, // Fallback reply button incase URL fails\n          { type: 'reply', reply: { id: `btn_ask`, title: '\ud83d\udcac Ask Me Anything' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'menu_cta') {\n  text = reply || `Sure! \ud83c\udf66 You can explore the full menu and place an order securely here.`;\n  if (ctaUrl) {\n    interactive = {\n      type: 'cta_url',\n      body: { text },\n      action: {\n        name: 'cta_url',\n        parameters: {\n          display_text: '\ud83c\udf66 Explore Menu',\n          url: ctaUrl\n        }\n      }\n    };\n  }\n}\nelse if (action === 'start_whatsapp_order') {\n  text = `Absolutely! \ud83d\ude0b What would you like to order?`;\n}\nelse if (action === 'start_questions') {\n  text = `Of course! \ud83d\ude0a What would you like to know?`;\n}\nelse if (action === 'reply') {\n  text = `${reply}`;\n}\n\n\n\n// --------------------------------------------------\n// FINAL OUTGOING PAYLOAD\n// --------------------------------------------------\n\nconst outgoing = interactive\n  ? {\n      type: 'interactive',\n      interactive\n    }\n  : {\n      type: 'text',\n      text: {\n        body: text\n      }\n    };\n\n\n// --------------------------------------------------\n// RETURN\n// --------------------------------------------------\n\nreturn [\n  {\n    json: {\n\n      customer_phone: phone,\n\n      customer_name: customerName,\n\n      channel_user_id: channelUserId,\n\n      order_number: orderNumber || null,\n\n      action,\n\n      log_text: text,\n\n      outgoing,\n\n      ycloud_payload: {\n        from: '+919180348124',\n        to: phone,\n        ...outgoing\n      }\n    }\n  }\n];"
+          "jsCode": "/*\n * PABBAS - BUILD OUTBOUND MESSAGE\n * Updated to properly handle deterministic Welcome and Menu CTAs.\n */\n\nconst input = $input.first()?.json || {};\nconst inbound = $('Extract Inbound Message').first()?.json || {};\nconst route = $('Route Inbound Message').first()?.json || {};\n\nconst phone = String(input.customer_phone || input.phone || inbound.phone || route.customer_phone || '').trim();\nconst customerName = String(input.customer_name || input.name || inbound.customer_name || route.customer_name || '').trim();\nconst channelUserId = String(input.channel_user_id || inbound.channel_user_id || '').trim();\n\nconst ctaUrl = String(input.cta_url || '').trim();\n\nconst action = String(input.action || route.action || 'reply').toLowerCase();\nconst orderNumber = String(input.order_number || route.order_number || '').trim();\nconst result = String(input.result || '').trim();\n\nlet reply = String(input.reply || input.log_text || '').trim();\n\nif (!reply && route.response) {\n  reply = String(route.response.log_text || route.response.reply || '').trim();\n}\n\nif (!phone) {\n  throw new Error('Build Outbound Message: customer phone is missing.');\n}\n\nlet text = reply || 'Pabbas could not process that request.';\nlet interactive = null;\n\nconst firstName = customerName ? customerName.split(/\\s+/)[0] : '';\nconst nameGreeting = firstName ? `Hey ${firstName}!` : `Hey there!`;\n\n// ==================================================\n// ACTION ROUTING\n// ==================================================\n\nif (action === 'create' || action === 'amend') {\n  const items = Array.isArray(input.items_json) && input.items_json.length ? input.items_json : Array.isArray(input.items) ? input.items : [];\n  const lines = items.map((item) => `${String(item?.name || 'Item').trim()} x${Number(item?.quantity || 1)}`).join('\\n');\n  const total = Number(input.total || 0);\n\n  text = `${action === 'create' ? 'Order draft' : 'Order updated'}${orderNumber ? ` ${orderNumber}` : ''}:\\n${lines || 'No items'}\\nTotal: Rs ${total.toFixed(2)}\\n\\nPlease confirm your order.`;\n\n  if (orderNumber) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_confirm:${orderNumber}`, title: 'Confirm order' } },\n          { type: 'reply', reply: { id: `btn_cancel:${orderNumber}`, title: 'Cancel order' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'confirm') {\n  text = `Order ${orderNumber || ''} confirmation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'cancel') {\n  text = `Order ${orderNumber || ''} cancellation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'greet') {\n  text = `${nameGreeting} \ud83d\udc4b Welcome to Pabbas! \ud83c\udf68\\n\\nHow can I help you today?`;\n}\nelse if (action === 'welcome') {\n  text = `${nameGreeting} \ud83d\udc4b Welcome to Pabbas! \ud83c\udf68\\n\\nWhat are you craving today? \ud83d\ude0b\\n\\nI can help you order directly on WhatsApp, explore our menu, or answer any questions.\\n\\nChoose an option below \ud83d\udc47`;\n  \n  if (ctaUrl) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_order`, title: '\ud83d\udecd\ufe0f Order on WhatsApp' } },\n          { type: 'reply', reply: { id: `btn_menu`, title: '\ud83c\udf66 Explore Menu' } }, // Fallback reply button incase URL fails\n          { type: 'reply', reply: { id: `btn_ask`, title: '\ud83d\udcac Ask Me Anything' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'menu_cta') {\n  text = reply || `Sure! \ud83c\udf66 You can explore the full menu and place an order securely here.`;\n  if (ctaUrl) {\n    interactive = {\n      type: 'cta_url',\n      body: { text },\n      action: {\n        name: 'cta_url',\n        parameters: {\n          display_text: '\ud83c\udf66 Explore Menu',\n          url: ctaUrl\n        }\n      }\n    };\n  }\n}\nelse if (action === 'start_whatsapp_order') {\n  text = `Absolutely! \ud83d\ude0b What would you like to order?`;\n}\nelse if (action === 'start_questions') {\n  text = `Of course! \ud83d\ude0a What would you like to know?`;\n}\nelse if (action === 'reply') {\n  text = `${reply}`;\n}\n\n\n\n// --------------------------------------------------\n// FINAL OUTGOING PAYLOAD\n// --------------------------------------------------\n\nconst outgoing = interactive\n  ? {\n      type: 'interactive',\n      interactive\n    }\n  : {\n      type: 'text',\n      text: {\n        body: text\n      }\n    };\n\n\n// --------------------------------------------------\n// RETURN\n// --------------------------------------------------\n\nreturn [\n  {\n    json: {\n\n      customer_phone: phone,\n\n      customer_name: customerName,\n\n      channel_user_id: channelUserId,\n\n      order_number: orderNumber || null,\n\n      action,\n\n      log_text: text,\n\n      outgoing,\n\n      ycloud_payload: {\n        from: '+919180348124',\n        to: phone,\n        ...outgoing\n      }\n    }\n  }\n];"
         },
         "id": "369a8c5a-466b-4843-9458-48c45b27ade5",
         "name": "Build Outbound Message",
@@ -2425,19 +2507,6 @@
       },
       {
         "parameters": {},
-        "id": "a287c63a-e468-42ef-a75e-5326491c262e",
-        "name": "YCloud Voice/Media TODO (Disabled)",
-        "type": "n8n-nodes-base.noOp",
-        "typeVersion": 1,
-        "position": [
-          -3440,
-          1808
-        ],
-        "disabled": true,
-        "notes": "TODO: implement only after the verified Pabbas YCloud media retrieval/transcription contract is supplied."
-      },
-      {
-        "parameters": {},
         "id": "639f5929-dc2f-4cfc-abfa-2c833f0b58a3",
         "name": "YCloud Status Handling TODO (Disabled)",
         "type": "n8n-nodes-base.noOp",
@@ -2473,16 +2542,17 @@
           "headerParameters": {
             "parameters": [
               {
-                "name": "x-pabbas-ai-secret",
-                "value": "LwnUc63SrvzJRE5hmSE4B7C1EmGoom1JlRTS/LTjqotl19jNZZScHT+X6tXaZqcs"
-              },
-              {
                 "name": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
           },
-          "options": {}
+          "options": {},
+          "authentication": "none"
         },
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.5,
@@ -2531,11 +2601,12 @@
             "parameters": [
               {
                 "name": "x-pabbas-ai-secret",
-                "value": "LwnUc63SrvzJRE5hmSE4B7C1EmGoom1JlRTS/LTjqotl19jNZZScHT+X6tXaZqcs"
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
           },
-          "options": {}
+          "options": {},
+          "authentication": "none"
         },
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.5,
@@ -2555,7 +2626,7 @@
             "parameters": [
               {
                 "name": "x-pabbas-ai-secret",
-                "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
           },
@@ -2563,7 +2634,8 @@
           "specifyBody": "json",
           "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
           "name": "Pabbas Business Info",
-          "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods."
+          "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods.",
+          "authentication": "none"
         },
         "id": "3a538756-6617-49aa-85c6-22c0b6a9f63d",
         "name": "Pabbas Business Info",
@@ -2583,7 +2655,7 @@
             "parameters": [
               {
                 "name": "x-pabbas-ai-secret",
-                "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
           },
@@ -2591,7 +2663,9 @@
           "specifyBody": "json",
           "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
           "name": "Pabbas Cart",
-          "description": "Use this to add items, remove items, or view the current shopping cart. Provide action (add, remove, view), menu_item_id, and quantity."
+          "description": "Use this to add items, remove items, or get the current shopping cart. Provide action (add, remove, get), menu_item_id, and quantity.",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth"
         },
         "id": "1cc5849d-bc9f-407c-ac0a-a0013dfc5234",
         "name": "Pabbas Cart",
@@ -2611,7 +2685,7 @@
             "parameters": [
               {
                 "name": "x-pabbas-ai-secret",
-                "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
           },
@@ -2619,7 +2693,8 @@
           "specifyBody": "json",
           "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
           "name": "Pabbas Order Status",
-          "description": "Use this to check the status of the customer's most recent order."
+          "description": "Use this to check the status of the customer's most recent order.",
+          "authentication": "none"
         },
         "id": "576a68aa-1c61-44c3-ab11-26c332cb3f65",
         "name": "Pabbas Order Status",
@@ -2639,7 +2714,7 @@
             "parameters": [
               {
                 "name": "x-pabbas-ai-secret",
-                "value": "b5j8X9q2M4v7P1n6W3c8R5y2K9h4T7m1"
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
           },
@@ -2647,7 +2722,8 @@
           "specifyBody": "json",
           "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
           "name": "Pabbas Order Update",
-          "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity."
+          "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity.",
+          "authentication": "none"
         },
         "id": "d330d386-f722-49bb-81ae-19c56b171372",
         "name": "Pabbas Order Update",
@@ -2656,6 +2732,162 @@
         "position": [
           900,
           1200
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{ !!$json.audio_link }}",
+                "value2": true
+              }
+            ]
+          }
+        },
+        "name": "Is Audio Message?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          700,
+          200
+        ],
+        "id": "17e1045f-836e-4593-85cb-e416f2545282"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $json.audio_link }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "d5502caecd15e608b38bb515f76d5f35"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "audio"
+              }
+            }
+          }
+        },
+        "name": "Download Audio",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          900,
+          100
+        ],
+        "id": "cbb111df-f343-42c6-8e3b-297b04e0e411"
+      },
+      {
+        "parameters": {
+          "resource": "audio",
+          "operation": "transcribe",
+          "binaryPropertyName": "audio"
+        },
+        "name": "Transcribe Audio",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 1,
+        "position": [
+          1100,
+          100
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "qoyVBVk1ojHK9xi0",
+            "name": "OpenAI account"
+          }
+        },
+        "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313"
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nitem.content = item.text || '[Voice Note]';\ndelete item.text;\nreturn [{ json: item }];"
+        },
+        "name": "Format Transcription",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1300,
+          100
+        ],
+        "id": "b24ab83a-0185-4100-b26c-fb4901f8f73c"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/menu",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "options": {},
+          "name": "Pabbas Menu",
+          "description": "Use this to search the menu and get menu_item_id before adding to cart.",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "id": "menu-tool-1234",
+        "name": "Pabbas Menu",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1,
+        "position": [
+          -2152,
+          1836
+        ]
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "phone",
+                "value": "={{ $('Extract Inbound Message').first().json.phone }}"
+              },
+              {
+                "name": "channel_user_id",
+                "value": "={{ $('Extract Inbound Message').first().json.channel_user_id }}"
+              },
+              {
+                "name": "name",
+                "value": "={{ $('Extract Inbound Message').first().json.customer_name || 'Customer' }}"
+              }
+            ]
+          },
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "id": "lookup-customer-id",
+        "name": "Lookup Trusted Customer Identity",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -3240,
+          1536
         ]
       }
     ],
@@ -2675,7 +2907,7 @@
         "main": [
           [
             {
-              "node": "Look Up Message ID",
+              "node": "Lookup Trusted Customer Identity",
               "type": "main",
               "index": 0
             }
@@ -2726,7 +2958,7 @@
         "main": [
           [
             {
-              "node": "Retrieve Chat Context",
+              "node": "Is Audio Message?",
               "type": "main",
               "index": 0
             }
@@ -3046,6 +3278,79 @@
             }
           ]
         ]
+      },
+      "Is Audio Message?": {
+        "main": [
+          [
+            {
+              "node": "Download Audio",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Retrieve Chat Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download Audio": {
+        "main": [
+          [
+            {
+              "node": "Transcribe Audio",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transcribe Audio": {
+        "main": [
+          [
+            {
+              "node": "Format Transcription",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Transcription": {
+        "main": [
+          [
+            {
+              "node": "Retrieve Chat Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pabbas Menu": {
+        "ai_tool": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lookup Trusted Customer Identity": {
+        "main": [
+          [
+            {
+              "node": "Look Up Message ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -3053,16 +3358,16 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-09-30T09:19:09.653Z",
-    "updatedAt": "2026-09-30T09:19:09.653Z",
+    "createdAt": "2026-10-01T11:01:34.307Z",
+    "updatedAt": "2026-10-01T11:01:34.307Z",
     "workflowPublishHistory": [
       {
-        "id": 262,
+        "id": 324,
         "workflowId": "BfhcbxFiXa4Vga51",
-        "versionId": "79b4c8ac-cb34-491b-974c-a7fdf460d870",
+        "versionId": "9120010a-4402-47a7-90b9-9440dba04dd2",
         "event": "activated",
         "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-09-30T09:19:09.881Z"
+        "createdAt": "2026-10-01T11:01:34.521Z"
       }
     ]
   }

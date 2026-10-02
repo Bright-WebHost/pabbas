@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
 import { useOrderManager } from "../../OrderManagerProvider";
+import { SlideAction } from "@/components/dashboard/ui/SlideAction";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
@@ -203,88 +205,145 @@ function getSlideAction(order: DashboardOrder): { label: string; nextStatus: Ord
 function OrderDetails({ order, onClose, now, onStatusChange }: { order: DashboardOrder; onClose: () => void; now: number; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void }) {
   const items = buildItemList(order);
   const countdown = formatCountdown(order, now);
-  const actions = STATUS_TRANSITIONS[order.status] ?? [];
+  const slideAction = getSlideAction(order);
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#10151C]/45 p-0 sm:items-center sm:p-6" role="presentation" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111A26]/80 p-4 backdrop-blur-sm transition-all duration-300" role="presentation" onMouseDown={onClose}>
       <section
         aria-label={`Details for ${order.order_number}`}
         aria-modal="true"
         role="dialog"
-        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl"
+        className="max-h-[95vh] w-full max-w-3xl overflow-y-auto rounded-[20px] bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2)] flex flex-col"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] pb-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--red2)]">Order details</p>
-            <h2 className="mt-1 text-xl font-extrabold">{order.order_number}</h2>
-            <p className="mt-1 text-xs text-[var(--muted)]">Created {dateTime(order.created_at)}</p>
+        <div className="flex items-start justify-between border-b border-[var(--line)] pb-5">
+          <div className="flex flex-col">
+            <span className="text-[12px] font-extrabold tracking-[2px] uppercase text-[var(--muted)] mb-1">
+              Order Details
+            </span>
+            <div className="flex items-center gap-3">
+              <h2 className="text-[32px] leading-none font-extrabold tracking-[-1px] text-[var(--ink)]">
+                {order.order_number}
+              </h2>
+              <span className={`rounded-full px-3 py-1 text-[12px] font-bold ${statusStyles[order.status]}`}>
+                {statusLabels[order.status]}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[13px] font-medium text-[var(--muted)]">Received {dateTime(order.created_at)}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-bold text-[var(--muted)] hover:text-[var(--ink)]" aria-label="Close order details">
-            Close
+          <button type="button" onClick={onClose} className="rounded-full bg-[#F1F3F6] p-2 text-[var(--muted)] hover:bg-[#E6E9EE] hover:text-[var(--ink)] transition-colors" aria-label="Close order details">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
           </button>
         </div>
 
-        <div className="grid gap-4 py-4 sm:grid-cols-2">
-          <InfoBlock label="Customer" value={`${order.customer_name || "Guest"} · ${order.customer_phone}`} />
-          <InfoBlock label="Status" value={statusLabels[order.status]} />
-          <InfoBlock label="Type" value={normalizeOrderType(order.order_type)} />
-          <InfoBlock label="Countdown" value={countdown.label} />
-          <InfoBlock label="Received" value={dateTime(order.created_at)} />
-          <InfoBlock label="Updated" value={dateTime(order.updated_at)} />
-          <InfoBlock label="Confirmed" value={dateTime(order.confirmed_at)} />
-          <InfoBlock label="Amend window" value={dateTime(order.amend_window_until)} />
-          <InfoBlock label="Amended" value={dateTime(order.amended_at)} />
-          <InfoBlock label="Amendments" value={String(order.amendment_count ?? 0)} />
-          <InfoBlock label="Address" value={[order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "—"} />
-          <InfoBlock label="Table" value={order.table_number || "—"} />
-          <InfoBlock label="Cancellation reason" value={order.cancel_reason || "—"} />
-          <InfoBlock label="Cancelled by" value={order.cancelled_by || "—"} />
-          <InfoBlock label="Cancelled at" value={dateTime(order.cancelled_at)} />
-          <InfoBlock label="Cancel requested" value={dateTime(order.cancel_requested_at)} />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 py-5 border-b border-[var(--line)] shrink-0">
+          <div className="flex flex-col">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">Customer</span>
+            <span className="text-[15px] font-bold text-[var(--ink)]">{order.customer_name || "Guest"}</span>
+            <span className="text-[14px] font-medium text-[var(--muted)]">{order.customer_phone}</span>
+          </div>
+          
+          <div className="flex flex-col">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">Type & Source</span>
+            <span className="text-[15px] font-bold text-[var(--ink)]">{normalizeOrderType(order.order_type)}</span>
+            <span className="text-[14px] font-medium text-[var(--muted)]">{order.source || "Direct"}</span>
+          </div>
+
+          <div className="flex flex-col text-right">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">Countdown</span>
+            <span className={`text-[20px] font-extrabold ${countdown.isOverdue ? "text-[var(--danger)]" : "text-[var(--ink)]"}`}>{countdown.label}</span>
+          </div>
+
+          {(order.order_type === "delivery" || order.table_number) && (
+            <div className="col-span-full bg-[#F8FAFB] p-3 rounded-xl border border-[var(--line)]">
+              <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-1">
+                {order.table_number ? "Table" : "Delivery Address"}
+              </span>
+              <span className="text-[14px] font-medium text-[var(--ink)]">
+                {order.table_number 
+                  ? `Table ${order.table_number}`
+                  : `📍 ${[order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ")}`
+                }
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="border-t border-[var(--line)] pt-4">
-          <h3 className="text-sm font-extrabold">Items</h3>
-          <div className="mt-3 divide-y divide-[var(--line)] rounded-xl border border-[var(--line)]">
+        <div className="flex-1 py-5 overflow-y-auto">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-3">Order Items</span>
+          <div className="space-y-2">
             {items.length > 0 ? items.map((item) => (
-              <div key={item.id} className="flex justify-between gap-4 p-3 text-sm">
-                <div>
-                  <p className="font-bold">{item.quantity} × {item.name}</p>
+              <div key={item.id} className="flex justify-between items-start p-3 bg-[#F8FAFB] border border-[var(--line)] rounded-xl">
+                <div className="flex gap-3">
+                  <span className="font-extrabold text-[15px] text-[var(--ink)] w-[24px]">{item.quantity}×</span>
+                  <span className="font-bold text-[15px] text-[var(--ink)]">{item.name}</span>
                 </div>
-                <p className="shrink-0 font-bold">{money(item.unit_price * item.quantity)}</p>
+                <span className="font-bold text-[15px] text-[var(--ink)]">{money(item.unit_price * item.quantity)}</span>
               </div>
-            )) : <p className="p-3 text-sm text-[var(--muted)]">Items unavailable.</p>}
+            )) : <p className="text-[13px] text-[var(--muted)]">Items unavailable.</p>}
           </div>
-          <div className="mt-3 flex items-center justify-between text-base font-extrabold">
-            <span>Total</span>
-            <span className="text-[var(--red2)]">{money(order.total)}</span>
+
+          <div className="mt-4 flex items-center justify-between text-[18px] font-extrabold bg-[#FFF0F1] p-4 rounded-xl border border-[#F5C2C6]">
+            <span className="text-[#C0392B]">Total Amount</span>
+            <span className="text-[#C0392B]">{money(order.total)}</span>
           </div>
         </div>
 
-        <div className="mt-5 border-t border-[var(--line)] pt-4">
-          <h3 className="text-sm font-extrabold">Status actions</h3>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {actions.length > 0 ? actions.map((nextStatus) => (
-              <button
-                key={nextStatus}
-                type="button"
-                onClick={() => onStatusChange(order, nextStatus)}
-                className="rounded-lg bg-[var(--red)] px-3 py-2 text-xs font-bold text-white"
-              >
-                {`Move to ${statusLabels[nextStatus]}`}
-              </button>
-            )) : <span className="text-sm text-[var(--muted)]">No further status transitions available.</span>}
+        {/* Cancellation Info block (if any) */}
+        {order.status === "cancelled" && (
+          <div className="mb-4 bg-[#FDE8E8] border border-[#F5C6CB] rounded-xl p-4">
+            <h4 className="text-[12px] font-extrabold uppercase tracking-[1px] text-[#B42318] mb-1">Cancellation Details</h4>
+            <p className="text-[14px] text-[#B42318]">
+              <strong>Reason:</strong> {order.cancel_reason || "None provided"}<br/>
+              <strong>By:</strong> {order.cancelled_by || "Unknown"}<br/>
+              <strong>At:</strong> {dateTime(order.cancelled_at)}
+            </p>
+          </div>
+        )}
+
+        <div className="pt-5 border-t border-[var(--line)] shrink-0 bg-white">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              {slideAction && (
+                <SlideAction
+                  label={slideAction.label}
+                  accentColor={slideAction.accent}
+                  baseColor="#F8FAFB"
+                  textColor={slideAction.accent}
+                  onAcknowledge={() => {
+                    onStatusChange(order, slideAction.nextStatus);
+                    onClose();
+                  }}
+                  resetOnComplete={false}
+                />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); printOrder(order); }}
+              className="h-[48px] rounded-[12px] border border-[var(--line)] bg-white px-5 text-[14px] font-extrabold text-[var(--ink)] shadow-sm hover:bg-[#F8FAFB] transition-colors"
+            >
+              Print
+            </button>
+
             {order.status !== "cancelled" && order.status !== "delivered" && (
               <button
                 type="button"
-                onClick={() => {
-                  const reason = window.prompt("Please enter a reason for cancellation (sent to customer):");
-                  if (reason !== null) onStatusChange(order, "cancelled", reason);
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const reason = window.prompt("Reason for cancellation:");
+                  if (reason) {
+                    onStatusChange(order, "cancelled", reason);
+                    onClose();
+                  }
                 }}
-                className="rounded-lg border border-[#F5C6CB] bg-[var(--tint)] px-3 py-2 text-xs font-bold text-[var(--red2)]"
+                className="h-[48px] rounded-[12px] border border-[#F5C6CB] bg-[#FDE8E8] px-5 text-[14px] font-extrabold text-[#C0392B] hover:bg-[#F5C2C6] transition-colors"
               >
-                Cancel order
+                Cancel
               </button>
             )}
           </div>
@@ -333,6 +392,11 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
   const countdown = formatCountdown(order, now);
   const isAgeWarning = getAgeMinutes(order) >= 15;
 
+  let borderColor = "border-[var(--line)]";
+  if (order.status === "new") borderColor = "border-l-4 border-l-[var(--red)]";
+  else if (order.status === "preparing") borderColor = "border-l-4 border-l-[#F5A623]";
+  else if (order.status === "ready_for_pickup" || order.status === "out_for_delivery") borderColor = "border-l-4 border-l-[#3AB757]";
+
   return (
     <div
       role="button"
@@ -344,93 +408,85 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
           onOpen();
         }
       }}
-      className="rounded-[14px] border border-[var(--line)] bg-white p-3.5 shadow-[0_2px_6px_rgba(16,21,28,0.06)] transition hover:-translate-y-0.5 hover:border-[#C9D1DB] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--red)] focus:ring-offset-2"
+      className={`rounded-xl border border-r-[var(--line)] border-y-[var(--line)] bg-white p-3 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--red)] ${borderColor}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-[14.5px] font-extrabold tracking-[-0.2px] text-[var(--ink)]">{order.order_number}</div>
-          <div className="mt-1 text-[12px] text-[var(--muted)]">{order.customer_name || "Guest"} · {order.customer_phone}</div>
-          <div className="mt-1 text-[12px] text-[var(--muted)]">{dateTime(order.created_at)}</div>
+        <div className="flex flex-col">
+          <span className="text-[14px] font-extrabold tracking-[-0.2px] text-[var(--ink)]">{order.order_number}</span>
+          <span className="text-[11px] font-medium text-[var(--muted)]">{order.customer_name || "Guest"} · {order.customer_phone}</span>
         </div>
-        <div className="text-right">
-          <div className="text-[16px] font-extrabold text-[var(--red2)]">{money(order.total)}</div>
+        <div className="flex flex-col items-end">
+          <span className="text-[14px] font-extrabold text-[var(--ink)]">{money(order.total)}</span>
+          <span className={`text-[11px] font-bold ${countdown.isOverdue ? "text-[var(--danger)]" : isAgeWarning ? "text-[var(--warn)]" : "text-[var(--muted)]"}`}>
+            {countdown.label}
+          </span>
         </div>
       </div>
 
-      <div className="mt-2 text-[13px] leading-5 text-[var(--ink)]">{items.length > 0 ? items.map((item) => `${item.quantity} × ${item.name}`).join(", ") : order.items || "No items listed"}</div>
+      <div className="mt-2.5 text-[12px] font-medium leading-tight text-[var(--ink)] line-clamp-2">
+        {items.length > 0 ? items.map((item) => `${item.quantity}× ${item.name}`).join(", ") : order.items || "No items"}
+      </div>
 
-      {order.order_type === "delivery" && (order.address || order.landmark || order.pincode) ? (
-        <div className="mt-2 text-[12px] text-[var(--muted)]">📍 {destinationFor(order)}</div>
-      ) : null}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="rounded bg-[#F8FAFB] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] border border-[#E6E9EE]">
+          {normalizeOrderType(order.order_type)}
+        </span>
+        {order.order_type === "delivery" && (order.address || order.landmark || order.pincode) && (
+          <span className="text-[10px] font-medium text-[var(--muted)] truncate max-w-[120px]">
+            📍 {destinationFor(order)}
+          </span>
+        )}
+      </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className={`rounded-[6px] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] ${order.order_type === 'delivery' ? 'bg-[#EBF5FF] text-[#1A5FA8]' : order.order_type === 'dine-in' ? 'bg-[#F3E8FF] text-[#6B21A8]' : 'bg-[#FFF7E6] text-[#9A6700]'}`}>{normalizeOrderType(order.order_type)}</span>
-        {order.source && <span className="rounded-[6px] bg-[#F1F3F6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[var(--muted)]">{order.source}</span>}
-        {Number(order.amendment_count ?? 0) > 0 && <span className="rounded-[6px] bg-[#FFEFD6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[#9A5B00]">Amended ×{order.amendment_count}</span>}
+      <div className="mt-2 flex flex-wrap gap-1">
+        {order.source && <span className="rounded bg-[#F1F3F6] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{order.source}</span>}
+        {Number(order.amendment_count ?? 0) > 0 && <span className="rounded bg-[#FFEFD6] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9A5B00]">Amended ×{order.amendment_count}</span>}
         {order.cancel_requested_at && order.status !== "cancelled" && order.status !== "delivered" && (
-          <span className="rounded-[6px] border border-[#F5C6CB] bg-[#FDE8E8] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[#B42318]">Cancel request</span>
+          <span className="rounded border border-[#F5C6CB] bg-[#FDE8E8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#B42318]">Cancel request</span>
         )}
-        {order.status === "cancelled" && order.cancelled_by && (
-          <span className="rounded-[6px] bg-[#F1F3F6] px-[7px] py-[3px] text-[10.5px] font-bold uppercase tracking-[0.3px] text-[var(--muted)]">By {String(order.cancelled_by).replace(/^staff:/, "")}</span>
-        )}
-        <span className={`ml-auto text-[11.5px] font-bold ${countdown.isOverdue ? "text-[var(--danger)]" : isAgeWarning ? "text-[var(--warn)]" : "text-[var(--muted)]"}`}>{countdown.label}</span>
       </div>
 
-      {slideAction && (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onStatusChange(order, slideAction.nextStatus);
-          }}
-          className="relative mt-3 h-[42px] w-full overflow-hidden rounded-[10px] border border-[var(--line)] bg-[#F1F3F6] text-left"
-          aria-label={`Move order ${order.order_number} to ${statusLabels[slideAction.nextStatus]}`}
-        >
-          <span className="absolute inset-y-0 left-0 w-[64%] rounded-r-[8px] opacity-20" style={{ background: slideAction.accent }} />
-          <span className="absolute inset-0 grid place-items-center px-3 text-[12.5px] font-bold text-[var(--muted)]">{slideAction.label}</span>
-          <span className="absolute top-[3px] left-[3px] grid h-[34px] w-[50px] place-items-center rounded-[8px] text-xl font-extrabold text-white" style={{ background: slideAction.accent }}>›</span>
-        </button>
-      )}
+      <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+        {slideAction && (
+          <SlideAction
+            label={slideAction.label}
+            accentColor={slideAction.accent}
+            baseColor="#F8FAFB"
+            textColor={slideAction.accent}
+            onAcknowledge={() => onStatusChange(order, slideAction.nextStatus)}
+            resetOnComplete={false}
+          />
+        )}
+      </div>
 
-      <div className="mt-2 flex flex-wrap gap-2">
-        {order.status === "preparing" && (
+      <div className="mt-2.5 flex items-center justify-between text-[11px] font-medium text-[var(--muted)]">
+        <span>{itemCount} item{itemCount !== 1 && "s"} · {getAgeLabel(order)} old</span>
+        <div className="flex gap-2">
+          {order.status !== "cancelled" && order.status !== "delivered" && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                const reason = window.prompt("Reason for cancellation:");
+                if (reason) onStatusChange(order, "cancelled", reason);
+              }}
+              className="text-[var(--red2)] hover:underline"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onStatusChange(order, order.order_type === "delivery" ? "out_for_delivery" : "ready_for_pickup");
+              printOrder(order);
             }}
-            className="rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-[12px] font-semibold text-[var(--muted)]"
+            className="hover:underline"
           >
-            Ready for pickup
+            Print
           </button>
-        )}
-        {order.status !== "cancelled" && order.status !== "delivered" && (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              const reason = window.prompt("Please enter a reason for cancellation (sent to customer):");
-              if (reason !== null) onStatusChange(order, "cancelled", reason);
-            }}
-            className="rounded-lg border border-[#F5C6CB] bg-[var(--tint)] px-2 py-1.5 text-[12px] font-semibold text-[var(--red2)]"
-          >
-            Cancel
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            printOrder(order);
-          }}
-          className="ml-auto rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-[12px] font-semibold text-[var(--muted)]"
-        >
-          Print
-        </button>
+        </div>
       </div>
-
-      <div className="mt-2 text-[11px] text-[var(--muted)]">{itemCount} item{itemCount === 1 ? "" : "s"} · {getAgeLabel(order)} old</div>
     </div>
   );
 }
@@ -565,14 +621,33 @@ export default function OrdersBoard() {
                 <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/80 px-1.5 text-[12px] font-bold text-[var(--muted)]">{columnOrders.length}</span>
               </div>
 
-              <div className="space-y-3">
-                {columnOrders.length > 0 ? (
-                  columnOrders.map((order) => (
-                    <OrderCard key={order.id} order={order} onOpen={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} now={now} />
-                  ))
-                ) : (
-                  <div className="rounded-[12px] border border-dashed border-[var(--line)] bg-white/60 px-3 py-8 text-center text-[12px] text-[var(--muted)]">Nothing here</div>
-                )}
+              <div className="space-y-3 min-h-[150px]">
+                <AnimatePresence mode="popLayout">
+                  {columnOrders.length > 0 ? (
+                    columnOrders.map((order) => (
+                      <motion.div
+                        key={order.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                      >
+                        <OrderCard order={order} onOpen={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} now={now} />
+                      </motion.div>
+                    ))
+                  ) : (
+                    <motion.div
+                      key="empty"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="rounded-[12px] border border-dashed border-[var(--line)] bg-white/60 px-3 py-8 text-center text-[12px] text-[var(--muted)]"
+                    >
+                      Nothing here
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           );
