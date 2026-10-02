@@ -36,11 +36,11 @@ export default async function DashboardLayout({
 
   return (
     <OrderManagerProvider initialOrders={initialOrders}>
-      <div className="flex min-h-screen bg-[var(--bg)] text-[var(--ink)]">
+      <div className="flex min-h-screen bg-[#F8FAFB] text-[#0A1017]">
         <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 pb-[64px] md:pb-0">
           <Header />
-          <main className="flex-1 p-5 overflow-x-hidden">
+          <main className="flex-1 px-4 md:px-6 pb-6 overflow-x-hidden">
             {children}
           </main>
         </div>

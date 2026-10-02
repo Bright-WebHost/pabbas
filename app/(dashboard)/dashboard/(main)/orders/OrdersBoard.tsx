@@ -493,7 +493,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
 
 
 export default function OrdersBoard() {
-  const { orders, error, updateOrderStatus } = useOrderManager();
+  const { orders, error, updateOrderStatus, isLoading } = useOrderManager();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | OrderStatus>("all");
   const [orderType, setOrderType] = useState<"all" | DashboardOrder["order_type"]>("all");
@@ -543,21 +543,21 @@ export default function OrdersBoard() {
   const totalOrderCount = visibleOrders.length;
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-extrabold uppercase tracking-[0.3px] text-[var(--muted)]">Filter:</span>
-          <div className="flex flex-wrap gap-2">
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white/50 p-4 rounded-[20px] border border-[#EAF0F6] backdrop-blur-md">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#8799AF]">Filters</span>
+          <div className="flex flex-wrap gap-1 bg-[#F3F6F9] p-1 rounded-xl border border-[#EAF0F6]">
             {RANGE_OPTIONS.map((option) => (
               <button
                 key={option.key}
                 type="button"
                 aria-pressed={range === option.key}
                 onClick={() => setRange(option.key)}
-                className={`rounded-full border px-4 py-2 text-[13px] font-bold transition ${
+                className={`rounded-[8px] px-3.5 py-1.5 text-[13px] font-bold transition-all duration-200 ${
                   range === option.key
-                    ? "border-[var(--red)] bg-[var(--red)] text-white shadow-[0_8px_20px_rgba(226,55,68,0.18)]"
-                    : "border-[var(--line)] bg-white text-[var(--muted)] hover:border-[#CBD3DC]"
+                    ? "bg-white text-[#0A1017] shadow-[0_2px_8px_rgba(0,0,0,0.06)] border border-[#E5E9F0]"
+                    : "text-[#6B7A90] hover:text-[#0A1017] border border-transparent"
                 }`}
               >
                 {option.label}
@@ -567,16 +567,19 @@ export default function OrdersBoard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search order, name or phone"
-            className="min-w-[220px] rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--red)]"
-          />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8799AF]">🔍</span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search orders..."
+              className="min-w-[200px] rounded-xl border border-[#EAF0F6] bg-white pl-9 pr-4 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 transition-all placeholder:text-[#A1B2C6]"
+            />
+          </div>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as "all" | OrderStatus)}
-            className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--red)]"
+            className="rounded-xl border border-[#EAF0F6] bg-white px-4 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 transition-all appearance-none cursor-pointer"
           >
             <option value="all">All statuses</option>
             {Object.entries(statusLabels).map(([value, label]) => (
@@ -586,7 +589,7 @@ export default function OrdersBoard() {
           <select
             value={orderType}
             onChange={(event) => setOrderType(event.target.value as "all" | DashboardOrder["order_type"])}
-            className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--red)]"
+            className="rounded-xl border border-[#EAF0F6] bg-white px-4 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 transition-all appearance-none cursor-pointer"
           >
             <option value="all">All types</option>
             <option value="delivery">Delivery</option>
@@ -596,7 +599,7 @@ export default function OrdersBoard() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Revenue" value={money(totalRevenue)} tone="red" />
         <StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" />
         <StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="purple" />
@@ -604,50 +607,63 @@ export default function OrdersBoard() {
       </div>
 
       {statusMessage && (
-        <div className="rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)]">
+        <div className="rounded-xl border border-[#C6ECD6] bg-[#E5F5EC] px-4 py-3 text-sm font-semibold text-[#146C43] shadow-[0_4px_12px_rgba(25,135,84,0.1)]">
           {statusMessage}
         </div>
       )}
 
-      {error && <div className="rounded-xl border border-[#F5C6CB] bg-[var(--tint)] px-4 py-3 text-sm font-semibold text-[var(--red2)]">{error}</div>}
+      {error && <div className="rounded-xl border border-[#F5C2C6] bg-[#FDE8E8] px-4 py-3 text-sm font-semibold text-[#C0392B] shadow-[0_4px_12px_rgba(226,55,68,0.1)]">{error}</div>}
 
-      <div className="grid gap-4 xl:grid-cols-4">
+      <div className="flex xl:grid xl:grid-cols-4 gap-4 overflow-x-auto pb-6 snap-x snap-mandatory">
         {BOARD_COLUMNS.map((column) => {
           const columnOrders = visibleOrders.filter((order) => getBoardColumn(order) === column.key);
           return (
-            <div key={column.key} className={`min-w-0 rounded-[14px] ${column.key === "new" ? "bg-[#FFF0F1]" : column.key === "preparing" ? "bg-[#EAF3FF]" : column.key === "ready" ? "bg-[#F2EEFF]" : "bg-[#EAF8EF]"} p-3`}>
-              <div className="mb-3 flex items-center justify-between gap-2 rounded-[12px] border border-transparent px-1 py-1">
-                <div className="text-[16px] font-extrabold tracking-[-0.2px] text-[var(--ink)]">{column.label}</div>
-                <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/80 px-1.5 text-[12px] font-bold text-[var(--muted)]">{columnOrders.length}</span>
+            <div key={column.key} className={`min-w-[85vw] md:min-w-[320px] xl:min-w-0 snap-center rounded-[20px] ${column.key === "new" ? "bg-[#FFF0F1]" : column.key === "preparing" ? "bg-[#EAF3FF]" : column.key === "ready" ? "bg-[#F2EEFF]" : "bg-[#EAF8EF]"} p-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]`}>
+              <div className="mb-4 flex items-center justify-between gap-2 px-1">
+                <div className="text-[17px] font-extrabold tracking-[-0.4px] text-[#0A1017]">{column.label}</div>
+                <span className="grid h-7 min-w-7 place-items-center rounded-full bg-white/80 px-2 text-[12px] font-bold text-[#6B7A90] shadow-[0_2px_4px_rgba(0,0,0,0.04)]">{columnOrders.length}</span>
               </div>
 
-              <div className="space-y-3 min-h-[150px]">
-                <AnimatePresence mode="popLayout">
-                  {columnOrders.length > 0 ? (
-                    columnOrders.map((order) => (
+              <div className="space-y-4 min-h-[150px]">
+                {isLoading ? (
+                  Array.from({ length: 2 }).map((_, i) => (
+                    <div key={`skel-${i}`} className="h-32 rounded-[16px] bg-white/40 p-4 shadow-sm animate-pulse border border-white/50">
+                      <div className="h-4 w-1/2 bg-black/5 rounded mb-3"></div>
+                      <div className="h-3 w-3/4 bg-black/5 rounded mb-2"></div>
+                      <div className="h-3 w-1/3 bg-black/5 rounded mb-4"></div>
+                      <div className="h-10 w-full bg-black/5 rounded-xl"></div>
+                    </div>
+                  ))
+                ) : (
+                  <AnimatePresence mode="popLayout">
+                    {columnOrders.length > 0 ? (
+                      columnOrders.map((order) => (
+                        <motion.div
+                          key={order.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                          transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                        >
+                          <OrderCard order={order} onOpen={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} now={now} />
+                        </motion.div>
+                      ))
+                    ) : (
                       <motion.div
-                        key={order.id}
-                        layout
-                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                        key="empty"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="rounded-[16px] border border-dashed border-[#C9D4E0] bg-white/50 px-4 py-10 text-center flex flex-col items-center justify-center gap-2"
                       >
-                        <OrderCard order={order} onOpen={() => setSelectedOrder(order)} onStatusChange={handleStatusChange} now={now} />
+                        <div className="text-[24px] opacity-40">🍽️</div>
+                        <span className="text-[13px] font-bold text-[#8799AF]">No orders here</span>
+                        <span className="text-[11px] font-semibold text-[#A1B2C6]">When orders arrive, they'll show up here.</span>
                       </motion.div>
-                    ))
-                  ) : (
-                    <motion.div
-                      key="empty"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="rounded-[12px] border border-dashed border-[var(--line)] bg-white/60 px-3 py-8 text-center text-[12px] text-[var(--muted)]"
-                    >
-                      Nothing here
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    )}
+                  </AnimatePresence>
+                )}
               </div>
             </div>
           );
