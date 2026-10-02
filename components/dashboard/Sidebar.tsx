@@ -12,65 +12,68 @@ export default function Sidebar() {
   const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
 
   return (
-    <aside className="w-[212px] bg-[var(--navy)] text-white p-5 sticky top-0 h-screen flex flex-col">
-      <div className="text-center py-2 pb-4">
-        <div className="w-14 h-14 rounded-2xl bg-[var(--red)] text-white font-[Fraunces] text-3xl font-bold grid place-items-center mx-auto mb-3 shadow-[0_6px_18px_rgba(226,55,68,0.34)]">
+    <aside className="w-[230px] bg-[#0A1017] text-white p-4 sticky top-0 h-screen flex flex-col border-r border-[#1C2633]">
+      <div className="flex items-center gap-3 py-3 mb-6 px-2">
+        <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#E23744] to-[#B0202B] text-white font-[Fraunces] text-xl font-bold grid place-items-center shadow-[0_4px_12px_rgba(226,55,68,0.3)]">
           P
         </div>
-        <div className="text-[27px] font-extrabold tracking-[-0.6px] leading-none">Pabbas</div>
-        <div className="text-[10px] tracking-[3px] text-[var(--red)] mt-1.5 font-extrabold uppercase">Staff Hub</div>
+        <div className="flex flex-col">
+          <span className="text-[18px] font-extrabold tracking-[-0.5px] leading-none text-white">Pabbas</span>
+          <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase">Staff Hub</span>
+        </div>
       </div>
 
-      <nav className="mt-6 flex flex-col gap-1 flex-1">
-        <SidebarLink href="/dashboard" label="🧾 Orders" active={pathname === "/dashboard"} />
-        <SidebarLink href="/dashboard/chat" label="💬 Live Chat" active={pathname === "/dashboard/chat"} />
-        <SidebarLink href="/dashboard/menu" label="📋 Menu" active={pathname === "/dashboard/menu"} />
-        <SidebarLink href="/dashboard/stats" label="📊 Analytics" active={pathname === "/dashboard/stats"} />
-        <SidebarLink href="/dashboard/contacts" label="👥 Contacts" active={pathname === "/dashboard/contacts"} />
-        <SidebarLink href="/dashboard/blast" label="📣 Blast" active={pathname === "/dashboard/blast"} />
+      <nav className="flex flex-col gap-1.5 flex-1">
+        <SidebarLink href="/dashboard" label="Orders" icon="🧾" active={pathname === "/dashboard"} />
+        <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} />
+        <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} />
+        <SidebarLink href="/dashboard/stats" label="Analytics" icon="📊" active={pathname === "/dashboard/stats"} />
+        <SidebarLink href="/dashboard/contacts" label="Contacts" icon="👥" active={pathname === "/dashboard/contacts"} />
+        <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} />
       </nav>
 
-      <div className="mt-auto flex flex-col gap-2 border-t border-[#223040] pt-4">
-        <button
-          type="button"
-          onClick={() => void refreshOrders()}
-          className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
-        >
-          ↻ Refresh Now
-        </button>
-        <button
-          type="button"
-          onClick={toggleSound}
-          className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
-        >
-          {soundEnabled ? "🔕 Disable sound" : "🔔 Enable sound"}
-        </button>
-        <button 
+      <div className="mt-auto flex flex-col gap-1.5 border-t border-[#1C2633] pt-4">
+        <SidebarButton onClick={() => void refreshOrders()} icon="↻" label="Refresh Now" />
+        <SidebarButton onClick={toggleSound} icon={soundEnabled ? "🔕" : "🔔"} label={soundEnabled ? "Disable sound" : "Enable sound"} />
+        <SidebarButton 
           onClick={async () => {
             await supabase.auth.signOut();
             router.push("/dashboard/login");
-          }}
-          className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
-        >
-          Sign out
-        </button>
+          }} 
+          icon="🚪" 
+          label="Sign out" 
+        />
       </div>
     </aside>
   );
 }
 
-function SidebarLink({ href, label, active = false }: { href: string; label: string; active?: boolean }) {
+function SidebarLink({ href, label, icon, active = false }: { href: string; label: string; icon: string; active?: boolean }) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 p-3 rounded-xl font-semibold text-sm relative transition-colors ${
-        active ? 'bg-[var(--navy2)] text-white' : 'text-[#95A3B5] hover:bg-[var(--navy2)] hover:text-white'
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-[10px] font-bold text-[13px] transition-all duration-200 ${
+        active 
+          ? 'bg-[#17212D] text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)] border border-[#233142]' 
+          : 'text-[#8799AF] hover:bg-[#111923] hover:text-[#C7D3E1] border border-transparent'
       }`}
     >
-      {active && (
-        <span className="absolute left-[-20px] top-[9px] bottom-[9px] w-1 rounded-r bg-[var(--red)]" />
-      )}
+      <span className="text-[15px] opacity-80">{icon}</span>
       {label}
+      {active && <span className="absolute left-0 w-1 h-6 rounded-r bg-[#E23744]" />}
     </Link>
+  );
+}
+
+function SidebarButton({ onClick, label, icon }: { onClick: () => void; label: string; icon: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] font-bold text-[13px] text-[#8799AF] hover:bg-[#111923] hover:text-[#C7D3E1] transition-all border border-transparent text-left w-full"
+    >
+      <span className="text-[15px] opacity-80">{icon}</span>
+      {label}
+    </button>
   );
 }

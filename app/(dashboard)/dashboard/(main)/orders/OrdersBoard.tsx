@@ -693,17 +693,20 @@ export default function OrdersBoard() {
 }
 
 function StatCard({ label, value, tone }: { label: string; value: string; tone: "red" | "blue" | "purple" | "amber" }) {
-  const toneClasses = {
-    red: "text-[var(--red)]",
-    blue: "text-[#1A5FA8]",
-    purple: "text-[#5B3FBF]",
-    amber: "text-[#B8730B]",
+  const styles = {
+    red: { bg: "bg-gradient-to-br from-[#FFF0F1] to-[#FDE8E8]", border: "border-[#F5C2C6]", text: "text-[#C0392B]" },
+    blue: { bg: "bg-gradient-to-br from-[#EAF3FF] to-[#DCE9FA]", border: "border-[#B8D5F6]", text: "text-[#1A5FA8]" },
+    purple: { bg: "bg-gradient-to-br from-[#F2EEFF] to-[#E9E4F9]", border: "border-[#D6CAFC]", text: "text-[#5B3FBF]" },
+    amber: { bg: "bg-gradient-to-br from-[#FFF8EB] to-[#FDF3DE]", border: "border-[#F9E2B6]", text: "text-[#B8730B]" },
   }[tone];
 
   return (
-    <div className="rounded-[16px] border border-[var(--line)] bg-white p-5 shadow-[0_1px_3px_rgba(16,21,28,0.05)]">
-      <span className="mb-3 block text-[12px] font-extrabold uppercase tracking-[1.3px] text-[var(--muted)]">{label}</span>
-      <b className={`block text-[40px] font-extrabold leading-none tracking-[-1.5px] ${toneClasses}`}>{value}</b>
+    <div className={`relative overflow-hidden rounded-[16px] border ${styles.border} ${styles.bg} p-5 transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg`}>
+      <div className="relative z-10">
+        <span className="mb-2 block text-[11px] font-extrabold uppercase tracking-[1px] text-[var(--muted)] opacity-80">{label}</span>
+        <b className={`block text-[36px] font-extrabold leading-none tracking-[-1px] ${styles.text}`}>{value}</b>
+      </div>
+      <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-[0.04] ${styles.text.replace("text-", "bg-")}`} />
     </div>
   );
 }
