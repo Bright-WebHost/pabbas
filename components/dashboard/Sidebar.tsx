@@ -3,18 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useOrderManager } from "@/app/(dashboard)/dashboard/OrderManagerProvider";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
-  const handleRefresh = () => {
-    window.dispatchEvent(new CustomEvent("pabbas-refresh-orders"));
-  };
-
-  const handleSoundToggle = () => {
-    window.dispatchEvent(new CustomEvent("pabbas-toggle-sound"));
-  };
+  const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
 
   return (
     <aside className="w-[212px] bg-[var(--navy)] text-white p-5 sticky top-0 h-screen flex flex-col">
@@ -38,17 +33,17 @@ export default function Sidebar() {
       <div className="mt-auto flex flex-col gap-2 border-t border-[#223040] pt-4">
         <button
           type="button"
-          onClick={handleRefresh}
+          onClick={() => void refreshOrders()}
           className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
         >
           ↻ Refresh Now
         </button>
         <button
           type="button"
-          onClick={handleSoundToggle}
+          onClick={toggleSound}
           className="bg-[var(--navy2)] text-[#C7D2DE] p-3 rounded-xl text-[13px] font-semibold text-left hover:bg-[#26364a] hover:text-white transition-colors"
         >
-          🔔 Enable sound
+          {soundEnabled ? "🔕 Disable sound" : "🔔 Enable sound"}
         </button>
         <button 
           onClick={async () => {

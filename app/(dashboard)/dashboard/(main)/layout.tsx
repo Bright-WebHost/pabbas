@@ -1,10 +1,10 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
-import { GlobalNotificationProvider } from "../GlobalNotificationProvider";
+import { OrderManagerProvider } from "../OrderManagerProvider";
 import { GlobalNewOrderPopup } from "../GlobalNewOrderPopup";
+import { getDashboardOrders } from "@/lib/orders/queries";
 
 export default async function DashboardLayout({
   children,
@@ -31,8 +31,11 @@ export default async function DashboardLayout({
     redirect("/dashboard/login?error=unauthorized");
   }
 
+  // Pre-fetch initial orders for the provider
+  const { orders: initialOrders } = await getDashboardOrders();
+
   return (
-    <GlobalNotificationProvider>
+    <OrderManagerProvider initialOrders={initialOrders}>
       <div className="flex min-h-screen bg-[var(--bg)] text-[var(--ink)]">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">
@@ -43,6 +46,6 @@ export default async function DashboardLayout({
         </div>
       </div>
       <GlobalNewOrderPopup />
-    </GlobalNotificationProvider>
+    </OrderManagerProvider>
   );
 }

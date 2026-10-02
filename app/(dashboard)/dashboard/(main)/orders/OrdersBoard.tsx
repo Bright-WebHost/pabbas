@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
-import { notifyStatusWebhook } from "./actions";
+import { useOrderManager } from "../../OrderManagerProvider";
 
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
@@ -199,20 +198,7 @@ function getSlideAction(order: DashboardOrder): { label: string; nextStatus: Ord
   return null;
 }
 
-async function fetchDashboardOrders() {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("orders")
-    .select(ORDER_SELECT)
-    .order("created_at", { ascending: false })
-    .limit(100);
 
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []) as DashboardOrder[];
-}
 
 function OrderDetails({ order, onClose, now, onStatusChange }: { order: DashboardOrder; onClose: () => void; now: number; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void }) {
   const items = buildItemList(order);
@@ -450,167 +436,21 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
 }
 
 
-export default function OrdersBoard({ orders: initialOrders, error: initialError }: { orders: DashboardOrder[]; error: string | null }) {
-  const [orders, setOrders] = useState<DashboardOrder[]>(initialOrders);
-  const [error, setError] = useState<string | null>(initialError);
+export default function OrdersBoard() {
+  const { orders, error, updateOrderStatus } = useOrderManager();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | OrderStatus>("all");
   const [orderType, setOrderType] = useState<"all" | DashboardOrder["order_type"]>("all");
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
-  const [alertOrder, setAlertOrder] = useState<DashboardOrder | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  const [audioBlocked, setAudioBlocked] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [cancelledOpen, setCancelledOpen] = useState(false);
-
-  const supabase = useRef(createClient());
-  const knownIdsRef = useRef(new Set(initialOrders.map((order) => order.id)));
-  const alertSeenRef = useRef(new Set<string>());
-  const initialLoadCompleteRef = useRef(false);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const soundTimerRef = useRef<number | null>(null);
-  const soundEnabledRef = useRef(false);
-
-  const stopSound = useCallback(() => {
-    if (soundTimerRef.current) {
-      window.clearInterval(soundTimerRef.current);
-      soundTimerRef.current = null;
-    }
-    soundEnabledRef.current = false;
-    setSoundEnabled(false);
-  }, []);
-
-  const startSound = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioCtor) {
-          setAudioBlocked(true);
-          return;
-        }
-        audioCtxRef.current = new AudioCtor();
-      }
-
-      if (audioCtxRef.current.state === "suspended") {
-        void audioCtxRef.current.resume();
-      }
-
-      soundEnabledRef.current = true;
-      setSoundEnabled(true);
-      setAudioBlocked(false);
-      if (soundTimerRef.current) {
-        window.clearInterval(soundTimerRef.current);
-      }
-
-      const beep = () => {
-        if (!audioCtxRef.current || !soundEnabledRef.current) return;
-        const oscillator = audioCtxRef.current.createOscillator();
-        const gain = audioCtxRef.current.createGain();
-        oscillator.type = "sine";
-        oscillator.frequency.value = 880;
-        gain.gain.setValueAtTime(0.0001, audioCtxRef.current.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.12, audioCtxRef.current.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtxRef.current.currentTime + 0.3);
-        oscillator.connect(gain);
-        gain.connect(audioCtxRef.current.destination);
-        oscillator.start();
-        oscillator.stop(audioCtxRef.current.currentTime + 0.32);
-      };
-
-      beep();
-      soundTimerRef.current = window.setInterval(beep, 1800);
-    } catch {
-      setAudioBlocked(true);
-      soundEnabledRef.current = false;
-      setSoundEnabled(false);
-    }
-  }, []);
-
-  const refreshOrders = useCallback(async () => {
-    try {
-      const latestOrders = await fetchDashboardOrders();
-      setOrders(latestOrders);
-      setError(null);
-
-      if (!initialLoadCompleteRef.current) {
-        knownIdsRef.current = new Set(latestOrders.map((order) => order.id));
-        initialLoadCompleteRef.current = true;
-        return;
-      }
-
-      const newOrders = latestOrders.filter((order) => !knownIdsRef.current.has(order.id));
-      if (newOrders.length > 0) {
-        const newestOrder = newOrders[0];
-        const dedupeKey = newestOrder.id || newestOrder.order_number;
-        if (!alertSeenRef.current.has(dedupeKey)) {
-          alertSeenRef.current.add(dedupeKey);
-          setAlertOrder(newestOrder);
-            // startSound();
-        }
-      }
-
-      knownIdsRef.current = new Set(latestOrders.map((order) => order.id));
-    } catch {
-      setError("Orders could not be refreshed. Showing the last known data.");
-    }
-  }, [startSound]);
 
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(tick);
   }, []);
-
-  useEffect(() => {
-    void refreshOrders();
-  }, [refreshOrders]);
-
-  useEffect(() => {
-    const handleRefreshRequest = () => {
-      void refreshOrders();
-    };
-
-    const handleSoundToggle = () => {
-      setSoundEnabled((current) => {
-        const next = !current;
-        if (next) {
-            // startSound();
-        } else {
-    // stopSound();
-        }
-        return next;
-      });
-    };
-
-    window.addEventListener("pabbas-refresh-orders", handleRefreshRequest);
-    window.addEventListener("pabbas-toggle-sound", handleSoundToggle);
-
-    const channel = supabase.current.channel("pabbas-orders-live");
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-      void refreshOrders();
-    });
-
-    void channel.subscribe((status) => {
-      if (status === "CHANNEL_ERROR") {
-        setError("Realtime connection lost. Polling fallback is active.");
-      }
-    });
-
-    const poller = window.setInterval(() => {
-      void refreshOrders();
-    }, 5000);
-
-    return () => {
-      window.removeEventListener("pabbas-refresh-orders", handleRefreshRequest);
-      window.removeEventListener("pabbas-toggle-sound", handleSoundToggle);
-      window.clearInterval(poller);
-      supabase.current.removeChannel(channel);
-    // stopSound();
-    };
-  }, [refreshOrders, startSound, stopSound]);
 
   const handleStatusChange = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => {
     if (!canTransitionStatus(order.status, nextStatus)) {
@@ -618,45 +458,14 @@ export default function OrdersBoard({ orders: initialOrders, error: initialError
       return;
     }
 
-    const previousStatus = order.status;
-    const nextOrderState = { ...order, status: nextStatus };
-    setOrders((current) => current.map((item) => (item.id === order.id ? nextOrderState : item)));
-
-    const updates: any = {
-      status: nextStatus,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (nextStatus === "cancelled") {
-      updates.cancelled_by = "staff";
-      updates.cancelled_at = new Date().toISOString();
-      updates.cancel_reason = reason || "staff_cancelled";
-    }
-
     try {
-      const ordersTable: any = supabase.current.from("orders");
-      const { error: updateError } = await ordersTable.update(updates).eq("id", order.id);
-      if (updateError) {
-        throw updateError;
-      }
-
+      await updateOrderStatus(order, nextStatus, reason);
       setStatusMessage(`Order ${order.order_number} updated to ${statusLabels[nextStatus]}.`);
       setSelectedOrder(null);
-      await refreshOrders();
-
-      try {
-        const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, nextStatus === "cancelled" ? updates.cancel_reason : undefined);
-        if (!notifyResult.success) {
-          console.error("Failed to notify customer:", notifyResult.error);
-        }
-      } catch (notifyErr) {
-        console.error("Webhook integration error:", notifyErr);
-      }
     } catch {
-      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: previousStatus } : item)));
       setStatusMessage(`Failed to update order ${order.order_number}.`);
     }
-  }, [refreshOrders]);
+  }, [updateOrderStatus]);
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();

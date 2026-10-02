@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useGlobalNotification } from "./GlobalNotificationProvider";
+import { useOrderManager } from "./OrderManagerProvider";
 import { motion, useMotionValue, useTransform } from "framer-motion";
+import { DashboardOrder } from "@/lib/orders/queries";
 
 const statusLabels: Record<string, string> = {
   new: "New Order",
@@ -13,19 +14,19 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-function normalizeOrderType(t: string | null) {
+function normalizeOrderType(t: string | null | undefined) {
   if (!t) return "Unknown";
   if (t.toLowerCase() === "pwa") return "Takeaway";
   return t.charAt(0).toUpperCase() + t.slice(1).replace("-", " ");
 }
 
-function money(val: string | number) {
-  const num = Number(val);
+function money(val: string | number | undefined) {
+  const num = Number(val || 0);
   if (!Number.isFinite(num)) return "₹0.00";
   return `₹${num.toFixed(2)}`;
 }
 
-function dateTime(str: string | null) {
+function dateTime(str: string | null | undefined) {
   if (!str) return "—";
   try {
     const d = new Date(str);
@@ -41,7 +42,7 @@ function dateTime(str: string | null) {
   }
 }
 
-function formatCountdown(order: any, now: number) {
+function formatCountdown(order: DashboardOrder, now: number) {
   if (order.status === "ready_for_pickup" || order.status === "delivered" || order.status === "cancelled") {
     return { label: "Completed", style: "completed" };
   }
@@ -60,7 +61,7 @@ function formatCountdown(order: any, now: number) {
   return { label: `${m}:${s.toString().padStart(2, "0")}`, style };
 }
 
-function buildItemList(order: any) {
+function buildItemList(order: DashboardOrder) {
   if (Array.isArray(order.items_json) && order.items_json.length > 0) {
     return order.items_json.map((item: any) => ({
       id: `${order.id}-${item.menu_item_id ?? (item.item_name || item.name)}`,
@@ -95,7 +96,7 @@ function SlideToAcknowledge({ onAcknowledge }: { onAcknowledge: () => void }) {
 
   return (
     <div className="relative flex h-14 w-full items-center overflow-hidden rounded-xl bg-[#F8FAFB] border border-[#e2e8f0]">
-      <motion.div className="absolute inset-0 z-0" style={{ backgroundColor: bg, opacity: 0.1 }} />
+      <motion.div className="absolute inset-0 z-0" style={{ backgroundColor: bg as any, opacity: 0.1 }} />
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <motion.span style={{ opacity }} className="text-sm font-extrabold uppercase tracking-widest text-[#e23744]">
           Slide to Acknowledge
@@ -119,8 +120,10 @@ function SlideToAcknowledge({ onAcknowledge }: { onAcknowledge: () => void }) {
 }
 
 export function GlobalNewOrderPopup() {
-  const { newOrder, acknowledgeOrder } = useGlobalNotification();
+  const { queuedNewOrders, acknowledgeOrder } = useOrderManager();
   const [now, setNow] = useState(Date.now());
+
+  const newOrder = queuedNewOrders.length > 0 ? queuedNewOrders[0] : null;
 
   useEffect(() => {
     if (!newOrder) return;
@@ -141,7 +144,12 @@ export function GlobalNewOrderPopup() {
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--red2)]">New incoming order</p>
             <h3 className="mt-2 text-2xl font-extrabold">{newOrder.order_number}</h3>
           </div>
-          <span className="rounded-full bg-[#FFF7E6] px-3 py-1 text-xs font-bold text-[#9A6700]">{statusLabels[newOrder.status] || "New"}</span>
+          <div className="flex flex-col items-end gap-1">
+             <span className="rounded-full bg-[#FFF7E6] px-3 py-1 text-xs font-bold text-[#9A6700]">{statusLabels[newOrder.status] || "New"}</span>
+             {queuedNewOrders.length > 1 && (
+               <span className="text-xs font-bold text-[var(--red2)]">+{queuedNewOrders.length - 1} more in queue</span>
+             )}
+          </div>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
