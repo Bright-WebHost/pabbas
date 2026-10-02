@@ -6,7 +6,7 @@ const MAX_CART_ITEMS = 50
 const MAX_QUANTITY_PER_ITEM = 20
 
 function normalizeOrderType(value: unknown): 'delivery' | 'takeaway' | 'dine-in' | null {
-  if (value === 'delivery' || value === 'dine-in') return value
+  if (value === 'delivery' || value === 'dine-in' || value === 'takeaway') return value
   if (value === 'pickup') return 'takeaway'
   return null
 }
