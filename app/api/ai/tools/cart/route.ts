@@ -53,15 +53,21 @@ export async function POST(request: Request) {
     return NextResponse.json(formatCartResponse([]))
   }
 
-  if (!menu_item_id) {
-    return NextResponse.json({ error: 'menu_item_id is required for modify actions' }, { status: 400 })
+  let actualMenuId = menu_item_id;
+  if (!actualMenuId && body.item_name) {
+    const { data: match } = await adminClient.from('menu_items').select('id').ilike('item_name', body.item_name).single();
+    if (match) actualMenuId = match.id;
+  }
+
+  if (!actualMenuId) {
+    return NextResponse.json({ error: 'menu_item_id or valid item_name is required for modify actions' }, { status: 400 })
   }
 
   // Fetch menu item details to ensure validity and get price
   const { data: menuItem, error: menuError } = await adminClient
     .from('menu_items')
     .select('id, item_name, price, available')
-    .eq('id', menu_item_id)
+    .eq('id', actualMenuId)
     .single()
 
   if (menuError || !menuItem) {
@@ -72,7 +78,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Menu item ${menuItem.item_name} is currently unavailable` }, { status: 400 })
   }
 
-  const existingItemIndex = currentItems.findIndex(i => i.menu_item_id === menu_item_id)
+  const existingItemIndex = currentItems.findIndex(i => i.menu_item_id === actualMenuId)
   
   if (action === 'add' || action === 'update') {
     const qty = Number(quantity) || 1
