@@ -117,13 +117,16 @@ export async function POST(request: Request) {
     }
 
     const menuLookup = new Map<string, { id: string; item_name: string; price: number; available: boolean }>()
+    const menuLookupByName = new Map<string, { id: string; item_name: string; price: number; available: boolean }>()
     for (const row of liveMenuItems ?? []) {
-      menuLookup.set(row.id, {
+      const itemData = {
         id: row.id,
         item_name: row.item_name,
         price: Number(row.price),
         available: Boolean(row.available),
-      })
+      }
+      menuLookup.set(row.id, itemData)
+      menuLookupByName.set(row.item_name.toLowerCase().replace(/\s+/g, ' ').trim(), itemData)
     }
 
     const orderedItems: Array<{ menu_item_id: string; item_name: string; quantity: number; unit_price: number; line_total: number }> = []
