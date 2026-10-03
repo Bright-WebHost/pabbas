@@ -231,7 +231,20 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
       // Trigger Webhook
       try {
-        const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason);
+        let customMessage = undefined;
+
+        if (nextStatus === "out_for_delivery" && updates.rider_name) {
+          customMessage = `Good news! Your order ${order.order_number} is on its way. 🛵\n\nYour delivery partner, ${updates.rider_name} (📞 ${updates.rider_phone}), will be arriving soon.\n\nPlease keep ₹${order.total} in cash ready for the delivery.\n\nThank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
+        }
+
+        const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason, {
+          total: order.total,
+          rider_name: updates.rider_name,
+          rider_phone: updates.rider_phone,
+          custom_message: customMessage,
+          whatsapp_message_text: customMessage
+        });
+        
         if (!notifyResult.success) {
           console.error("Failed to notify customer:", notifyResult.error);
         }
