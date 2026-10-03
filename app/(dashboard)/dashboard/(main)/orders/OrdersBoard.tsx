@@ -133,6 +133,7 @@ function buildItemList(order: DashboardOrder) {
 }
 
 function canTransitionStatus(current: OrderStatus, next: OrderStatus) {
+  if (current === next) return true;
   return (STATUS_TRANSITIONS[current] ?? []).includes(next);
 }
 
