@@ -527,7 +527,7 @@ export default function OrdersBoard() {
       return;
     }
 
-    if (nextStatus === "out_for_delivery" && !rider && assignRiderOrder?.order.id !== order.id) {
+    if (nextStatus === "out_for_delivery" && !rider && !order.rider_id && assignRiderOrder?.order.id !== order.id) {
       // Intercept and show modal instead of updating directly
       setAssignRiderOrder({ order, reason });
       return;
@@ -728,7 +728,7 @@ export default function OrdersBoard() {
       {assignRiderOrder && (
         <AssignRiderModal
           orderNumber={assignRiderOrder.order.order_number}
-          onAssign={(rider) => handleStatusChange(assignRiderOrder.order, "out_for_delivery", assignRiderOrder.reason, rider)}
+          onAssign={(rider) => handleStatusChange(assignRiderOrder.order, assignRiderOrder.order.status, assignRiderOrder.reason, rider)}
           onCancel={() => setAssignRiderOrder(null)}
         />
       )}

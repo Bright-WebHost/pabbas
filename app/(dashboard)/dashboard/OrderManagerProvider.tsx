@@ -233,7 +233,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       try {
         let customMessage = undefined;
 
-        if (nextStatus === "out_for_delivery" && updates.rider_name) {
+        if (updates.rider_name && !order.rider_name) {
           // PHASE A: Send notification to the rider via existing n8n webhook
           const riderMessage = `🚚 *New Delivery*\n\nYou have a new delivery from Pabbas.\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${[order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided"}\n*Total:* ₹${order.total}\n\nPlease accept the order to start the delivery.`;
           
@@ -249,9 +249,11 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
           if (!riderNotifyResult.success) {
             console.error("Failed to notify rider via webhook:", riderNotifyResult.error);
           }
+        }
 
-          // Phase A Note: We no longer send the customer "on the way" message here.
-          // It will be sent in Phase B when the rider clicks "Accept Order".
+        if (nextStatus === "out_for_delivery" && order.rider_name) {
+          // Send the existing customer notification
+          customMessage = `Good news! Your order ${order.order_number} is on its way. 🛵\n\nYour delivery partner, ${order.rider_name} (📞 ${order.rider_phone}), will be arriving soon.\n\nPlease keep ₹${order.total} in cash ready for the delivery.\n\nThank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
         }
 
         const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason, {
