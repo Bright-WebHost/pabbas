@@ -728,7 +728,12 @@ export default function OrdersBoard() {
       {assignRiderOrder && (
         <AssignRiderModal
           orderNumber={assignRiderOrder.order.order_number}
-          onAssign={(rider) => handleStatusChange(assignRiderOrder.order, assignRiderOrder.order.status, assignRiderOrder.reason, rider)}
+          onAssign={(rider) => handleStatusChange(
+            assignRiderOrder.order, 
+            assignRiderOrder.order.status === "preparing" ? "ready_for_pickup" : assignRiderOrder.order.status, 
+            assignRiderOrder.reason, 
+            rider
+          )}
           onCancel={() => setAssignRiderOrder(null)}
         />
       )}
