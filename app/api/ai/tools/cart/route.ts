@@ -57,7 +57,9 @@ export async function POST(request: Request) {
   const itemsToProcess = Array.isArray(body.items) ? body.items : [{ menu_item_id, item_name: body.item_name, quantity }];
 
   if (itemsToProcess.length === 0 || (itemsToProcess.length === 1 && !itemsToProcess[0].menu_item_id && !itemsToProcess[0].item_name)) {
-    return NextResponse.json({ error: 'menu_item_id or valid item_name is required for modify actions' }, { status: 400 })
+    // If the AI agent hallucinates an 'add' or 'update' action without providing any items, 
+    // we should fail gracefully so the n8n workflow doesn't crash and can still send its reply text.
+    return NextResponse.json(formatCartResponse(currentItems))
   }
 
   const errors: string[] = []
