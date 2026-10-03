@@ -3,12 +3,12 @@
   "name": "Pabbas | Status Notifier",
   "description": null,
   "active": true,
-  "activeVersionId": "2236befd-ebc1-4c81-98c5-dcde387af2c4",
+  "activeVersionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
   "createdAt": "2026-09-23T06:04:34.138Z",
-  "updatedAt": "2026-10-03T09:28:19.509Z",
+  "updatedAt": "2026-10-03T09:54:08.900Z",
   "isArchived": false,
-  "versionId": "2236befd-ebc1-4c81-98c5-dcde387af2c4",
-  "versionCounter": 121,
+  "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+  "versionCounter": 122,
   "sourceWorkflowId": null,
   "triggerCount": 2,
   "nodes": [
@@ -123,7 +123,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : { status: $json.status }) }}",
+        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
         "options": {
           "timeout": 10000
         }
@@ -140,7 +140,7 @@
     },
     {
       "parameters": {
-        "jsCode": "for (const item of $input.all()) {\n  const order = item.json;\n  let msg = order.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n}\nreturn $input.all();"
+        "jsCode": "const extractData = $('Extract Data').first().json || {};\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = extractData.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  // Restore the target and rider info from Extract Data because Update Status destroyed it\n  order.target = extractData.target || 'customer';\n  order.rider_phone = extractData.rider_phone || null;\n  order.cancel_reason = extractData.cancel_reason || order.cancel_reason || null;\n  order.interactive_button = extractData.interactive_button || null;\n  order.status = extractData.status || order.status;\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n  item.json.interactive_button = order.interactive_button;\n  item.json.order_number = order.order_number;\n}\nreturn $input.all();"
       },
       "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
       "name": "Build Message",
@@ -871,7 +871,7 @@
     }
   ],
   "activeVersion": {
-    "versionId": "2236befd-ebc1-4c81-98c5-dcde387af2c4",
+    "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
     "workflowId": "24IaEnLI3RCYU6da",
     "nodes": [
       {
@@ -985,7 +985,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : { status: $json.status }) }}",
+          "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
           "options": {
             "timeout": 10000
           }
@@ -1002,7 +1002,7 @@
       },
       {
         "parameters": {
-          "jsCode": "for (const item of $input.all()) {\n  const order = item.json;\n  let msg = order.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n}\nreturn $input.all();"
+          "jsCode": "const extractData = $('Extract Data').first().json || {};\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = extractData.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  // Restore the target and rider info from Extract Data because Update Status destroyed it\n  order.target = extractData.target || 'customer';\n  order.rider_phone = extractData.rider_phone || null;\n  order.cancel_reason = extractData.cancel_reason || order.cancel_reason || null;\n  order.interactive_button = extractData.interactive_button || null;\n  order.status = extractData.status || order.status;\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n  item.json.interactive_button = order.interactive_button;\n  item.json.order_number = order.order_number;\n}\nreturn $input.all();"
         },
         "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
         "name": "Build Message",
@@ -1668,16 +1668,16 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-03T09:28:19.512Z",
-    "updatedAt": "2026-10-03T09:28:19.512Z",
+    "createdAt": "2026-10-03T09:54:08.901Z",
+    "updatedAt": "2026-10-03T09:54:08.901Z",
     "workflowPublishHistory": [
       {
-        "id": 366,
+        "id": 368,
         "workflowId": "24IaEnLI3RCYU6da",
-        "versionId": "2236befd-ebc1-4c81-98c5-dcde387af2c4",
+        "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
         "event": "activated",
         "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-10-03T09:28:19.720Z"
+        "createdAt": "2026-10-03T09:54:09.097Z"
       }
     ]
   }
