@@ -27,8 +27,10 @@ export default function Sidebar() {
 
         <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1 pb-4 scrollbar-hide">
           <SidebarLink href="/dashboard" label="Orders" icon="🧾" active={pathname === "/dashboard"} />
+          <SidebarLink href="/dashboard/pos" label="POS" icon="💻" active={pathname === "/dashboard/pos"} />
           <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} />
           <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} />
+          <SidebarLink href="/dashboard/riders" label="Riders" icon="🛵" active={pathname === "/dashboard/riders"} />
           <SidebarLink href="/dashboard/stats" label="Analytics" icon="📊" active={pathname === "/dashboard/stats"} />
           <SidebarLink href="/dashboard/contacts" label="Contacts" icon="👥" active={pathname === "/dashboard/contacts"} />
           <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} />
@@ -51,8 +53,9 @@ export default function Sidebar() {
       {/* Mobile Bottom Bar */}
       <aside className="md:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0A1017] border-t border-[#1C2633] z-50 flex items-center justify-around px-2 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
         <MobileTab href="/dashboard" icon="🧾" active={pathname === "/dashboard"} />
-        <MobileTab href="/dashboard/chat" icon="💬" active={pathname === "/dashboard/chat"} />
+        <MobileTab href="/dashboard/pos" icon="💻" active={pathname === "/dashboard/pos"} />
         <MobileTab href="/dashboard/menu" icon="📋" active={pathname === "/dashboard/menu"} />
+        <MobileTab href="/dashboard/riders" icon="🛵" active={pathname === "/dashboard/riders"} />
         <MobileTab href="/dashboard/stats" icon="📊" active={pathname === "/dashboard/stats"} />
         <button onClick={toggleSound} className="flex flex-col items-center justify-center w-12 h-12 text-[#8799AF]">
           <span className="text-[20px]">{soundEnabled ? "🔕" : "🔔"}</span>

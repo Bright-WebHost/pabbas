@@ -49,6 +49,9 @@ export interface DashboardOrder {
   created_at: string;
   updated_at: string;
   items_json: Array<{ menu_item_id: string | null; item_name: string; quantity: number; unit_price: number }> | null;
+  rider_id?: string | null;
+  rider_name?: string | null;
+  rider_phone?: string | null;
 }
 
 export async function getDashboardOrders(): Promise<{
@@ -61,7 +64,7 @@ export async function getDashboardOrders(): Promise<{
     const { data: orderRows, error: ordersError } = await adminClient
       .from("orders")
       .select(
-        "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json"
+        "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone"
       )
       .order("created_at", { ascending: false })
       .limit(100);

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
 import { useOrderManager } from "../../OrderManagerProvider";
+import { AssignRiderModal } from "./AssignRiderModal";
 import { SlideAction } from "@/components/dashboard/ui/SlideAction";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -270,6 +271,17 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
               </span>
             </div>
           )}
+
+          {order.rider_name && (
+            <div className="col-span-full bg-[#EAF3FF] p-3 rounded-xl border border-[#B8D5F6]">
+              <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#1A5FA8] block mb-1">
+                Assigned Rider
+              </span>
+              <span className="text-[14px] font-bold text-[#0A1017]">
+                🛵 {order.rider_name} - {order.rider_phone}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 py-5 overflow-y-auto">
@@ -502,26 +514,34 @@ export default function OrdersBoard() {
   const [now, setNow] = useState(Date.now());
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [cancelledOpen, setCancelledOpen] = useState(false);
+  const [assignRiderOrder, setAssignRiderOrder] = useState<{order: DashboardOrder, reason?: string} | null>(null);
 
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(tick);
   }, []);
 
-  const handleStatusChange = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => {
+  const handleStatusChange = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => {
     if (!canTransitionStatus(order.status, nextStatus)) {
       setStatusMessage(`Invalid update: ${statusLabels[order.status]} → ${statusLabels[nextStatus]}.`);
       return;
     }
 
+    if (nextStatus === "out_for_delivery" && !rider && assignRiderOrder?.order.id !== order.id) {
+      // Intercept and show modal instead of updating directly
+      setAssignRiderOrder({ order, reason });
+      return;
+    }
+
     try {
-      await updateOrderStatus(order, nextStatus, reason);
+      await updateOrderStatus(order, nextStatus, reason, rider);
       setStatusMessage(`Order ${order.order_number} updated to ${statusLabels[nextStatus]}.`);
       setSelectedOrder(null);
+      setAssignRiderOrder(null);
     } catch {
       setStatusMessage(`Failed to update order ${order.order_number}.`);
     }
-  }, [updateOrderStatus]);
+  }, [updateOrderStatus, assignRiderOrder]);
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -703,6 +723,13 @@ export default function OrdersBoard() {
         />
       )}
 
+      {assignRiderOrder && (
+        <AssignRiderModal
+          orderNumber={assignRiderOrder.order.order_number}
+          onAssign={(rider) => handleStatusChange(assignRiderOrder.order, "out_for_delivery", assignRiderOrder.reason, rider)}
+          onCancel={() => setAssignRiderOrder(null)}
+        />
+      )}
 
     </section>
   );

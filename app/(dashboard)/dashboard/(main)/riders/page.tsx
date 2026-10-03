@@ -1,0 +1,13 @@
+import RidersBoard from "./RidersBoard";
+
+export const metadata = {
+  title: "Riders | Pabbas",
+};
+
+export default function RidersPage() {
+  return (
+    <div className="flex-1 w-full flex flex-col min-h-0 bg-[#F8FAFB]">
+      <RidersBoard />
+    </div>
+  );
+}

@@ -9,7 +9,7 @@ interface OrderManagerContextType {
   orders: DashboardOrder[];
   queuedNewOrders: DashboardOrder[];
   acknowledgeOrder: (orderId: string) => void;
-  updateOrderStatus: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => Promise<void>;
+  updateOrderStatus: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => Promise<void>;
   isLoading: boolean;
   error: string | null;
   lastUpdated: Date | null;
@@ -196,10 +196,10 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     setQueuedNewOrders(prev => prev.filter(o => o.id !== orderId));
   }, []);
 
-  const updateOrderStatus = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => {
+  const updateOrderStatus = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => {
     // Optimistic update
     const previousStatus = order.status;
-    const nextOrderState = { ...order, status: nextStatus };
+    const nextOrderState = { ...order, status: nextStatus, rider_id: rider?.id, rider_name: rider?.name, rider_phone: rider?.phone };
     setOrders(current => current.map(item => item.id === order.id ? nextOrderState : item));
     
     // Also remove from queue if it was in it
@@ -209,6 +209,12 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       status: nextStatus,
       updated_at: new Date().toISOString(),
     };
+
+    if (rider) {
+      updates.rider_id = rider.id;
+      updates.rider_name = rider.name;
+      updates.rider_phone = rider.phone;
+    }
 
     if (nextStatus === "cancelled") {
       updates.cancelled_by = "staff";

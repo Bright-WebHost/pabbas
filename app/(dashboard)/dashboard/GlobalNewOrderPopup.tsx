@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useOrderManager } from "./OrderManagerProvider";
 import { DashboardOrder } from "@/lib/orders/queries";
 import { SlideAction } from "@/components/dashboard/ui/SlideAction";
@@ -85,6 +86,7 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
 
 
 export function GlobalNewOrderPopup() {
+  const pathname = usePathname();
   const { queuedNewOrders, acknowledgeOrder, updateOrderStatus } = useOrderManager();
   const [now, setNow] = useState(Date.now());
   const [prepTime, setPrepTime] = useState<number>(15);
@@ -97,9 +99,7 @@ export function GlobalNewOrderPopup() {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [newOrder]);
-
-  if (!newOrder) return null;
-
+  if (!newOrder || pathname === '/dashboard/pos') return null;
   const countdown = formatCountdown(newOrder, now);
   const items = buildItemList(newOrder);
   const PREP_TIMES = [15, 30, 45, 60];
