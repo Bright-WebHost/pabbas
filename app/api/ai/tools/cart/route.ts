@@ -53,53 +53,72 @@ export async function POST(request: Request) {
     return NextResponse.json(formatCartResponse([]))
   }
 
-  let actualMenuId = menu_item_id;
-  if (!actualMenuId && body.item_name) {
-    const { data: match } = await adminClient.from('menu_items').select('id').ilike('item_name', body.item_name).single();
-    if (match) actualMenuId = match.id;
-  }
+  // Normalize input to an array of items to process
+  const itemsToProcess = Array.isArray(body.items) ? body.items : [{ menu_item_id, item_name: body.item_name, quantity }];
 
-  if (!actualMenuId) {
+  if (itemsToProcess.length === 0 || (itemsToProcess.length === 1 && !itemsToProcess[0].menu_item_id && !itemsToProcess[0].item_name)) {
     return NextResponse.json({ error: 'menu_item_id or valid item_name is required for modify actions' }, { status: 400 })
   }
 
-  // Fetch menu item details to ensure validity and get price
-  const { data: menuItem, error: menuError } = await adminClient
-    .from('menu_items')
-    .select('id, item_name, price, available')
-    .eq('id', actualMenuId)
-    .single()
+  const errors: string[] = []
 
-  if (menuError || !menuItem) {
-    return NextResponse.json({ error: 'Menu item not found' }, { status: 404 })
-  }
+  for (const itemToProcess of itemsToProcess) {
+    let actualMenuId = itemToProcess.menu_item_id;
+    if (!actualMenuId && itemToProcess.item_name) {
+      const { data: match } = await adminClient.from('menu_items').select('id').ilike('item_name', itemToProcess.item_name).single();
+      if (match) actualMenuId = match.id;
+    }
 
-  if (!menuItem.available) {
-    return NextResponse.json({ error: `Menu item ${menuItem.item_name} is currently unavailable` }, { status: 400 })
-  }
+    if (!actualMenuId) {
+      errors.push(`Could not find menu item matching: ${itemToProcess.item_name || itemToProcess.menu_item_id}`);
+      continue;
+    }
 
-  const existingItemIndex = currentItems.findIndex(i => i.menu_item_id === actualMenuId)
-  
-  if (action === 'add' || action === 'update') {
-    const qty = Number(quantity) || 1
-    if (qty <= 0) {
+    // Fetch menu item details to ensure validity and get price
+    const { data: menuItem, error: menuError } = await adminClient
+      .from('menu_items')
+      .select('id, item_name, price, available')
+      .eq('id', actualMenuId)
+      .single()
+
+    if (menuError || !menuItem) {
+      errors.push(`Menu item not found for ID: ${actualMenuId}`);
+      continue;
+    }
+
+    if (!menuItem.available) {
+      errors.push(`Menu item ${menuItem.item_name} is currently unavailable`);
+      continue;
+    }
+
+    const existingItemIndex = currentItems.findIndex(i => i.menu_item_id === actualMenuId)
+    
+    if (action === 'add' || action === 'update') {
+      const qty = Number(itemToProcess.quantity) || 1
+      if (qty <= 0) {
+        if (existingItemIndex > -1) currentItems.splice(existingItemIndex, 1)
+      } else {
+        if (existingItemIndex > -1) {
+          currentItems[existingItemIndex].quantity = action === 'add' ? currentItems[existingItemIndex].quantity + qty : qty
+        } else {
+          currentItems.push({
+            menu_item_id: menuItem.id,
+            item_name: menuItem.item_name,
+            unit_price: menuItem.price,
+            quantity: qty
+          })
+        }
+      }
+    } else if (action === 'remove') {
       if (existingItemIndex > -1) currentItems.splice(existingItemIndex, 1)
     } else {
-      if (existingItemIndex > -1) {
-        currentItems[existingItemIndex].quantity = action === 'add' ? currentItems[existingItemIndex].quantity + qty : qty
-      } else {
-        currentItems.push({
-          menu_item_id: menuItem.id,
-          item_name: menuItem.item_name,
-          unit_price: menuItem.price,
-          quantity: qty
-        })
-      }
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
-  } else if (action === 'remove') {
-    if (existingItemIndex > -1) currentItems.splice(existingItemIndex, 1)
-  } else {
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  }
+
+  if (errors.length > 0 && currentItems.length === 0) {
+    // If nothing succeeded, return the first error
+    return NextResponse.json({ error: errors[0] }, { status: 400 })
   }
 
   const { error: upsertError } = await adminClient
