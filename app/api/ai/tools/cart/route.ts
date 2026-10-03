@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   // Normalize input to an array of items to process
   const itemsToProcess = Array.isArray(body.items) ? body.items : [{ menu_item_id, item_name: body.item_name, quantity }];
 
-  if (itemsToProcess.length === 0 || (itemsToProcess.length === 1 && !itemsToProcess[0].menu_item_id && !itemsToProcess[0].item_name)) {
+  if (itemsToProcess.length === 0 || (itemsToProcess.length === 1 && !itemsToProcess[0].menu_item_id && !itemsToProcess[0].item_name && !itemsToProcess[0].name && !itemsToProcess[0].item)) {
     // If the AI agent hallucinates an 'add' or 'update' action without providing any items, 
     // we should fail gracefully so the n8n workflow doesn't crash and can still send its reply text.
     return NextResponse.json(formatCartResponse(currentItems))
@@ -82,13 +82,25 @@ export async function POST(request: Request) {
 
   for (const itemToProcess of itemsToProcess) {
     let actualMenuId = itemToProcess.menu_item_id;
-    if (!actualMenuId && itemToProcess.item_name) {
-      const { data: match } = await adminClient.from('menu_items').select('id').ilike('item_name', itemToProcess.item_name).single();
-      if (match) actualMenuId = match.id;
+    const incomingName = itemToProcess.item_name || itemToProcess.name || itemToProcess.item;
+
+    if (!actualMenuId && incomingName) {
+      // First try exact case-insensitive match
+      const { data: exactMatch } = await adminClient.from('menu_items').select('id').ilike('item_name', incomingName).maybeSingle();
+      if (exactMatch) {
+        actualMenuId = exactMatch.id;
+      } else {
+        // Fallback to fuzzy match (e.g. "masala fries" -> "%masala%fries%")
+        const fuzzyPattern = '%' + incomingName.split(' ').join('%') + '%';
+        const { data: fuzzyMatch } = await adminClient.from('menu_items').select('id').ilike('item_name', fuzzyPattern).limit(1).maybeSingle();
+        if (fuzzyMatch) {
+          actualMenuId = fuzzyMatch.id;
+        }
+      }
     }
 
     if (!actualMenuId) {
-      errors.push(`Could not find menu item matching: ${itemToProcess.item_name || itemToProcess.menu_item_id}`);
+      errors.push(`Could not find menu item matching: ${incomingName || itemToProcess.menu_item_id}`);
       continue;
     }
 
