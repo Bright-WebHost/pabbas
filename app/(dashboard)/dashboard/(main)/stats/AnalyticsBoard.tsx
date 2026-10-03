@@ -140,14 +140,18 @@ export default function AnalyticsBoard() {
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-6 max-w-[1200px] mx-auto px-1 sm:px-2">
+      <div className="flex flex-col gap-1 mb-2">
+        <h1 className="text-[26px] font-extrabold tracking-[-0.6px] text-[#0A1017]">Analytics</h1>
+        <p className="text-sm font-semibold text-[#8799AF]">Track your restaurant's performance and trends.</p>
+      </div>
+
       {/* Filters */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-center gap-2 text-gray-500 font-medium">
-          <Filter className="h-5 w-5" />
-          <span>Filter:</span>
+      <div className="rounded-[20px] border border-[#EAF0F6] bg-white/50 backdrop-blur-md p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-2 text-[#8799AF]">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#8799AF]">Filters</span>
         </div>
-        <div className="flex flex-wrap gap-2 flex-1">
+        <div className="flex flex-wrap gap-1 bg-[#F3F6F9] p-1 rounded-xl border border-[#EAF0F6] flex-1 sm:flex-none">
           {[
             { id: "today", label: "Today" },
             { id: "yesterday", label: "Yesterday" },
@@ -159,10 +163,10 @@ export default function AnalyticsBoard() {
             <button
               key={r.id}
               onClick={() => setRange(r.id as any)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              className={`rounded-[8px] px-3.5 py-1.5 text-[13px] font-bold transition-all duration-200 ${
                 range === r.id
-                  ? "bg-red-600 text-white shadow-md"
-                  : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                  ? "bg-white text-[#0A1017] shadow-[0_2px_8px_rgba(0,0,0,0.06)] border border-[#E5E9F0]"
+                  : "text-[#6B7A90] hover:text-[#0A1017] border border-transparent"
               }`}
             >
               {r.label}
@@ -174,14 +178,14 @@ export default function AnalyticsBoard() {
           <div className="flex items-center gap-2">
             <input
               type="date"
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              className="rounded-xl border border-[#EAF0F6] bg-white px-3 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD]"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
             />
-            <span className="text-gray-400">to</span>
+            <span className="text-[#8799AF] font-semibold text-sm">to</span>
             <input
               type="date"
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              className="rounded-xl border border-[#EAF0F6] bg-white px-3 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD]"
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}
             />
@@ -190,62 +194,78 @@ export default function AnalyticsBoard() {
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center text-gray-400">
-          <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[1, 2, 3].map(i => (
+             <div key={i} className="h-32 rounded-[20px] bg-white/40 p-6 shadow-sm animate-pulse border border-[#EAF0F6]">
+               <div className="h-4 w-1/3 bg-black/5 rounded mb-4"></div>
+               <div className="h-10 w-2/3 bg-black/5 rounded-xl"></div>
+             </div>
+          ))}
         </div>
       ) : (
         <>
           {/* Key Metrics */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-3 text-gray-500 mb-2 font-bold uppercase tracking-wider text-xs">
-                <ShoppingBag className="h-4 w-4" /> Orders
+            <div className="relative overflow-hidden rounded-[20px] border border-[#B8D5F6] bg-gradient-to-br from-[#EAF3FF] to-[#DCE9FA] p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:-translate-y-1 hover:shadow-lg transition-transform duration-300">
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-[#1A5FA8] mb-2 font-extrabold uppercase tracking-widest text-[11px] opacity-80">
+                  <ShoppingBag className="h-3.5 w-3.5" /> Orders
+                </div>
+                <div className="text-[36px] font-extrabold tracking-[-1px] text-[#1A5FA8]">{stats.totalOrders}</div>
               </div>
-              <div className="text-4xl font-black tracking-tight">{stats.totalOrders}</div>
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-[0.04] bg-[#1A5FA8]" />
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-3 text-gray-500 mb-2 font-bold uppercase tracking-wider text-xs">
-                <IndianRupee className="h-4 w-4" /> Revenue
+
+            <div className="relative overflow-hidden rounded-[20px] border border-[#F5C2C6] bg-gradient-to-br from-[#FFF0F1] to-[#FDE8E8] p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:-translate-y-1 hover:shadow-lg transition-transform duration-300">
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-[#C0392B] mb-2 font-extrabold uppercase tracking-widest text-[11px] opacity-80">
+                  <IndianRupee className="h-3.5 w-3.5" /> Revenue
+                </div>
+                <div className="text-[36px] font-extrabold tracking-[-1px] text-[#C0392B]">
+                  ₹{stats.totalRevenue.toLocaleString("en-IN")}
+                </div>
               </div>
-              <div className="text-4xl font-black tracking-tight text-red-600">
-                ₹{stats.totalRevenue.toLocaleString("en-IN")}
-              </div>
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-[0.04] bg-[#C0392B]" />
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-3 text-gray-500 mb-2 font-bold uppercase tracking-wider text-xs">
-                <TrendingUp className="h-4 w-4" /> Average Order
+
+            <div className="relative overflow-hidden rounded-[20px] border border-[#D6CAFC] bg-gradient-to-br from-[#F2EEFF] to-[#E9E4F9] p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:-translate-y-1 hover:shadow-lg transition-transform duration-300">
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-[#5B3FBF] mb-2 font-extrabold uppercase tracking-widest text-[11px] opacity-80">
+                  <TrendingUp className="h-3.5 w-3.5" /> Average Order
+                </div>
+                <div className="text-[36px] font-extrabold tracking-[-1px] text-[#5B3FBF]">
+                  ₹{stats.avgOrder.toLocaleString("en-IN")}
+                </div>
               </div>
-              <div className="text-4xl font-black tracking-tight text-blue-600">
-                ₹{stats.avgOrder.toLocaleString("en-IN")}
-              </div>
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-[0.04] bg-[#5B3FBF]" />
             </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Top Items */}
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-              <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-                <h3 className="font-bold text-lg">Most Ordered Items</h3>
+            <div className="rounded-[20px] border border-[#EAF0F6] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
+              <div className="border-b border-[#EAF0F6] bg-[#F8FAFB] px-6 py-4">
+                <h3 className="font-extrabold text-[15px] tracking-[-0.2px] text-[#0A1017]">Most Ordered Items</h3>
               </div>
               <div className="p-0 overflow-auto max-h-[400px]">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 text-gray-500 sticky top-0">
+                  <thead className="bg-white text-[#8799AF] sticky top-0 border-b border-[#EAF0F6]">
                     <tr>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs">Item</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs text-right">Times Ordered</th>
+                      <th className="px-6 py-3 font-extrabold uppercase tracking-widest text-[11px]">Item</th>
+                      <th className="px-6 py-3 font-extrabold uppercase tracking-widest text-[11px] text-right">Times Ordered</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-[#EAF0F6]">
                     {stats.topItems.length > 0 ? (
                       stats.topItems.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50 transition">
-                          <td className="px-6 py-3 font-medium text-gray-900">{item.name}</td>
-                          <td className="px-6 py-3 text-right font-bold text-gray-600">{item.count}</td>
+                        <tr key={idx} className="hover:bg-[#F8FAFB] transition-colors">
+                          <td className="px-6 py-4 font-bold text-[#0A1017]">{item.name}</td>
+                          <td className="px-6 py-4 text-right font-extrabold text-[#6B7A90]">{item.count}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={2} className="px-6 py-8 text-center text-gray-400">
+                        <td colSpan={2} className="px-6 py-12 text-center text-[#8799AF] font-semibold text-sm">
                           No items ordered in this period
                         </td>
                       </tr>
@@ -256,60 +276,65 @@ export default function AnalyticsBoard() {
             </div>
 
             {/* Daily Sales */}
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-              <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-                <h3 className="font-bold text-lg">Sales by Day</h3>
+            <div className="rounded-[20px] border border-[#EAF0F6] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
+              <div className="border-b border-[#EAF0F6] bg-[#F8FAFB] px-6 py-4 flex justify-between items-center">
+                <h3 className="font-extrabold text-[15px] tracking-[-0.2px] text-[#0A1017]">Sales by Day</h3>
+                <span className="text-[11px] font-extrabold text-[#8799AF] uppercase tracking-widest">{stats.dailySales.length} Days</span>
               </div>
-              <div className="p-0 overflow-auto max-h-[400px]">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 text-gray-500 sticky top-0">
-                    <tr>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs">Day</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs text-right">Orders</th>
-                      <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs text-right">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {stats.dailySales.length > 0 ? (
-                      stats.dailySales.map((day, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50 transition">
-                          <td className="px-6 py-3 font-medium text-gray-900">{day.day}</td>
-                          <td className="px-6 py-3 text-right font-bold text-gray-600">{day.orders}</td>
-                          <td className="px-6 py-3 text-right font-bold text-green-600">₹{day.revenue.toLocaleString("en-IN")}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="px-6 py-8 text-center text-gray-400">
-                          No orders in this period
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="p-6 flex-1 flex flex-col justify-end gap-3 min-h-[250px]">
+                {stats.dailySales.length > 0 ? (
+                  <div className="flex h-full items-end gap-2 px-2 overflow-x-auto pb-2">
+                    {stats.dailySales.map((d, i) => {
+                      const maxRev = Math.max(...stats.dailySales.map((s) => s.revenue));
+                      const height = maxRev > 0 ? (d.revenue / maxRev) * 100 : 0;
+                      return (
+                        <div key={i} className="flex flex-col items-center gap-2 min-w-[40px] flex-1 group">
+                          <div className="relative flex h-[180px] w-full flex-col justify-end rounded-t-lg bg-[#F8FAFB] hover:bg-[#EAF0F6] transition-colors">
+                            <div
+                              className="w-full rounded-t-lg bg-[#1A5FA8] transition-all duration-500 ease-out group-hover:bg-[#0D6EFD]"
+                              style={{ height: `${height}%` }}
+                            ></div>
+                            
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#0A1017] text-white text-[10px] font-bold px-2 py-1 rounded-[6px] whitespace-nowrap pointer-events-none z-10">
+                              ₹{d.revenue}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#0A1017]"></div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-[#8799AF] whitespace-nowrap truncate max-w-full">
+                            {format(parseISO(d.day), "MMM d")}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[#8799AF] font-semibold text-sm">
+                    No sales data available
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Hourly Heatmap */}
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-              <h3 className="font-bold text-lg">Hourly Order Heatmap</h3>
-              <p className="text-sm text-gray-500">Number of orders placed by hour of the day</p>
+          <div className="rounded-[20px] border border-[#EAF0F6] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-hidden">
+            <div className="border-b border-[#EAF0F6] bg-[#F8FAFB] px-6 py-4">
+              <h3 className="font-extrabold text-[15px] tracking-[-0.2px] text-[#0A1017]">Hourly Order Heatmap</h3>
+              <p className="text-[12px] font-semibold text-[#8799AF]">Number of orders placed by hour of the day</p>
             </div>
             <div className="p-6 overflow-x-auto">
               <div className="min-w-[800px]">
                 <div className="grid grid-cols-[auto_repeat(24,1fr)] gap-1 mb-1">
                   <div className="w-12"></div>
                   {Array.from({ length: 24 }).map((_, h) => (
-                    <div key={h} className="text-center text-[10px] font-bold text-gray-400">
+                    <div key={h} className="text-center text-[10px] font-extrabold uppercase tracking-widest text-[#8799AF]">
                       {h}
                     </div>
                   ))}
                 </div>
                 {daysOfWeek.map((dayName, dayIndex) => (
                   <div key={dayName} className="grid grid-cols-[auto_repeat(24,1fr)] gap-1 mb-1">
-                    <div className="w-12 text-xs font-semibold text-gray-600 flex items-center justify-end pr-2">
+                    <div className="w-12 text-[11px] font-extrabold uppercase tracking-widest text-[#6B7A90] flex items-center justify-end pr-2">
                       {dayName}
                     </div>
                     {stats.heatmap[dayIndex].map((count, hour) => {
@@ -319,13 +344,13 @@ export default function AnalyticsBoard() {
                         <div
                           key={hour}
                           title={`${dayName} at ${hour}:00 - ${count} orders`}
-                          className="h-8 rounded-md transition hover:ring-2 hover:ring-gray-300 flex items-center justify-center cursor-default"
+                          className="h-8 rounded-[6px] transition hover:ring-2 hover:ring-[#C9D4E0] flex items-center justify-center cursor-default"
                           style={{
-                            backgroundColor: count > 0 ? `rgba(226, 55, 68, ${intensity})` : "#f3f4f6",
+                            backgroundColor: count > 0 ? `rgba(226, 55, 68, ${intensity})` : "#F8FAFB",
                           }}
                         >
                           {count > 0 && (
-                            <span className={`text-[10px] font-bold ${intensity > 0.5 ? 'text-white' : 'text-gray-700'}`}>
+                            <span className={`text-[10px] font-bold ${intensity > 0.5 ? 'text-white' : 'text-[#0A1017]'}`}>
                               {count}
                             </span>
                           )}
@@ -339,35 +364,38 @@ export default function AnalyticsBoard() {
           </div>
 
           {/* Cancelled Orders */}
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col mt-6">
-            <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-              <h3 className="font-bold text-lg">Cancelled Orders</h3>
+          <div className="rounded-[20px] border border-[#EAF0F6] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col mt-6">
+            <div className="border-b border-[#EAF0F6] bg-[#F8FAFB] px-6 py-4 flex justify-between items-center">
+              <h3 className="font-extrabold text-[15px] tracking-[-0.2px] text-[#0A1017]">Cancelled Orders</h3>
+              <span className="rounded-full bg-[#FDE8E8] px-3 py-1 text-[11px] font-bold text-[#C0392B]">
+                {stats.cancelledOrders.length} Cancelled
+              </span>
             </div>
             <div className="p-0 overflow-auto max-h-[400px]">
               <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-500 sticky top-0">
+                <thead className="bg-white text-[#8799AF] sticky top-0 border-b border-[#EAF0F6]">
                   <tr>
-                    <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs">Order</th>
-                    <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs">Items</th>
-                    <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs">Total</th>
-                    <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs">Reason</th>
-                    <th className="px-6 py-3 font-semibold uppercase tracking-wider text-xs">By</th>
+                    <th className="px-6 py-3 font-extrabold uppercase tracking-widest text-[11px]">Order</th>
+                    <th className="px-6 py-3 font-extrabold uppercase tracking-widest text-[11px]">Items</th>
+                    <th className="px-6 py-3 font-extrabold uppercase tracking-widest text-[11px]">Total</th>
+                    <th className="px-6 py-3 font-extrabold uppercase tracking-widest text-[11px]">Reason</th>
+                    <th className="px-6 py-3 font-extrabold uppercase tracking-widest text-[11px]">By</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-[#EAF0F6]">
                   {stats.cancelledOrders.length > 0 ? (
                     stats.cancelledOrders.map((co, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50/50 transition cursor-pointer" title={co.items}>
-                        <td className="px-6 py-3 font-medium text-gray-900">{co.order_number}</td>
-                        <td className="px-6 py-3 text-gray-600 max-w-[200px] truncate">{co.items}</td>
-                        <td className="px-6 py-3 font-bold text-gray-600">₹{co.total}</td>
-                        <td className="px-6 py-3 text-red-600 font-medium">{co.reason}</td>
-                        <td className="px-6 py-3 text-gray-500 capitalize">{co.cancelled_by}</td>
+                      <tr key={idx} className="hover:bg-[#F8FAFB] transition-colors cursor-pointer" title={co.items}>
+                        <td className="px-6 py-4 font-bold text-[#0A1017]">{co.order_number}</td>
+                        <td className="px-6 py-4 text-[#6B7A90] font-medium max-w-[200px] truncate">{co.items}</td>
+                        <td className="px-6 py-4 font-extrabold text-[#0A1017]">₹{co.total}</td>
+                        <td className="px-6 py-4 font-medium text-[#C0392B]">{co.reason}</td>
+                        <td className="px-6 py-4 text-[#8799AF] font-medium capitalize">{co.cancelled_by}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                      <td colSpan={5} className="px-6 py-12 text-center text-[#8799AF] font-semibold text-sm">
                         No cancelled orders in this period
                       </td>
                     </tr>
