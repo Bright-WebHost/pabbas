@@ -38,8 +38,7 @@ const statusStyles: Record<OrderStatus, string> = {
   cancelled: "bg-[#F3F4F6] text-[#667085] border-[#D0D5DD]",
 };
 
-const BOARD_COLUMNS: Array<{ key: "new" | "preparing" | "ready" | "delivered"; label: string; className: string }> = [
-  { key: "new", label: "New", className: "new" },
+const BOARD_COLUMNS: Array<{ key: "preparing" | "ready" | "delivered"; label: string; className: string }> = [
   { key: "preparing", label: "Preparing", className: "preparing" },
   { key: "ready", label: "Ready / Out", className: "ready" },
   { key: "delivered", label: "Delivered", className: "delivered" },
@@ -558,26 +557,27 @@ export default function OrdersBoard() {
   const cancelledOrders = filteredOrders.filter((order) => order.status === "cancelled");
 
   const totalRevenue = visibleOrders.reduce((sum, order) => sum + Number(order.total ?? 0), 0);
-  const awaitingAccept = visibleOrders.filter((order) => getBoardColumn(order) === "new").length;
+  const awaitingAccept = visibleOrders.filter((order) => order.status === "new").length;
   const inTheKitchen = visibleOrders.filter((order) => order.status === "preparing").length;
+  const cashToCollect = visibleOrders.reduce((sum, order) => sum + Number(order.total ?? 0), 0);
   const totalOrderCount = visibleOrders.length;
 
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white/50 p-4 rounded-[20px] border border-[#EAF0F6] backdrop-blur-md">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#8799AF]">Filters</span>
-          <div className="flex flex-wrap gap-1 bg-[#F3F6F9] p-1 rounded-xl border border-[#EAF0F6]">
+          <span className="text-[13px] font-bold text-[#8799AF]">Filter:</span>
+          <div className="flex flex-wrap gap-2">
             {RANGE_OPTIONS.map((option) => (
               <button
                 key={option.key}
                 type="button"
                 aria-pressed={range === option.key}
                 onClick={() => setRange(option.key)}
-                className={`rounded-[8px] px-3.5 py-1.5 text-[13px] font-bold transition-all duration-200 ${
+                className={`rounded-full px-4 py-1.5 text-[13px] font-bold transition-all duration-200 border ${
                   range === option.key
-                    ? "bg-white text-[#0A1017] shadow-[0_2px_8px_rgba(0,0,0,0.06)] border border-[#E5E9F0]"
-                    : "text-[#6B7A90] hover:text-[#0A1017] border border-transparent"
+                    ? "bg-[#E23744] text-white border-[#E23744] shadow-sm"
+                    : "bg-white text-[#6B7A90] border-[#EAF0F6] hover:border-[#C9D4E0] hover:text-[#0A1017]"
                 }`}
               >
                 {option.label}
@@ -619,11 +619,12 @@ export default function OrdersBoard() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Revenue" value={money(totalRevenue)} tone="red" />
         <StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" />
-        <StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="purple" />
-        <StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="amber" />
+        <StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="amber" />
+        <StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="purple" />
+        <StatCard label="Cash To Collect" value={money(cashToCollect)} tone="black" />
       </div>
 
       {statusMessage && (
@@ -634,11 +635,11 @@ export default function OrdersBoard() {
 
       {error && <div className="rounded-xl border border-[#F5C2C6] bg-[#FDE8E8] px-4 py-3 text-sm font-semibold text-[#C0392B] shadow-[0_4px_12px_rgba(226,55,68,0.1)]">{error}</div>}
 
-      <div className="flex xl:grid xl:grid-cols-4 gap-4 overflow-x-auto pb-6 snap-x snap-mandatory">
+      <div className="flex xl:grid xl:grid-cols-3 gap-4 overflow-x-auto pb-6 snap-x snap-mandatory">
         {BOARD_COLUMNS.map((column) => {
           const columnOrders = visibleOrders.filter((order) => getBoardColumn(order) === column.key);
           return (
-            <div key={column.key} className={`min-w-[85vw] md:min-w-[320px] xl:min-w-0 snap-center rounded-[20px] ${column.key === "new" ? "bg-[#FFF0F1]" : column.key === "preparing" ? "bg-[#EAF3FF]" : column.key === "ready" ? "bg-[#F2EEFF]" : "bg-[#EAF8EF]"} p-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]`}>
+            <div key={column.key} className={`min-w-[85vw] md:min-w-[320px] xl:min-w-0 snap-center rounded-[20px] ${column.key === "preparing" ? "bg-[#EAF3FF]" : column.key === "ready" ? "bg-[#F2EEFF]" : "bg-[#EAF8EF]"} p-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]`}>
               <div className="mb-4 flex items-center justify-between gap-2 px-1">
                 <div className="text-[17px] font-extrabold tracking-[-0.4px] text-[#0A1017]">{column.label}</div>
                 <span className="grid h-7 min-w-7 place-items-center rounded-full bg-white/80 px-2 text-[12px] font-bold text-[#6B7A90] shadow-[0_2px_4px_rgba(0,0,0,0.04)]">{columnOrders.length}</span>
@@ -735,21 +736,21 @@ export default function OrdersBoard() {
   );
 }
 
-function StatCard({ label, value, tone }: { label: string; value: string; tone: "red" | "blue" | "purple" | "amber" }) {
+function StatCard({ label, value, tone }: { label: string; value: string; tone: "red" | "blue" | "purple" | "amber" | "black" }) {
   const styles = {
-    red: { bg: "bg-gradient-to-br from-[#FFF0F1] to-[#FDE8E8]", border: "border-[#F5C2C6]", text: "text-[#C0392B]" },
-    blue: { bg: "bg-gradient-to-br from-[#EAF3FF] to-[#DCE9FA]", border: "border-[#B8D5F6]", text: "text-[#1A5FA8]" },
-    purple: { bg: "bg-gradient-to-br from-[#F2EEFF] to-[#E9E4F9]", border: "border-[#D6CAFC]", text: "text-[#5B3FBF]" },
-    amber: { bg: "bg-gradient-to-br from-[#FFF8EB] to-[#FDF3DE]", border: "border-[#F9E2B6]", text: "text-[#B8730B]" },
+    red: { text: "text-[#E23744]" },
+    blue: { text: "text-[#1A5FA8]" },
+    purple: { text: "text-[#5B3FBF]" },
+    amber: { text: "text-[#B8730B]" },
+    black: { text: "text-[#0A1017]" },
   }[tone];
 
   return (
-    <div className={`relative overflow-hidden rounded-[16px] border ${styles.border} ${styles.bg} p-5 transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg`}>
+    <div className={`relative overflow-hidden rounded-[16px] border border-[#EAF0F6] bg-white p-5 transition-transform duration-300 hover:-translate-y-1 hover:shadow-sm`}>
       <div className="relative z-10">
-        <span className="mb-2 block text-[11px] font-extrabold uppercase tracking-[1px] text-[var(--muted)] opacity-80">{label}</span>
+        <span className="mb-2 block text-[11px] font-extrabold uppercase tracking-[1px] text-[#8799AF]">{label}</span>
         <b className={`block text-[36px] font-extrabold leading-none tracking-[-1px] ${styles.text}`}>{value}</b>
       </div>
-      <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-[0.04] ${styles.text.replace("text-", "bg-")}`} />
     </div>
   );
 }
