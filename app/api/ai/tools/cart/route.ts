@@ -2,9 +2,25 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 function formatCartResponse(items: any[]) {
-  if (!items || items.length === 0) return { empty: true, items: [], total: 0 }
+  if (!items || items.length === 0) {
+    return { empty: true, items: [], total: 0, ai_system_instruction: "Tell the user their cart is empty." }
+  }
+  
   const total = items.reduce((sum: number, item: any) => sum + ((item.unit_price || item.price || 0) * item.quantity), 0)
-  return { empty: false, items, total }
+  
+  let formattedMessage = "We've updated your Pabbas Delivery order.\n\n*Your order:*\n";
+  items.forEach(item => {
+    formattedMessage += `• ${item.item_name} - ${item.quantity}\n`;
+  });
+  formattedMessage += `\n*Total: ₹${total}*\n\nDo you want me to add something else, or shall we place the order?`;
+
+  return { 
+    empty: false, 
+    items, 
+    total,
+    formatted_reply_for_user: formattedMessage,
+    ai_system_instruction: `CRITICAL: You MUST reply to the user using EXACTLY the text provided in the 'formatted_reply_for_user' field. Do not invent your own response. Just output the formatted_reply_for_user.`
+  }
 }
 
 export async function POST(request: Request) {
