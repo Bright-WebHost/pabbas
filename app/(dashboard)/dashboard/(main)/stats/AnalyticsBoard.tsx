@@ -301,7 +301,7 @@ export default function AnalyticsBoard() {
                             </div>
                           </div>
                           <span className="text-[10px] font-bold text-[#8799AF] whitespace-nowrap truncate max-w-full">
-                            {format(parseISO(d.day), "MMM d")}
+                            {format(new Date(d.day), "MMM d")}
                           </span>
                         </div>
                       );
