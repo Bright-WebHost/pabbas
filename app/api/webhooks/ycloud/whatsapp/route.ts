@@ -94,6 +94,43 @@ export async function POST(request: Request) {
       return new NextResponse('OK', { status: 200 });
     }
 
+    // --- BEGIN INTERCEPTION FOR RIDER ACCEPT ---
+    const message = eventData.message || eventData.whatsappInboundMessage || {};
+    if (message.type === 'interactive') {
+      const buttonId = message.interactive?.button_reply?.id;
+      if (buttonId && buttonId.startsWith('accept_')) {
+        const orderNumber = buttonId.replace('accept_', '');
+        // Clean phone number to digits only (e.g., +919180348124 -> 919180348124)
+        const riderPhone = (message.from || message.sender?.phone || '').replace(/[^0-9]/g, '');
+        
+        if (orderNumber && riderPhone) {
+          const acceptUrl = new URL('/api/webhooks/rider/accept', request.url).toString();
+          try {
+            const acceptRes = await fetch(acceptUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-pabbas-whatsapp-secret': process.env.PABBAS_WHATSAPP_INBOUND_SECRET || ''
+              },
+              body: JSON.stringify({ order_number: orderNumber, rider_phone: riderPhone })
+            });
+            
+            if (acceptRes.ok) {
+              console.log(`[RIDER ACCEPT] Successfully processed acceptance for order ${orderNumber} by ${riderPhone}`);
+            } else {
+              console.error(`[RIDER ACCEPT] Failed to process acceptance for order ${orderNumber}: ${await acceptRes.text()}`);
+            }
+          } catch(err) {
+            console.error('[RIDER ACCEPT] Internal API call error', err);
+          }
+        }
+        
+        // Return HTTP 200 so we do NOT forward this rider interactive message to the customer n8n AI Bridge
+        return new NextResponse('OK', { status: 200 });
+      }
+    }
+    // --- END INTERCEPTION FOR RIDER ACCEPT ---
+
     // 13. Forward the verified event to the n8n production webhook
     const n8nUrl = process.env.N8N_WHATSAPP_INBOUND_WEBHOOK_URL;
     const n8nSecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET;
