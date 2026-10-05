@@ -3,12 +3,12 @@
   "name": "Pabbas | Production | WhatsApp AI Order Bridge",
   "description": null,
   "active": true,
-  "activeVersionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
+  "activeVersionId": "cfb99b26-f5de-4ee1-a4a4-e7b982112d82",
   "createdAt": "2026-09-23T04:03:01.708Z",
-  "updatedAt": "2026-10-05T05:51:56.011Z",
+  "updatedAt": "2026-10-05T05:54:57.078Z",
   "isArchived": false,
-  "versionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
-  "versionCounter": 313,
+  "versionId": "cfb99b26-f5de-4ee1-a4a4-e7b982112d82",
+  "versionCounter": 314,
   "sourceWorkflowId": null,
   "triggerCount": 1,
   "nodes": [
@@ -1268,7 +1268,7 @@
         "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1294,7 +1294,7 @@
         "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1991,7 +1991,7 @@
     }
   ],
   "activeVersion": {
-    "versionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
+    "versionId": "cfb99b26-f5de-4ee1-a4a4-e7b982112d82",
     "workflowId": "BfhcbxFiXa4Vga51",
     "nodes": [
       {
@@ -3250,7 +3250,7 @@
           "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -3276,7 +3276,7 @@
           "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -3946,16 +3946,16 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-05T05:51:56.014Z",
-    "updatedAt": "2026-10-05T05:51:56.014Z",
+    "createdAt": "2026-10-05T05:54:57.080Z",
+    "updatedAt": "2026-10-05T05:54:57.080Z",
     "workflowPublishHistory": [
       {
-        "id": 382,
+        "id": 384,
         "workflowId": "BfhcbxFiXa4Vga51",
-        "versionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
+        "versionId": "cfb99b26-f5de-4ee1-a4a4-e7b982112d82",
         "event": "activated",
         "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-10-05T05:51:56.240Z"
+        "createdAt": "2026-10-05T05:54:57.316Z"
       }
     ]
   }
