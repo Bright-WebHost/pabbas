@@ -3,12 +3,12 @@
   "name": "Pabbas | Production | WhatsApp AI Order Bridge",
   "description": null,
   "active": true,
-  "activeVersionId": "443413dc-deb7-451e-8bab-c1aba185eaf3",
+  "activeVersionId": "5605d80c-00ab-4793-a828-c490a50330be",
   "createdAt": "2026-09-23T04:03:01.708Z",
-  "updatedAt": "2026-10-05T07:17:58.715Z",
+  "updatedAt": "2026-10-05T08:34:03.095Z",
   "isArchived": false,
-  "versionId": "443413dc-deb7-451e-8bab-c1aba185eaf3",
-  "versionCounter": 317,
+  "versionId": "5605d80c-00ab-4793-a828-c490a50330be",
+  "versionCounter": 320,
   "sourceWorkflowId": null,
   "triggerCount": 1,
   "nodes": [
@@ -24,8 +24,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -3648,
-        1536
+        -3744,
+        1568
       ],
       "webhookId": "pabbas-whatsapp-inbound",
       "credentials": {
@@ -44,8 +44,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3440,
-        1536
+        -3552,
+        1568
       ]
     },
     {
@@ -596,7 +596,13 @@
                     }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
               },
               "renameOutput": true,
               "outputKey": "add"
@@ -613,7 +619,13 @@
                     }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
               },
               "renameOutput": true,
               "outputKey": "remove"
@@ -630,7 +642,13 @@
                     }
                   }
                 ],
-                "combinator": "and"
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
               },
               "renameOutput": true,
               "outputKey": "checkout"
@@ -655,11 +673,6 @@
       "parameters": {
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/orders",
-        "authentication": "none",
-        "nodeCredentialType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items.map(i=>({name:i.item_name || i.name, quantity:i.quantity, menu_item_id:i.menu_item_id})),\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -668,7 +681,11 @@
               "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items.map(i=>({name:i.item_name || i.name, quantity:i.quantity, menu_item_id:i.menu_item_id})),\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
+        "options": {}
       },
       "id": "2e3f4ad0-17bc-46ac-852b-3a7b6dd06863",
       "name": "Place Final Order",
@@ -712,7 +729,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst orderData = Place Final Order.first().json.order || {};\nconst validateData = Validate Menu And Price.first().json;\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: Awesome! Your order  has been successfully placed 🎉\\n\\nOur team is preparing it right now!,\n    order_number: orderData.order_number\n  }\n}];\n            "
+        "jsCode": "const orderData = $('Place Final Order').first().json || {};\nconst validateData = $('Validate Menu And Price').first().json || {};\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: `Awesome! Your order #${orderData.order_number || ''} has been successfully placed 🎉\\n\\nOur team is preparing it right now!`,\n    order_number: orderData.order_number\n  }\n}];"
       },
       "id": "e8ef2fa9-03a8-43f2-b95e-105a66256c43",
       "name": "Confirm Order",
@@ -896,8 +913,7 @@
             }
           ]
         },
-        "options": {},
-        "authentication": "none"
+        "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
@@ -950,8 +966,7 @@
             }
           ]
         },
-        "options": {},
-        "authentication": "none"
+        "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
@@ -967,27 +982,21 @@
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/info",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-pabbas-ai-secret",
-              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-            }
+        "parametersHeaders": {
+          "values": [
+            {}
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-        "name": "Pabbas Business Info",
-        "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods.",
-        "authentication": "none"
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
       },
       "id": "3a538756-6617-49aa-85c6-22c0b6a9f63d",
       "name": "Pabbas Business Info",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1,
       "position": [
-        300,
+        304,
         1200
       ]
     },
@@ -996,28 +1005,21 @@
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-pabbas-ai-secret",
-              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-            }
+        "parametersHeaders": {
+          "values": [
+            {}
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-        "name": "Pabbas Cart",
-        "description": "Use this to add items, remove items, or get the current shopping cart. Provide action (add, remove, get), menu_item_id, and quantity.",
-        "authentication": "none",
-        "nodeCredentialType": "httpHeaderAuth"
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
       },
       "id": "1cc5849d-bc9f-407c-ac0a-a0013dfc5234",
       "name": "Pabbas Cart",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1,
       "position": [
-        500,
+        512,
         1200
       ]
     },
@@ -1026,27 +1028,21 @@
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/order_status",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-pabbas-ai-secret",
-              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-            }
+        "parametersHeaders": {
+          "values": [
+            {}
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-        "name": "Pabbas Order Status",
-        "description": "Use this to check the status of the customer's most recent order.",
-        "authentication": "none"
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
       },
       "id": "576a68aa-1c61-44c3-ab11-26c332cb3f65",
       "name": "Pabbas Order Status",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1,
       "position": [
-        700,
+        704,
         1200
       ]
     },
@@ -1055,27 +1051,21 @@
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/order_update",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-pabbas-ai-secret",
-              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-            }
+        "parametersHeaders": {
+          "values": [
+            {}
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-        "name": "Pabbas Order Update",
-        "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity.",
-        "authentication": "none"
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
       },
       "id": "d330d386-f722-49bb-81ae-19c56b171372",
       "name": "Pabbas Order Update",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1,
       "position": [
-        900,
+        912,
         1200
       ]
     },
@@ -1094,14 +1084,13 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        700,
-        200
+        704,
+        208
       ],
       "id": "17e1045f-836e-4593-85cb-e416f2545282"
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{ $json.audio_link }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -1125,31 +1114,30 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        900,
-        100
+        912,
+        112
       ],
       "id": "cbb111df-f343-42c6-8e3b-297b04e0e411"
     },
     {
       "parameters": {
         "resource": "audio",
-        "operation": "transcribe",
-        "binaryPropertyName": "audio"
+        "requestOptions": {}
       },
       "name": "Transcribe Audio",
       "type": "n8n-nodes-base.openAi",
       "typeVersion": 1,
       "position": [
-        1100,
-        100
+        1104,
+        112
       ],
+      "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313",
       "credentials": {
         "openAiApi": {
           "id": "qoyVBVk1ojHK9xi0",
           "name": "OpenAI account"
         }
-      },
-      "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313"
+      }
     },
     {
       "parameters": {
@@ -1159,27 +1147,18 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1300,
-        100
+        1312,
+        112
       ],
       "id": "b24ab83a-0185-4100-b26c-fb4901f8f73c"
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/menu",
-        "authentication": "none",
-        "nodeCredentialType": "httpHeaderAuth",
         "sendHeaders": true,
-        "options": {},
-        "name": "Pabbas Menu",
-        "description": "Use this to search the menu and get menu_item_id before adding to cart.",
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-pabbas-ai-secret",
-              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-            }
+        "parametersHeaders": {
+          "values": [
+            {}
           ]
         }
       },
@@ -1188,16 +1167,13 @@
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1,
       "position": [
-        -2152,
-        1836
+        -2160,
+        1840
       ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
-        "authentication": "none",
-        "nodeCredentialType": "httpHeaderAuth",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -1215,7 +1191,6 @@
             }
           ]
         },
-        "options": {},
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1224,25 +1199,22 @@
               "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
-        }
+        },
+        "options": {}
       },
       "id": "lookup-customer-id",
       "name": "Lookup Trusted Customer Identity",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -3240,
-        1536
+        -3376,
+        1552
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-        "authentication": "none",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Extract Inbound Message').first().json.channel_user_id, action: 'get' }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1251,14 +1223,18 @@
               "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Extract Inbound Message').first().json.channel_user_id, action: 'get' }) }}",
+        "options": {}
       },
       "name": "Fetch Pending Cart",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2440,
-        1260
+        -2448,
+        1264
       ],
       "id": "fetch-pending-cart-id"
     },
@@ -1266,9 +1242,6 @@
       "parameters": {
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1277,14 +1250,18 @@
               "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "options": {}
       },
       "name": "Cart Add Item",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -700,
-        1500
+        -704,
+        1504
       ],
       "id": "cart-add-node"
     },
@@ -1292,9 +1269,6 @@
       "parameters": {
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1303,14 +1277,18 @@
               "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "options": {}
       },
       "name": "Cart Remove Item",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -700,
-        1700
+        -704,
+        1712
       ],
       "id": "cart-remove-node"
     },
@@ -1322,8 +1300,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -300,
-        1500
+        -304,
+        1504
       ],
       "id": "reply-add"
     },
@@ -1335,8 +1313,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -300,
-        1700
+        -304,
+        1712
       ],
       "id": "reply-rem"
     },
@@ -1344,9 +1322,6 @@
       "parameters": {
         "method": "POST",
         "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Validate Menu And Price').first().json.channel_user_id, action: 'clear' }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1355,7 +1330,11 @@
               "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
             }
           ]
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Validate Menu And Price').first().json.channel_user_id, action: 'clear' }) }}",
+        "options": {}
       },
       "name": "Clear Cart",
       "type": "n8n-nodes-base.httpRequest",
@@ -1367,16 +1346,7 @@
       "id": "clear-cart-node"
     },
     {
-      "name": "Fetch Menu Items",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -3050,
-        1750
-      ],
-      "id": "fetch-menu-items-node",
       "parameters": {
-        "method": "GET",
         "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/menu_items?select=id,item_name,price",
         "sendHeaders": true,
         "headerParameters": {
@@ -1396,7 +1366,15 @@
           ]
         },
         "options": {}
-      }
+      },
+      "name": "Fetch Menu Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3056,
+        1760
+      ],
+      "id": "fetch-menu-items-node"
     }
   ],
   "connections": {
@@ -1991,7 +1969,7 @@
     }
   ],
   "activeVersion": {
-    "versionId": "443413dc-deb7-451e-8bab-c1aba185eaf3",
+    "versionId": "5605d80c-00ab-4793-a828-c490a50330be",
     "workflowId": "BfhcbxFiXa4Vga51",
     "nodes": [
       {
@@ -2006,8 +1984,8 @@
         "type": "n8n-nodes-base.webhook",
         "typeVersion": 2,
         "position": [
-          -3648,
-          1536
+          -3744,
+          1568
         ],
         "webhookId": "pabbas-whatsapp-inbound",
         "credentials": {
@@ -2026,8 +2004,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -3440,
-          1536
+          -3552,
+          1568
         ]
       },
       {
@@ -2578,7 +2556,13 @@
                       }
                     }
                   ],
-                  "combinator": "and"
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
                 },
                 "renameOutput": true,
                 "outputKey": "add"
@@ -2595,7 +2579,13 @@
                       }
                     }
                   ],
-                  "combinator": "and"
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
                 },
                 "renameOutput": true,
                 "outputKey": "remove"
@@ -2612,7 +2602,13 @@
                       }
                     }
                   ],
-                  "combinator": "and"
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
                 },
                 "renameOutput": true,
                 "outputKey": "checkout"
@@ -2637,11 +2633,6 @@
         "parameters": {
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/orders",
-          "authentication": "none",
-          "nodeCredentialType": "httpHeaderAuth",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items.map(i=>({name:i.item_name || i.name, quantity:i.quantity, menu_item_id:i.menu_item_id})),\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -2650,7 +2641,11 @@
                 "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
-          }
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items.map(i=>({name:i.item_name || i.name, quantity:i.quantity, menu_item_id:i.menu_item_id})),\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
+          "options": {}
         },
         "id": "2e3f4ad0-17bc-46ac-852b-3a7b6dd06863",
         "name": "Place Final Order",
@@ -2694,7 +2689,7 @@
       },
       {
         "parameters": {
-          "jsCode": "\nconst orderData = Place Final Order.first().json.order || {};\nconst validateData = Validate Menu And Price.first().json;\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: Awesome! Your order  has been successfully placed 🎉\\n\\nOur team is preparing it right now!,\n    order_number: orderData.order_number\n  }\n}];\n            "
+          "jsCode": "const orderData = $('Place Final Order').first().json || {};\nconst validateData = $('Validate Menu And Price').first().json || {};\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: `Awesome! Your order #${orderData.order_number || ''} has been successfully placed 🎉\\n\\nOur team is preparing it right now!`,\n    order_number: orderData.order_number\n  }\n}];"
         },
         "id": "e8ef2fa9-03a8-43f2-b95e-105a66256c43",
         "name": "Confirm Order",
@@ -2878,8 +2873,7 @@
               }
             ]
           },
-          "options": {},
-          "authentication": "none"
+          "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.5,
@@ -2932,8 +2926,7 @@
               }
             ]
           },
-          "options": {},
-          "authentication": "none"
+          "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.5,
@@ -2949,27 +2942,21 @@
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/info",
           "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "x-pabbas-ai-secret",
-                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-              }
+          "parametersHeaders": {
+            "values": [
+              {}
             ]
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-          "name": "Pabbas Business Info",
-          "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods.",
-          "authentication": "none"
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
         },
         "id": "3a538756-6617-49aa-85c6-22c0b6a9f63d",
         "name": "Pabbas Business Info",
         "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
         "typeVersion": 1,
         "position": [
-          300,
+          304,
           1200
         ]
       },
@@ -2978,28 +2965,21 @@
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
           "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "x-pabbas-ai-secret",
-                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-              }
+          "parametersHeaders": {
+            "values": [
+              {}
             ]
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-          "name": "Pabbas Cart",
-          "description": "Use this to add items, remove items, or get the current shopping cart. Provide action (add, remove, get), menu_item_id, and quantity.",
-          "authentication": "none",
-          "nodeCredentialType": "httpHeaderAuth"
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
         },
         "id": "1cc5849d-bc9f-407c-ac0a-a0013dfc5234",
         "name": "Pabbas Cart",
         "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
         "typeVersion": 1,
         "position": [
-          500,
+          512,
           1200
         ]
       },
@@ -3008,27 +2988,21 @@
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/order_status",
           "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "x-pabbas-ai-secret",
-                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-              }
+          "parametersHeaders": {
+            "values": [
+              {}
             ]
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-          "name": "Pabbas Order Status",
-          "description": "Use this to check the status of the customer's most recent order.",
-          "authentication": "none"
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
         },
         "id": "576a68aa-1c61-44c3-ab11-26c332cb3f65",
         "name": "Pabbas Order Status",
         "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
         "typeVersion": 1,
         "position": [
-          700,
+          704,
           1200
         ]
       },
@@ -3037,27 +3011,21 @@
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/order_update",
           "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "x-pabbas-ai-secret",
-                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-              }
+          "parametersHeaders": {
+            "values": [
+              {}
             ]
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
-          "name": "Pabbas Order Update",
-          "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity.",
-          "authentication": "none"
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}"
         },
         "id": "d330d386-f722-49bb-81ae-19c56b171372",
         "name": "Pabbas Order Update",
         "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
         "typeVersion": 1,
         "position": [
-          900,
+          912,
           1200
         ]
       },
@@ -3076,14 +3044,13 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 1,
         "position": [
-          700,
-          200
+          704,
+          208
         ],
         "id": "17e1045f-836e-4593-85cb-e416f2545282"
       },
       {
         "parameters": {
-          "method": "GET",
           "url": "={{ $json.audio_link }}",
           "sendHeaders": true,
           "headerParameters": {
@@ -3107,31 +3074,30 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          900,
-          100
+          912,
+          112
         ],
         "id": "cbb111df-f343-42c6-8e3b-297b04e0e411"
       },
       {
         "parameters": {
           "resource": "audio",
-          "operation": "transcribe",
-          "binaryPropertyName": "audio"
+          "requestOptions": {}
         },
         "name": "Transcribe Audio",
         "type": "n8n-nodes-base.openAi",
         "typeVersion": 1,
         "position": [
-          1100,
-          100
+          1104,
+          112
         ],
+        "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313",
         "credentials": {
           "openAiApi": {
             "id": "qoyVBVk1ojHK9xi0",
             "name": "OpenAI account"
           }
-        },
-        "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313"
+        }
       },
       {
         "parameters": {
@@ -3141,27 +3107,18 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1300,
-          100
+          1312,
+          112
         ],
         "id": "b24ab83a-0185-4100-b26c-fb4901f8f73c"
       },
       {
         "parameters": {
-          "method": "GET",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/menu",
-          "authentication": "none",
-          "nodeCredentialType": "httpHeaderAuth",
           "sendHeaders": true,
-          "options": {},
-          "name": "Pabbas Menu",
-          "description": "Use this to search the menu and get menu_item_id before adding to cart.",
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "x-pabbas-ai-secret",
-                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
-              }
+          "parametersHeaders": {
+            "values": [
+              {}
             ]
           }
         },
@@ -3170,16 +3127,13 @@
         "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
         "typeVersion": 1,
         "position": [
-          -2152,
-          1836
+          -2160,
+          1840
         ]
       },
       {
         "parameters": {
-          "method": "GET",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
-          "authentication": "none",
-          "nodeCredentialType": "httpHeaderAuth",
           "sendQuery": true,
           "queryParameters": {
             "parameters": [
@@ -3197,7 +3151,6 @@
               }
             ]
           },
-          "options": {},
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -3206,25 +3159,22 @@
                 "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
-          }
+          },
+          "options": {}
         },
         "id": "lookup-customer-id",
         "name": "Lookup Trusted Customer Identity",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.5,
         "position": [
-          -3240,
-          1536
+          -3376,
+          1552
         ]
       },
       {
         "parameters": {
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-          "authentication": "none",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Extract Inbound Message').first().json.channel_user_id, action: 'get' }) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -3233,14 +3183,18 @@
                 "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
-          }
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Extract Inbound Message').first().json.channel_user_id, action: 'get' }) }}",
+          "options": {}
         },
         "name": "Fetch Pending Cart",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          -2440,
-          1260
+          -2448,
+          1264
         ],
         "id": "fetch-pending-cart-id"
       },
@@ -3248,9 +3202,6 @@
         "parameters": {
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -3259,14 +3210,18 @@
                 "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
-          }
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "options": {}
         },
         "name": "Cart Add Item",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          -700,
-          1500
+          -704,
+          1504
         ],
         "id": "cart-add-node"
       },
@@ -3274,9 +3229,6 @@
         "parameters": {
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -3285,14 +3237,18 @@
                 "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
-          }
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "options": {}
         },
         "name": "Cart Remove Item",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          -700,
-          1700
+          -704,
+          1712
         ],
         "id": "cart-remove-node"
       },
@@ -3304,8 +3260,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -300,
-          1500
+          -304,
+          1504
         ],
         "id": "reply-add"
       },
@@ -3317,8 +3273,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -300,
-          1700
+          -304,
+          1712
         ],
         "id": "reply-rem"
       },
@@ -3326,9 +3282,6 @@
         "parameters": {
           "method": "POST",
           "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Validate Menu And Price').first().json.channel_user_id, action: 'clear' }) }}",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -3337,7 +3290,11 @@
                 "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
               }
             ]
-          }
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Validate Menu And Price').first().json.channel_user_id, action: 'clear' }) }}",
+          "options": {}
         },
         "name": "Clear Cart",
         "type": "n8n-nodes-base.httpRequest",
@@ -3349,16 +3306,7 @@
         "id": "clear-cart-node"
       },
       {
-        "name": "Fetch Menu Items",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [
-          -3050,
-          1750
-        ],
-        "id": "fetch-menu-items-node",
         "parameters": {
-          "method": "GET",
           "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/menu_items?select=id,item_name,price",
           "sendHeaders": true,
           "headerParameters": {
@@ -3378,7 +3326,15 @@
             ]
           },
           "options": {}
-        }
+        },
+        "name": "Fetch Menu Items",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3056,
+          1760
+        ],
+        "id": "fetch-menu-items-node"
       }
     ],
     "connections": {
@@ -3946,16 +3902,16 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-05T07:17:58.718Z",
-    "updatedAt": "2026-10-05T07:17:58.718Z",
+    "createdAt": "2026-10-05T08:34:03.097Z",
+    "updatedAt": "2026-10-05T08:34:03.097Z",
     "workflowPublishHistory": [
       {
-        "id": 390,
+        "id": 392,
         "workflowId": "BfhcbxFiXa4Vga51",
-        "versionId": "443413dc-deb7-451e-8bab-c1aba185eaf3",
+        "versionId": "5605d80c-00ab-4793-a828-c490a50330be",
         "event": "activated",
         "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-10-05T07:17:58.950Z"
+        "createdAt": "2026-10-05T08:34:03.336Z"
       }
     ]
   }
