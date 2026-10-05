@@ -3,12 +3,12 @@
   "name": "Pabbas | Production | WhatsApp AI Order Bridge",
   "description": null,
   "active": true,
-  "activeVersionId": "5605d80c-00ab-4793-a828-c490a50330be",
+  "activeVersionId": "e8f2b151-8fb0-4076-94db-b5a6aa236628",
   "createdAt": "2026-09-23T04:03:01.708Z",
-  "updatedAt": "2026-10-05T08:34:03.095Z",
+  "updatedAt": "2026-10-05T08:39:23.409Z",
   "isArchived": false,
-  "versionId": "5605d80c-00ab-4793-a828-c490a50330be",
-  "versionCounter": 320,
+  "versionId": "e8f2b151-8fb0-4076-94db-b5a6aa236628",
+  "versionCounter": 321,
   "sourceWorkflowId": null,
   "triggerCount": 1,
   "nodes": [
@@ -1253,7 +1253,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
         "options": {}
       },
       "name": "Cart Add Item",
@@ -1280,7 +1280,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
         "options": {}
       },
       "name": "Cart Remove Item",
@@ -1969,7 +1969,7 @@
     }
   ],
   "activeVersion": {
-    "versionId": "5605d80c-00ab-4793-a828-c490a50330be",
+    "versionId": "e8f2b151-8fb0-4076-94db-b5a6aa236628",
     "workflowId": "BfhcbxFiXa4Vga51",
     "nodes": [
       {
@@ -3213,7 +3213,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
           "options": {}
         },
         "name": "Cart Add Item",
@@ -3240,7 +3240,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', item_name: $json.item.name, quantity: $json.item.quantity }) }}",
           "options": {}
         },
         "name": "Cart Remove Item",
@@ -3902,16 +3902,16 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-05T08:34:03.097Z",
-    "updatedAt": "2026-10-05T08:34:03.097Z",
+    "createdAt": "2026-10-05T08:39:23.412Z",
+    "updatedAt": "2026-10-05T08:39:23.412Z",
     "workflowPublishHistory": [
       {
-        "id": 392,
+        "id": 394,
         "workflowId": "BfhcbxFiXa4Vga51",
-        "versionId": "5605d80c-00ab-4793-a828-c490a50330be",
+        "versionId": "e8f2b151-8fb0-4076-94db-b5a6aa236628",
         "event": "activated",
         "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-10-05T08:34:03.336Z"
+        "createdAt": "2026-10-05T08:39:23.622Z"
       }
     ]
   }
