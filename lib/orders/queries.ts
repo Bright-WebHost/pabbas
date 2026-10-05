@@ -30,7 +30,7 @@ export interface DashboardOrder {
   items: string;
   total: number;
   status: OrderStatus;
-  order_type: "delivery" | "pickup" | "dine-in" | "takeaway";
+  order_type: "delivery" | "pickup" | "pos" | "takeaway";
   source: string | null;
   address: string | null;
   landmark: string | null;
