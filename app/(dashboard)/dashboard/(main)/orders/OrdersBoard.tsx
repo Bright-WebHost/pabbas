@@ -106,8 +106,8 @@ const formatCountdown = (order: DashboardOrder, now: number) => {
 };
 
 function normalizeOrderType(value: string | null | undefined) {
-  if (value === "dine-in") return "Dine-in";
   if (value === "takeaway" || value === "pickup") return "Pickup";
+  if (value === "pos") return "POS";
   return "Delivery";
 }
 
@@ -115,7 +115,6 @@ function destinationFor(order: DashboardOrder) {
   if (order.order_type === "delivery") {
     return [order.address, order.landmark, order.pincode].filter(Boolean).join(", ") || "Address not provided";
   }
-  if (order.order_type === "dine-in") return `Table ${order.table_number ?? "assigned"}`;
   return "Pickup";
 }
 
@@ -676,7 +675,7 @@ export default function OrdersBoard() {
             <option value="all">All types</option>
             <option value="delivery">Delivery</option>
             <option value="pickup">Pickup</option>
-            <option value="dine-in">Dine-in</option>
+            <option value="pos">POS</option>
           </select>
         </div>
       </div>
