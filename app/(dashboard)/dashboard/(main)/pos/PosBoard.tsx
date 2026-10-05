@@ -58,7 +58,7 @@ export default function PosBoard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [orderType, setOrderType] = useState<"takeaway" | "delivery" | "dine-in">("takeaway");
+  const [orderType, setOrderType] = useState<"takeaway" | "delivery">("takeaway");
 
   // Customer Details State
   const [customerName, setCustomerName] = useState("");
@@ -189,7 +189,7 @@ export default function PosBoard() {
         customer_name: customerName.trim() || "Walk-in",
         customer_phone: whatsappNumber.trim(),
         order_type: orderType,
-        table_number: orderType === "dine-in" ? tableNumber.trim() : "",
+        table_number: "",
         address: orderType === "delivery" ? deliveryAddress.trim() : "",
         landmark: orderType === "delivery" ? deliveryLandmark.trim() : "",
         pincode: orderType === "delivery" ? deliveryPincode.trim() : "",
@@ -309,6 +309,11 @@ export default function PosBoard() {
                       </span>
                     )}
                   </div>
+                  {item.image_url ? (
+                    <div className="w-full aspect-video rounded-xl overflow-hidden mb-3 bg-[#EAF0F6] shrink-0 border border-[#EAF0F6]">
+                      <img src={item.image_url} alt={item.item_name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : null}
                   <h3 className="text-[15px] font-black text-[#0A1017] leading-[1.3] mb-2 line-clamp-2">
                     {item.item_name}
                   </h3>
@@ -348,7 +353,6 @@ export default function PosBoard() {
             {([
               { id: "takeaway", label: "Takeaway" },
               { id: "delivery", label: "Delivery" },
-              { id: "dine-in", label: "Dine-in" },
             ] as const).map((type) => (
               <button
                 key={type.id}
@@ -442,18 +446,7 @@ export default function PosBoard() {
             </div>
           </div>
 
-          {orderType === "dine-in" && (
-            <div>
-              <label className="text-[11px] font-black text-[#6B7A90] uppercase tracking-widest mb-1.5 block">Table Number</label>
-              <input
-                type="text"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                placeholder="e.g. T12"
-                className="w-full px-3.5 py-2.5 rounded-[10px] border border-[#EAF0F6] bg-[#F8FAFB] text-[13px] font-black text-[#0A1017] focus:border-[#0D6EFD] focus:bg-white focus:ring-4 focus:ring-[#0D6EFD]/10 outline-none transition-all placeholder:text-[#A1B2C6]"
-              />
-            </div>
-          )}
+
 
           {orderType === "delivery" && (
             <div className="grid grid-cols-2 gap-3">
@@ -635,12 +628,7 @@ export default function PosBoard() {
                               <span className="text-[13px] font-black text-[#0A1017]">{whatsappNumber}</span>
                             </div>
                           )}
-                          {orderType === "dine-in" && tableNumber && (
-                            <div className="flex justify-between">
-                              <span className="text-[13px] font-bold text-[#6B7A90]">Table</span>
-                              <span className="text-[13px] font-black text-[#0A1017]">{tableNumber}</span>
-                            </div>
-                          )}
+
                           {orderType === "delivery" && (
                             <div className="flex justify-between">
                               <span className="text-[13px] font-bold text-[#6B7A90]">Address</span>

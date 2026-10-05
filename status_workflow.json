@@ -3,12 +3,12 @@
   "name": "Pabbas | Status Notifier",
   "description": null,
   "active": true,
-  "activeVersionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+  "activeVersionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
   "createdAt": "2026-09-23T06:04:34.138Z",
-  "updatedAt": "2026-10-03T09:54:08.900Z",
+  "updatedAt": "2026-09-30T06:09:23.318Z",
   "isArchived": false,
-  "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
-  "versionCounter": 122,
+  "versionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
+  "versionCounter": 120,
   "sourceWorkflowId": null,
   "triggerCount": 2,
   "nodes": [
@@ -48,7 +48,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhookData = $('Status Webhook').first().json.body || {};\nfor (const item of $input.all()) {\n  item.json = {\n    ...item.json,\n    order_number: webhookData.order_number,\n    status: webhookData.status,\n    cancel_reason: webhookData.cancel_reason || null,\n    target: webhookData.target || 'customer',\n    rider_phone: webhookData.rider_phone || null,\n    rider_name: webhookData.rider_name || null,\n    whatsapp_message_text: webhookData.whatsapp_message_text || null,\n    interactive_button: webhookData.interactive_button || null,\n  };\n}\nreturn $input.all();"
+        "jsCode": "const webhookData = $('Status Webhook').first().json.body;\n\nfor (const item of $input.all()) {\n  item.json.order_number = webhookData.order_number;\n  item.json.status = webhookData.status;\n  item.json.cancel_reason = webhookData.cancel_reason || null;\n}\n\nreturn $input.all();"
       },
       "id": "26066344-85f5-4050-add3-8c4a08a5efc9",
       "name": "Extract Data",
@@ -123,7 +123,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
+        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : { status: $json.status }) }}",
         "options": {
           "timeout": 10000
         }
@@ -140,7 +140,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const extractData = $('Extract Data').first().json || {};\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = extractData.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  // Restore the target and rider info from Extract Data because Update Status destroyed it\n  order.target = extractData.target || 'customer';\n  order.rider_phone = extractData.rider_phone || null;\n  order.cancel_reason = extractData.cancel_reason || order.cancel_reason || null;\n  order.interactive_button = extractData.interactive_button || null;\n  order.status = extractData.status || order.status;\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n  item.json.interactive_button = order.interactive_button;\n  item.json.order_number = order.order_number;\n}\nreturn $input.all();"
+        "jsCode": "for (const item of $input.all()) {\n  const order = item.json;\n  let msg = \"\";\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n  \n  switch(order.status) {\n    case 'preparing':\n      msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\nWe're getting everything ready for you!`;\n      break;\n\n    case 'ready_for_pickup':\n      msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\nYou can collect it at the counter whenever you're ready. 😊`;\n      break;\n\n    case 'out_for_delivery':\n      msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n      break;\n\n    case 'delivered':\n      msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n      break;\n\n    case 'cancelled':\n      const cancelReason = order.cancel_reason\n        ? `\\nReason: ${order.cancel_reason}`\n        : '';\n\n      msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n      break;\n\n    default:\n      skip = true;\n  }\n  \n  item.json.phone = order.customer_phone;\n  item.json.message = msg;\n  item.json.skip = skip;\n}\n\nreturn $input.all();"
       },
       "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
       "name": "Build Message",
@@ -198,13 +198,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: String($json.phone).replace(/[^0-9]/g, ''),\n  type: $json.interactive_button ? 'interactive' : 'text',\n  ...($json.interactive_button ? {\n    interactive: {\n      type: 'button',\n      body: { text: $json.message },\n      action: {\n        buttons: [\n          {\n            type: 'reply',\n            reply: {\n              id: 'accept_' + $json.order_number,\n              title: $json.interactive_button\n            }\n          }\n        ]\n      }\n    }\n  } : {\n    text: { body: $json.message }\n  })\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  from: \"+919180348124\",\n  to: $json.phone,\n  type: \"text\",\n  text: {\n    body: $json.message\n  }\n}) }}",
         "options": {
           "timeout": 15000
         }
       },
       "id": "1e0d03f3-1cf5-4a19-bff6-776c48de73b8",
-      "name": "Send WhatsApp",
+      "name": "Send WhatsApp (TODO: verify YCloud payload)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -691,7 +691,7 @@
       "main": [
         [
           {
-            "node": "Send WhatsApp",
+            "node": "Send WhatsApp (TODO: verify YCloud payload)",
             "type": "main",
             "index": 0
           }
@@ -699,6 +699,17 @@
         [
           {
             "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp (TODO: verify YCloud payload)": {
+      "main": [
+        [
+          {
+            "node": "Log Message",
             "type": "main",
             "index": 0
           }
@@ -788,17 +799,6 @@
           }
         ]
       ]
-    },
-    "Send WhatsApp": {
-      "main": [
-        [
-          {
-            "node": "Log Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
   "nodeGroups": [],
@@ -871,7 +871,7 @@
     }
   ],
   "activeVersion": {
-    "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+    "versionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
     "workflowId": "24IaEnLI3RCYU6da",
     "nodes": [
       {
@@ -910,7 +910,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const webhookData = $('Status Webhook').first().json.body || {};\nfor (const item of $input.all()) {\n  item.json = {\n    ...item.json,\n    order_number: webhookData.order_number,\n    status: webhookData.status,\n    cancel_reason: webhookData.cancel_reason || null,\n    target: webhookData.target || 'customer',\n    rider_phone: webhookData.rider_phone || null,\n    rider_name: webhookData.rider_name || null,\n    whatsapp_message_text: webhookData.whatsapp_message_text || null,\n    interactive_button: webhookData.interactive_button || null,\n  };\n}\nreturn $input.all();"
+          "jsCode": "const webhookData = $('Status Webhook').first().json.body;\n\nfor (const item of $input.all()) {\n  item.json.order_number = webhookData.order_number;\n  item.json.status = webhookData.status;\n  item.json.cancel_reason = webhookData.cancel_reason || null;\n}\n\nreturn $input.all();"
         },
         "id": "26066344-85f5-4050-add3-8c4a08a5efc9",
         "name": "Extract Data",
@@ -985,7 +985,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
+          "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : { status: $json.status }) }}",
           "options": {
             "timeout": 10000
           }
@@ -1002,7 +1002,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const extractData = $('Extract Data').first().json || {};\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = extractData.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  // Restore the target and rider info from Extract Data because Update Status destroyed it\n  order.target = extractData.target || 'customer';\n  order.rider_phone = extractData.rider_phone || null;\n  order.cancel_reason = extractData.cancel_reason || order.cancel_reason || null;\n  order.interactive_button = extractData.interactive_button || null;\n  order.status = extractData.status || order.status;\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n  item.json.interactive_button = order.interactive_button;\n  item.json.order_number = order.order_number;\n}\nreturn $input.all();"
+          "jsCode": "for (const item of $input.all()) {\n  const order = item.json;\n  let msg = \"\";\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n  \n  switch(order.status) {\n    case 'preparing':\n      msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\nWe're getting everything ready for you!`;\n      break;\n\n    case 'ready_for_pickup':\n      msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\nYou can collect it at the counter whenever you're ready. 😊`;\n      break;\n\n    case 'out_for_delivery':\n      msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n      break;\n\n    case 'delivered':\n      msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n      break;\n\n    case 'cancelled':\n      const cancelReason = order.cancel_reason\n        ? `\\nReason: ${order.cancel_reason}`\n        : '';\n\n      msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n      break;\n\n    default:\n      skip = true;\n  }\n  \n  item.json.phone = order.customer_phone;\n  item.json.message = msg;\n  item.json.skip = skip;\n}\n\nreturn $input.all();"
         },
         "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
         "name": "Build Message",
@@ -1060,13 +1060,13 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: String($json.phone).replace(/[^0-9]/g, ''),\n  type: $json.interactive_button ? 'interactive' : 'text',\n  ...($json.interactive_button ? {\n    interactive: {\n      type: 'button',\n      body: { text: $json.message },\n      action: {\n        buttons: [\n          {\n            type: 'reply',\n            reply: {\n              id: 'accept_' + $json.order_number,\n              title: $json.interactive_button\n            }\n          }\n        ]\n      }\n    }\n  } : {\n    text: { body: $json.message }\n  })\n}) }}",
+          "jsonBody": "={{ JSON.stringify({\n  from: \"+919180348124\",\n  to: $json.phone,\n  type: \"text\",\n  text: {\n    body: $json.message\n  }\n}) }}",
           "options": {
             "timeout": 15000
           }
         },
         "id": "1e0d03f3-1cf5-4a19-bff6-776c48de73b8",
-        "name": "Send WhatsApp",
+        "name": "Send WhatsApp (TODO: verify YCloud payload)",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
@@ -1553,7 +1553,7 @@
         "main": [
           [
             {
-              "node": "Send WhatsApp",
+              "node": "Send WhatsApp (TODO: verify YCloud payload)",
               "type": "main",
               "index": 0
             }
@@ -1561,6 +1561,17 @@
           [
             {
               "node": "Respond Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send WhatsApp (TODO: verify YCloud payload)": {
+        "main": [
+          [
+            {
+              "node": "Log Message",
               "type": "main",
               "index": 0
             }
@@ -1650,17 +1661,6 @@
             }
           ]
         ]
-      },
-      "Send WhatsApp": {
-        "main": [
-          [
-            {
-              "node": "Log Message",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
       }
     },
     "nodeGroups": [],
@@ -1668,16 +1668,16 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-03T09:54:08.901Z",
-    "updatedAt": "2026-10-03T09:54:08.901Z",
+    "createdAt": "2026-09-30T06:09:23.321Z",
+    "updatedAt": "2026-09-30T06:09:23.321Z",
     "workflowPublishHistory": [
       {
-        "id": 368,
+        "id": 248,
         "workflowId": "24IaEnLI3RCYU6da",
-        "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+        "versionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
         "event": "activated",
         "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-10-03T09:54:09.097Z"
+        "createdAt": "2026-09-30T06:09:23.538Z"
       }
     ]
   }

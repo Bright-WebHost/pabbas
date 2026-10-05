@@ -9,6 +9,7 @@ export type Rider = {
   is_active: boolean;
   deliveries_count: number;
   cash_collected: number;
+  pending_cash: number;
   created_at: string;
 };
 
@@ -30,10 +31,22 @@ export async function fetchRiders() {
 
 export async function addRider(name: string, whatsapp_number: string) {
   try {
+    const rawNumber = whatsapp_number.replace(/\D/g, ''); // Remove non-digits
+    
+    // Validate if it's exactly 10 digits (assumes Indian numbers)
+    let finalNumber = rawNumber;
+    if (rawNumber.length === 10) {
+      finalNumber = `91${rawNumber}`;
+    } else if (rawNumber.length === 12 && rawNumber.startsWith('91')) {
+      finalNumber = rawNumber;
+    } else {
+      return { success: false, error: "Phone number must be exactly 10 digits (e.g., 9876543210)" };
+    }
+
     const adminClient = createAdminClient();
     const { data, error } = await adminClient
       .from("riders")
-      .insert([{ name: name.trim(), whatsapp_number: whatsapp_number.trim() }])
+      .insert([{ name: name.trim(), whatsapp_number: finalNumber }])
       .select()
       .single();
 
@@ -58,5 +71,21 @@ export async function toggleRiderStatus(id: string, is_active: boolean) {
   } catch (error: any) {
     console.error("[toggleRiderStatus] Error:", error);
     return { success: false, error: "Failed to update rider status" };
+  }
+}
+
+export async function settlePendingCash(id: string) {
+  try {
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+      .from("riders")
+      .update({ pending_cash: 0 })
+      .eq("id", id);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    console.error("[settlePendingCash] Error:", error);
+    return { success: false, error: "Failed to settle cash" };
   }
 }

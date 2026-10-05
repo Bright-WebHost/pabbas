@@ -70,40 +70,6 @@ export default function BlastBoard() {
     try {
       const components: any[] = [];
 
-      // Handle media if required
-      if (requiresMedia) {
-        if (!mediaFile) {
-          setResult({ error: "Please select a media file for this template's header." });
-          setSending(false);
-          return;
-        }
-
-        const formData = new FormData();
-        formData.append("file", mediaFile);
-        const uploadRes = await uploadYCloudMedia(formData);
-        
-        if (!uploadRes.success || !uploadRes.media_id) {
-          throw new Error(uploadRes.error || "Failed to upload media");
-        }
-
-        const typeMap: any = {
-          "IMAGE": "image",
-          "VIDEO": "video",
-          "DOCUMENT": "document"
-        };
-        const mediaType = typeMap[headerComponent.format] || "image";
-
-        components.push({
-          type: "header",
-          parameters: [
-            {
-              type: mediaType,
-              [mediaType]: { id: uploadRes.media_id }
-            }
-          ]
-        });
-      }
-
       const res = await sendBlast(filter, selectedTemplateName, components, selectedPhones);
       if (res.success && res.data) {
         setResult({
@@ -213,30 +179,7 @@ export default function BlastBoard() {
           </select>
         </div>
 
-        {requiresMedia && (
-          <div>
-            <label className="mb-2 block text-[11px] font-extrabold text-[#8799AF] uppercase tracking-widest">
-              Campaign Media ({headerComponent.format})
-            </label>
-            <label className="flex flex-col items-center justify-center w-full h-40 border-[2px] border-[#C9D4E0] border-dashed rounded-[16px] cursor-pointer bg-[#F8FAFB] hover:bg-[#EAF0F6] transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <UploadCloud className="w-10 h-10 mb-3 text-[#A1B2C6]" />
-                <p className="text-[14px] font-bold text-[#0A1017]">
-                  <span className="text-[#0D6EFD]">Click to upload</span> {mediaFile ? mediaFile.name : `a campaign ${headerComponent.format.toLowerCase()}`}
-                </p>
-              </div>
-              <input 
-                type="file" 
-                className="hidden" 
-                accept={headerComponent.format === "IMAGE" ? "image/*" : headerComponent.format === "VIDEO" ? "video/*" : "*/*"}
-                onChange={(e) => setMediaFile(e.target.files?.[0] || null)} 
-              />
-            </label>
-            <p className="mt-3 text-[12px] font-semibold text-[#8799AF]">
-              This template requires a {headerComponent.format.toLowerCase()} header. It will be securely uploaded to YCloud before sending.
-            </p>
-          </div>
-        )}
+
       </div>
 
       <div className="rounded-[20px] border border-[#FDEBBA] bg-[#FFF8E6] p-5 text-[14px] font-bold text-[#B08600] flex items-start gap-3 shadow-sm">
@@ -248,7 +191,7 @@ export default function BlastBoard() {
 
       <button
         onClick={handleSend}
-        disabled={sending || (requiresMedia && !mediaFile)}
+        disabled={sending}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#E23744] px-6 py-4 text-[16px] font-extrabold text-white shadow-[0_4px_12px_rgba(226,55,68,0.25)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(226,55,68,0.35)] disabled:opacity-50 transition-all disabled:transform-none disabled:shadow-none"
       >
         {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

@@ -1,0 +1,3962 @@
+{
+  "id": "BfhcbxFiXa4Vga51",
+  "name": "Pabbas | Production | WhatsApp AI Order Bridge",
+  "description": null,
+  "active": true,
+  "activeVersionId": "82f4389e-4f18-489d-b7a9-20cfb08e5036",
+  "createdAt": "2026-09-23T04:03:01.708Z",
+  "updatedAt": "2026-10-02T06:47:49.189Z",
+  "isArchived": false,
+  "versionId": "82f4389e-4f18-489d-b7a9-20cfb08e5036",
+  "versionCounter": 306,
+  "sourceWorkflowId": null,
+  "triggerCount": 1,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pabbas-whatsapp-inbound",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "68820459-66da-470b-a9b7-ca0e9b96345a",
+      "name": "Verified YCloud Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -3648,
+        1536
+      ],
+      "webhookId": "pabbas-whatsapp-inbound",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Xcg9YUaVyqTFWiDm",
+          "name": "x-pabbas-whatsapp-secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const event = $input.first().json.body || $input.first().json;\nconst data = event.data || {};\nconst message =\n  data.message ||\n  data.whatsappInboundMessage ||\n  event.message ||\n  event.whatsappInboundMessage ||\n  {};\n\nconst profile = data.customerProfile || data.profile || {};\n\nconst type = String(message.type || 'text');\n\nlet content =\n  message.text?.body ||\n  message.body ||\n  '';\n\nif (type === 'interactive') {\n  content =\n    message.interactive?.button_reply?.id ||\n    message.interactive?.list_reply?.id ||\n    '';\n}\n\nif (type === 'button') {\n  content = message.button?.text || '';\n}\n\nif (type === 'image') {\n  content = message.image?.caption || '[image]';\n}\n\nif (type === 'audio' || type === 'voice') {\n  content = '[voice note]';\n}\n\nreturn [{\n  json: {\n    event_type: event.type || '',\n    message_id: String(\n      message.id ||\n      data.messageId ||\n      event.messageId ||\n      event.id ||\n      ''\n    ),\n\n    phone: String(\n      message.from ||\n      message.sender?.phone ||\n      data.from ||\n      event.from ||\n      ''\n    ),\n\n    // IMPORTANT:\n    // Use YCloud's real BSUID when available.\n    // Never fall back to phone number.\n    channel_user_id: message.fromUserId\n      ? String(message.fromUserId)\n      : null,\n\n    customer_name: String(\n      profile.name ||\n      message.customerProfile?.name ||\n      ''\n    ),\n\n    message_type: type,\n    content: String(content),\n    direction: 'inbound',\n    sender: 'customer',\n    ai_intent: '',\n    audio_link: message.audio?.link || message.voice?.link || null\n  }\n}];"
+      },
+      "id": "be289c60-8de6-4816-a7ab-8dbde9f55812",
+      "name": "Extract Inbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3440,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "message_id",
+              "value": "=eq.{{ $('Extract Inbound Message').first().json.message_id }}"
+            },
+            {
+              "name": "select",
+              "value": "id"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "31bfeda1-1331-49fb-b854-dc4b3f7d34dd",
+      "name": "Look Up Message ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3216,
+        1536
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]);\nreturn [{ json: { duplicate: rows.some((item) => item?.id), ...$('Extract Inbound Message').first().json } }];"
+      },
+      "id": "a20f01b7-3477-4121-a154-c3f01febc45d",
+      "name": "Decide Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2992,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.duplicate }}",
+              "operation": "false"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "a2b0af3f-b135-4664-92a1-7a3ab18507e6",
+      "name": "New Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2768,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, direction: 'inbound', content: $json.content, sender: 'customer', message_type: $json.message_type, message_id: $json.message_id, ai_intent: '' }) }}",
+        "options": {}
+      },
+      "id": "6f3bb5a3-79a3-4bfe-9ea0-90c319b96be2",
+      "name": "Save Inbound Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2560,
+        1456
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/chat_context",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_phone: $('Extract Inbound Message').first().json.phone, p_order: null }) }}",
+        "options": {}
+      },
+      "id": "0ccb226e-0d18-4255-9afa-965a79370e33",
+      "name": "Retrieve Chat Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2336,
+        1456
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Inbound Message').first().json;\nconst context = $('Retrieve Chat Context').first().json || {};\nconst cart = $('Fetch Pending Cart').first().json || { empty: true, items: [] };\ncontext.pending_cart = cart;\nreturn [{ json: { customer_phone: input.phone, customer_name: input.customer_name, channel_user_id: input.channel_user_id, message: input.content, context } }];"
+      },
+      "id": "4a7ad02b-8067-4ed8-a469-182753fb9585",
+      "name": "Build AI Order Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2112,
+        1456
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Inbound Message').first().json;\nconst context = $('Retrieve Chat Context').first().json || {};\n\nconst text = String(input.content || '').trim();\nconst textLower = text.toLowerCase();\nconst match = text.match(/^btn_(confirm|cancel):([A-Z0-9-]+)$/i);\n\nlet route = 'ai';\nlet response = null;\nlet action = 'reply';\n\n// Check if new conversation\nlet isNew = !context.history || context.history.length <= 1;\n\nif (context.history && context.history.length > 1) {\n  // history is ordered by created_at ascending (oldest first, newest last)\n  // The very last message is the current one we just saved.\n  // The second-to-last message is their previous interaction.\n  const currentMsg = context.history[context.history.length - 1];\n  const previousMsg = context.history[context.history.length - 2];\n  \n  if (currentMsg.created_at && previousMsg.created_at) {\n    const currentTime = new Date(currentMsg.created_at).getTime();\n    const previousTime = new Date(previousMsg.created_at).getTime();\n    \n    const hoursSinceLast = (currentTime - previousTime) / (1000 * 60 * 60);\n    const greetings = ['hi', 'hello', 'hey', 'start', 'menu'];\n    \n    // If it's been more than 2 hours AND they started with a greeting, treat as NEW!\n    if (hoursSinceLast > 2 && greetings.includes(textLower)) {\n      isNew = true;\n    }\n  }\n}\n\n// Menu Intent detection (robust)\nconst menuKeywords = ['menu', 'show menu', 'show me the menu', 'send menu', 'send me the menu', 'what do you have', \"what's on the menu\", 'explore menu', 'order now'];\nconst isMenuIntent = menuKeywords.some(kw => textLower === kw || textLower.includes(kw)) || textLower === 'btn_menu';\n\n// 1. Staff takeover\nif (context.session && context.session.ai_enabled === false) {\n  route = 'staff';\n}\n// 2. Restaurant closed\nelse if (context.is_open === false) {\n  route = 'response';\n  const message = 'Pabbas is currently closed. Please try again during our opening hours.';\n  response = {\n    customer_phone: input.phone,\n    log_text: message,\n    outgoing: { type: 'text', text: { body: message } }\n  };\n}\n// 3. Order confirmation/cancellation buttons\nelse if (match) {\n  route = match[1].toLowerCase();\n}\n// 4. NEW CONVERSATION\nelse if (isNew) {\n  route = 'response'; // Bypass AI\n  action = 'welcome';\n}\n// 5. EXPLICIT MENU REQUEST IN EXISTING CONVO\nelse if (isMenuIntent) {\n  route = 'response'; // Bypass AI\n  action = 'menu_cta';\n}\n// 6. BUTTON CLICKS (Order on WhatsApp, Ask Me Anything)\nelse if (textLower === 'btn_order' || textLower === '🛍️ order on whatsapp' || textLower === 'order on whatsapp') {\n  route = 'response';\n  action = 'start_whatsapp_order';\n}\nelse if (textLower === 'btn_ask' || textLower === '💬 ask me anything' || textLower === 'ask me anything') {\n  route = 'response';\n  action = 'start_questions';\n}\n// 7. EVERYTHING ELSE GOES TO AI\nelse {\n  route = 'ai';\n}\n\nreturn [{\n  json: {\n    route,\n    action,\n    order_number: match ? match[2].toUpperCase() : null,\n    customer_phone: input.phone,\n    customer_name: input.customer_name,\n    channel_user_id: input.channel_user_id || null,\n    response\n  }\n}];\n"
+      },
+      "id": "b7e9489f-0232-43ab-ae73-ed8daf21dd68",
+      "name": "Route Inbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2224,
+        1184
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "staff",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "staff"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "response",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "response"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "confirm"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "ai"
+        }
+      },
+      "id": "828c6462-07f5-4d3b-8a91-23c9325adcf8",
+      "name": "Inbound Route Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -1952,
+        1136
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "aa058578-860c-4e48-9652-0887d0ae15c2",
+      "name": "Staff Handover - Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst inbound = $('Extract Inbound Message').first().json;\nconst response = d.response || {};\n\nreturn [{\n  json: {\n    ...response,\n\n    customer_phone:\n      response.customer_phone ||\n      d.customer_phone ||\n      inbound.phone ||\n      '',\n\n    customer_name:\n      response.customer_name ||\n      d.customer_name ||\n      inbound.customer_name ||\n      '',\n\n    channel_user_id:\n      inbound.channel_user_id || null,\n\n    log_text:\n      response.log_text || '',\n\n    outgoing:\n      response.outgoing || {\n        type: 'text',\n        text: { body: '' }\n      }\n  }\n}];"
+      },
+      "id": "22559139-ed3d-4107-b65e-e6a8b8bac8a2",
+      "name": "Build Routed Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_confirm",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number }) }}",
+        "options": {}
+      },
+      "id": "60446a8e-4b69-4369-a7d1-4f7b02c80900",
+      "name": "Route Confirm Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1696,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_cancel",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_reason: 'customer_request' }) }}",
+        "options": {}
+      },
+      "id": "a6076c8b-8162-4932-9ba0-833485e6c1a0",
+      "name": "Route Cancel Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1696,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are the WhatsApp ordering assistant for Pabbas.\n\nYour job is to help customers, answer questions, manage orders, and guide them to the secure Pabbas ordering website when useful.\n\nIMPORTANT ARCHITECTURE:\n- The AI is NOT the database. Use your tools!\n- NEVER invent prices, menu items, business information, or order status.\n- NEVER modify another customer's order.\n- NEVER bypass backend validation.\n- NEVER dump the entire menu into plain text.\n- NEVER act like a generic chatbot. Pabbas is a premium brand.\n\nRULES:\n\n1. EXISTING CONVERSATIONS & GREETINGS\nIf the user just says \"Hi\" or \"Hello\" in an ongoing conversation, give a very short, casual, and friendly response (e.g., \"Hey Maithri! Need help with anything else?\"). \nDO NOT output a full generic welcome like \"Welcome back to Pabbas. How can I assist you today?\". Be conversational and brief.\n\n2. BUSINESS QUESTIONS\nUse the Pabbas Business Info tool.\nExamples: What's your address? Where are you located? What time do you open? How long does delivery take?\n\n3. MENU QUESTIONS\nIf they ask for the menu, output intent \"menu\" so the system can attach the secure CTA link. Do not list the whole menu in plain text.\nExamples: Show me the menu. What do you have? Send me the menu.\n\n4. ORDERING\nWhen a customer wants to order items or add to cart, do NOT call tools.\nInstead, output action: \"add\" or \"remove\" with the items.\nThe system will automatically validate items against the menu and look up prices.\nExamples: \"2 golden gadbad\" = items: [{name: \"Golden Gadbad\", quantity: 2}]\n\"Add one chocolate and 3 lime juice\" = items: [{name: \"Dubai Chocolate\", quantity: 1}, {name: \"Fresh Lime Soda\", quantity: 3}]\nFor cart inquiries, check \"pending_cart\" in context and output reply. For checking out (\"place order\"), output action: \"checkout\".\n\n5. ORDER STATUS\nUse the Pabbas Order Status tool.\nExamples: Where is my order? What's my order status? Is my order ready?\n\n6. ORDER MODIFICATION\nUse the Pabbas Order Update tool ONLY after checking the order status.\nIf the backend returns ORDER_LOCKED, do not retry or bypass it. Politely tell the customer the order has already started preparation and cannot be changed.\n\nOUTPUT FORMAT\nReturn ONLY valid JSON:\n{\n  \"intent\": \"order|info|status|menu|other\",\n  \"action\": \"add|remove|checkout|null\",\n  \"reply\": \"short natural WhatsApp response\",\n  \"items\": [],\n  \"order_type\": null\n}\n\n        \n7. PENDING CART\nThe customer's current cart is in `context.pending_cart`.\nIf they add items, output: {\"intent\": \"order\", \"action\": \"add\", \"items\": [{\"name\": \"...\", \"quantity\": 1}]}\nIf they remove items, output: {\"intent\": \"order\", \"action\": \"remove\", \"items\": [{\"name\": \"...\", \"quantity\": 1}]}\nIf they confirm/checkout, output: {\"intent\": \"order\", \"action\": \"checkout\"}\nIf they ask what's in their cart, look at context.pending_cart and output a normal reply.\nDO NOT call the Pabbas Cart tool."
+        }
+      },
+      "id": "e932eef4-a668-4e07-935a-a068b03d9d94",
+      "name": "Pabbas AI Order Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1952,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "f78e44a7-f4b6-4bdf-ac74-5dc84a8526ff",
+      "name": "Pabbas OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1920,
+        1792
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "qoyVBVk1ojHK9xi0",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Build AI Order Request').first().json;\nconst context = source.context || {};\nconst raw = String($input.first().json.output || '').replace(/```json/gi, '').replace(/```/g, '').trim();\nconst norm = (v) => String(v || '').toLowerCase().replace(/\\s+/g, ' ').trim();\nconst out = { customer_phone: source.customer_phone, customer_name: source.customer_name, channel_user_id: source.channel_user_id, action: 'reply', reply: 'Tell me what you would like to order.', order_type: 'pickup', items: [], total: 0, order_number: null, original_items: [] };\nlet parsed = null;\ntry { const a = raw.indexOf('{'); const b = raw.lastIndexOf('}'); if (a >= 0 && b > a) parsed = JSON.parse(raw.slice(a, b + 1)); } catch {}\n\nif (!parsed || parsed.intent !== 'order') { \n  out.action = parsed?.intent === 'menu' ? 'menu_cta' : 'reply'; \n  out.reply = String(parsed?.reply || \"I didn't quite catch that. Could you please clarify what you'd like to order or ask?\"); \n  return [{ json: out }]; \n}\n\nif (parsed.action === 'checkout') {\n  const cart = context.pending_cart?.items || [];\n  if (!cart.length) { out.reply = 'Your cart is empty!'; out.action = 'reply'; return [{json: out}]; }\n  out.action = 'checkout';\n  out.items = cart;\n  out.order_type = parsed.order_type || 'pickup';\n  return [{json: out}];\n}\n\nif (parsed.action === 'add' || parsed.action === 'remove') {\n  const menu = new Map();\n  for (const line of (typeof context.menu === 'string' ? context.menu.split('\\n') : [])) { const i = line.lastIndexOf('|'); if (i > 0) menu.set(norm(line.slice(0, i)), { name: line.slice(0, i).trim(), price: Number(line.slice(i + 1)) || 0 }); }\n  for (const candidate of (Array.isArray(parsed.items) ? parsed.items : [])) { \n    const item = menu.get(norm(candidate?.name)); \n    const quantity = Math.round(Number(candidate?.quantity)); \n    if (!item || !Number.isInteger(quantity) || quantity < 1 || quantity > 50) { \n      out.reply = !item ? `I'm sorry, I couldn't find \"${candidate?.name}\" on our current menu. Could you please check the menu or clarify?` : 'Please choose a quantity between 1 and 50.'; \n      out.action = 'reply';\n      return [{ json: out }]; \n    } \n    out.items.push({ name: item.name, quantity, price: item.price }); \n  }\n\n  if (!out.items.length) { \n    out.reply = String(parsed.reply || \"I didn't catch any items. What would you like to order?\"); \n    out.action = 'reply';\n    return [{ json: out }]; \n  }\n\n  out.action = parsed.action;\n  out.original_items = out.items;\n  return out.items.map(i => ({ json: { ...out, item: i } }));\n}\n\n// Fallback logic for when AI intent is order, but action is something else (like reply)\nout.action = 'reply';\nout.reply = String(parsed.reply || \"I didn't understand. Can you rephrase?\");\nreturn [{ json: out }];\n"
+      },
+      "id": "46e1d2d4-df30-420d-bfde-7670cc7df0c2",
+      "name": "Validate Menu And Price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "create"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "amend",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "amend"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "confirm"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "add",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "add"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "remove",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "remove"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "checkout",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "checkout"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "no database action"
+        }
+      },
+      "id": "90eedb3b-2176-438a-9455-d674d7d8a878",
+      "name": "Order Action Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -1568,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/orders",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items.map(i=>({name:i.item_name || i.name, quantity:i.quantity, menu_item_id:i.menu_item_id})),\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "id": "2e3f4ad0-17bc-46ac-852b-3a7b6dd06863",
+      "name": "Place Final Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1424,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_amend",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_items: $json.items, p_total: $json.total }) }}",
+        "options": {}
+      },
+      "id": "cfe78b88-7194-48ef-8e06-d1632a1f0798",
+      "name": "Amend Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1408,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst orderData = Place Final Order.first().json.order || {};\nconst validateData = Validate Menu And Price.first().json;\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: Awesome! Your order  has been successfully placed 🎉\\n\\nOur team is preparing it right now!,\n    order_number: orderData.order_number\n  }\n}];\n            "
+      },
+      "id": "e8ef2fa9-03a8-43f2-b95e-105a66256c43",
+      "name": "Confirm Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_cancel",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_reason: 'customer_request' }) }}",
+        "options": {}
+      },
+      "id": "d9e0961e-ee2f-493e-9de0-76ea20583742",
+      "name": "Cancel Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1392,
+        1792
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f6f7303e-9df7-4feb-88d3-4b888aff2079",
+      "name": "Duplicate - Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -2560,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/*\n * PABBAS - BUILD OUTBOUND MESSAGE\n * Updated to properly handle deterministic Welcome and Menu CTAs.\n */\n\nconst input = $input.first()?.json || {};\nconst inbound = $('Extract Inbound Message').first()?.json || {};\nconst route = $('Route Inbound Message').first()?.json || {};\n\nconst phone = String(input.customer_phone || input.phone || inbound.phone || route.customer_phone || '').trim();\nconst customerName = String(input.customer_name || input.name || inbound.customer_name || route.customer_name || '').trim();\nconst channelUserId = String(input.channel_user_id || inbound.channel_user_id || '').trim();\n\nconst ctaUrl = String(input.cta_url || '').trim();\n\nconst action = String(input.action || route.action || 'reply').toLowerCase();\nconst orderNumber = String(input.order_number || route.order_number || '').trim();\nconst result = String(input.result || '').trim();\n\nlet reply = String(input.reply || input.log_text || '').trim();\n\nif (!reply && route.response) {\n  reply = String(route.response.log_text || route.response.reply || '').trim();\n}\n\nif (!phone) {\n  throw new Error('Build Outbound Message: customer phone is missing.');\n}\n\nlet text = reply || 'Pabbas could not process that request.';\nlet interactive = null;\n\nconst firstName = customerName ? customerName.split(/\\s+/)[0] : '';\nconst nameGreeting = firstName ? `Hey ${firstName}!` : `Hey there!`;\n\n// ==================================================\n// ACTION ROUTING\n// ==================================================\n\nif (action === 'create' || action === 'amend') {\n  const items = Array.isArray(input.items_json) && input.items_json.length ? input.items_json : Array.isArray(input.items) ? input.items : [];\n  const lines = items.map((item) => `${String(item?.name || 'Item').trim()} x${Number(item?.quantity || 1)}`).join('\\n');\n  const total = Number(input.total || 0);\n\n  text = `${action === 'create' ? 'Order draft' : 'Order updated'}${orderNumber ? ` ${orderNumber}` : ''}:\\n${lines || 'No items'}\\nTotal: Rs ${total.toFixed(2)}\\n\\nPlease confirm your order.`;\n\n  if (orderNumber) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_confirm:${orderNumber}`, title: 'Confirm order' } },\n          { type: 'reply', reply: { id: `btn_cancel:${orderNumber}`, title: 'Cancel order' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'confirm') {\n  text = `Order ${orderNumber || ''} confirmation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'cancel') {\n  text = `Order ${orderNumber || ''} cancellation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'greet') {\n  text = `${nameGreeting} 👋 Welcome to Pabbas! 🍨\\n\\nHow can I help you today?`;\n}\nelse if (action === 'welcome') {\n  text = `${nameGreeting} 👋 Welcome to Pabbas! 🍨\\n\\nWhat are you craving today? 😋\\n\\nI can help you order directly on WhatsApp, explore our menu, or answer any questions.\\n\\nChoose an option below 👇`;\n  \n  if (ctaUrl) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_order`, title: '🛍️ Order on WhatsApp' } },\n          { type: 'reply', reply: { id: `btn_menu`, title: '🍦 Explore Menu' } }, // Fallback reply button incase URL fails\n          { type: 'reply', reply: { id: `btn_ask`, title: '💬 Ask Me Anything' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'menu_cta') {\n  text = reply || `Sure! 🍦 You can explore the full menu and place an order securely here.`;\n  if (ctaUrl) {\n    interactive = {\n      type: 'cta_url',\n      body: { text },\n      action: {\n        name: 'cta_url',\n        parameters: {\n          display_text: '🍦 Explore Menu',\n          url: ctaUrl\n        }\n      }\n    };\n  }\n}\nelse if (action === 'start_whatsapp_order') {\n  text = `Absolutely! 😋 What would you like to order?`;\n}\nelse if (action === 'start_questions') {\n  text = `Of course! 😊 What would you like to know?`;\n}\nelse if (action === 'reply') {\n  text = `${reply}`;\n}\n\n\n\n// --------------------------------------------------\n// FINAL OUTGOING PAYLOAD\n// --------------------------------------------------\n\nconst outgoing = interactive\n  ? {\n      type: 'interactive',\n      interactive\n    }\n  : {\n      type: 'text',\n      text: {\n        body: text\n      }\n    };\n\n\n// --------------------------------------------------\n// RETURN\n// --------------------------------------------------\n\nreturn [\n  {\n    json: {\n\n      customer_phone: phone,\n\n      customer_name: customerName,\n\n      channel_user_id: channelUserId,\n\n      order_number: orderNumber || null,\n\n      action,\n\n      log_text: text,\n\n      outgoing,\n\n      ycloud_payload: {\n        from: '+919180348124',\n        to: phone,\n        ...outgoing\n      }\n    }\n  }\n];"
+      },
+      "id": "369a8c5a-466b-4843-9458-48c45b27ade5",
+      "name": "Build Outbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        1344
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ycloud.com/v2/whatsapp/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "d5502caecd15e608b38bb515f76d5f35"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ycloud_payload) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "2062f6bb-9077-4892-ba80-420694ff603c",
+      "name": "Send YCloud WhatsApp (Disabled)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -192,
+        1328
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Build Outbound Message').first().json.customer_phone, direction: 'outbound', sender: 'system', message_type: $('Build Outbound Message').first().json.outgoing.type, content: $('Build Outbound Message').first().json.log_text, message_id: $json.id || $json.messageId || '' }) }}",
+        "options": {}
+      },
+      "id": "417ac816-2ee4-4802-850c-84c632ac67bf",
+      "name": "Log Successful Outbound",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        1328
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "639f5929-dc2f-4cfc-abfa-2c833f0b58a3",
+      "name": "YCloud Status Handling TODO (Disabled)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -3216,
+        1808
+      ],
+      "disabled": true,
+      "notes": "TODO: implement only after the verified Pabbas YCloud delivery/read/failed callback payload is supplied."
+    },
+    {
+      "parameters": {
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "channel_user_id",
+              "value": "={{ $json.channel_user_id }}"
+            },
+            {
+              "name": "phone",
+              "value": "={{ $json.customer_phone }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $json.customer_name || 'WhatsApp Customer' }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        },
+        "options": {},
+        "authentication": "none"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -1040,
+        1248
+      ],
+      "id": "7b5f0ab8-5809-45d4-adef-d44ee0eedcab",
+      "name": "Resolve Customer Identity for CTA"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\n\n// Since the HTTP node (Resolve Customer Identity) overwrites input data,\n// we MUST recover the original AI or Route data here before building the message!\nlet originalData = {};\ntry { originalData = { ...originalData, ...$('Build Routed Response').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Cancel Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Validate Menu And Price').first().json }; } catch(e) {}\n\n// If an Order Action Switch HTTP node executed, merge its output too\ntry { originalData = { ...originalData, ...$('Create Draft Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Amend Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cancel Order').first().json }; } catch(e) {}\n\n// Finally merge with whatever the HTTP node itself outputted (e.g. cta_url)\nconst merged = { ...originalData, ...input };\n\nconst phone = String(merged.phone || merged.customer_phone || '').trim();\nconst channelUserId = String(merged.channel_user_id || '').trim();\nconst name = String(merged.name || merged.customer_name || '').trim();\nconst ctaUrl = String(merged.cta_url || '').trim();\n\nconst ctaReady = Boolean(phone) && Boolean(channelUserId) && Boolean(ctaUrl);\n\nreturn [\n  {\n    json: {\n      ...merged,\n      customer_phone: phone,\n      customer_name: name,\n      channel_user_id: channelUserId,\n      cta_url: ctaUrl,\n      cta_ready: ctaReady\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        1232
+      ],
+      "id": "1ef1bdb7-5e34-4225-b311-cf7e0ec559ad",
+      "name": "Validate CTA Customer"
+    },
+    {
+      "parameters": {
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "=phone ",
+              "value": "={{ $('Validate CTA Customer').first().json.customer_phone }}"
+            },
+            {
+              "name": "channel_user_id",
+              "value": "={{ $('Validate CTA Customer').first().json.channel_user_id }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $('Validate CTA Customer').first().json.customer_name || 'WhatsApp Customer' }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        },
+        "options": {},
+        "authentication": "none"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -704,
+        1040
+      ],
+      "id": "400a2a6f-ed76-49ce-ab61-13d8626fafb7",
+      "name": "Resolve Secure Customer Session"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/info",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+        "name": "Pabbas Business Info",
+        "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods.",
+        "authentication": "none"
+      },
+      "id": "3a538756-6617-49aa-85c6-22c0b6a9f63d",
+      "name": "Pabbas Business Info",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        300,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+        "name": "Pabbas Cart",
+        "description": "Use this to add items, remove items, or get the current shopping cart. Provide action (add, remove, get), menu_item_id, and quantity.",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth"
+      },
+      "id": "1cc5849d-bc9f-407c-ac0a-a0013dfc5234",
+      "name": "Pabbas Cart",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        500,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/order_status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+        "name": "Pabbas Order Status",
+        "description": "Use this to check the status of the customer's most recent order.",
+        "authentication": "none"
+      },
+      "id": "576a68aa-1c61-44c3-ab11-26c332cb3f65",
+      "name": "Pabbas Order Status",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        700,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/order_update",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+        "name": "Pabbas Order Update",
+        "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity.",
+        "authentication": "none"
+      },
+      "id": "d330d386-f722-49bb-81ae-19c56b171372",
+      "name": "Pabbas Order Update",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        900,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.audio_link }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Is Audio Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        700,
+        200
+      ],
+      "id": "17e1045f-836e-4593-85cb-e416f2545282"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.audio_link }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "d5502caecd15e608b38bb515f76d5f35"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "audio"
+            }
+          }
+        }
+      },
+      "name": "Download Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        100
+      ],
+      "id": "cbb111df-f343-42c6-8e3b-297b04e0e411"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryPropertyName": "audio"
+      },
+      "name": "Transcribe Audio",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        100
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "qoyVBVk1ojHK9xi0",
+          "name": "OpenAI account"
+        }
+      },
+      "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nitem.content = item.text || '[Voice Note]';\ndelete item.text;\nreturn [{ json: item }];"
+      },
+      "name": "Format Transcription",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        100
+      ],
+      "id": "b24ab83a-0185-4100-b26c-fb4901f8f73c"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/menu",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "options": {},
+        "name": "Pabbas Menu",
+        "description": "Use this to search the menu and get menu_item_id before adding to cart.",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "id": "menu-tool-1234",
+      "name": "Pabbas Menu",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1,
+      "position": [
+        -2152,
+        1836
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+        "authentication": "none",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $('Extract Inbound Message').first().json.phone }}"
+            },
+            {
+              "name": "channel_user_id",
+              "value": "={{ $('Extract Inbound Message').first().json.channel_user_id }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $('Extract Inbound Message').first().json.customer_name || 'Customer' }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "id": "lookup-customer-id",
+      "name": "Lookup Trusted Customer Identity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -3240,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+        "authentication": "none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Extract Inbound Message').first().json.channel_user_id, action: 'get' }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "name": "Fetch Pending Cart",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2440,
+        1260
+      ],
+      "id": "fetch-pending-cart-id"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "name": "Cart Add Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -700,
+        1500
+      ],
+      "id": "cart-add-node"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "name": "Cart Remove Item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -700,
+        1700
+      ],
+      "id": "cart-remove-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've updated your cart! Would you like to add anything else or place the order?\"}}]"
+      },
+      "name": "Build Add Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        1500
+      ],
+      "id": "reply-add"
+    },
+    {
+      "parameters": {
+        "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've removed that from your cart. Ready to order?\"}}]"
+      },
+      "name": "Build Rem Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        1700
+      ],
+      "id": "reply-rem"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Validate Menu And Price').first().json.channel_user_id, action: 'clear' }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-pabbas-ai-secret",
+              "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+            }
+          ]
+        }
+      },
+      "name": "Clear Cart",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1200,
+        1376
+      ],
+      "id": "clear-cart-node"
+    },
+    {
+      "name": "Fetch Menu Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3050,
+        1750
+      ],
+      "id": "fetch-menu-items-node",
+      "parameters": {
+        "method": "GET",
+        "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/menu_items?select=id,item_name,price",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Verified YCloud Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Inbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Inbound Message": {
+      "main": [
+        [
+          {
+            "node": "Lookup Trusted Customer Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look Up Message ID": {
+      "main": [
+        [
+          {
+            "node": "Decide Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Duplicate": {
+      "main": [
+        [
+          {
+            "node": "New Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Message?": {
+      "main": [
+        [
+          {
+            "node": "Save Inbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Duplicate - Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Inbound Message": {
+      "main": [
+        [
+          {
+            "node": "Is Audio Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Chat Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch Menu Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Inbound Message": {
+      "main": [
+        [
+          {
+            "node": "Inbound Route Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inbound Route Switch": {
+      "main": [
+        [
+          {
+            "node": "Staff Handover - Stop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Routed Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Confirm Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Cancel Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Pending Cart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Routed Response": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Identity for CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Confirm Order": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Identity for CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Cancel Order": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Identity for CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Order Request": {
+      "main": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pabbas OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pabbas AI Order Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Menu And Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Menu And Price": {
+      "main": [
+        [
+          {
+            "node": "Order Action Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Action Switch": {
+      "main": [
+        [
+          {
+            "node": "Place Final Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Amend Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Confirm Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancel Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cart Add Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cart Remove Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Place Final Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Outbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amend Order": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Identity for CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Order": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Identity for CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel Order": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Identity for CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Outbound Message": {
+      "main": [
+        [
+          {
+            "node": "Send YCloud WhatsApp (Disabled)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send YCloud WhatsApp (Disabled)": {
+      "main": [
+        [
+          {
+            "node": "Log Successful Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Customer Identity for CTA": {
+      "main": [
+        [
+          {
+            "node": "Validate CTA Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate CTA Customer": {
+      "main": [
+        [
+          {
+            "node": "Build Outbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Secure Customer Session": {
+      "main": [
+        []
+      ]
+    },
+    "Pabbas Business Info": {
+      "tool": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pabbas Cart": {
+      "tool": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pabbas Order Status": {
+      "tool": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pabbas Order Update": {
+      "tool": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Audio Message?": {
+      "main": [
+        [
+          {
+            "node": "Download Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retrieve Chat Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Audio": {
+      "main": [
+        [
+          {
+            "node": "Format Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Transcription": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Chat Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pabbas Menu": {
+      "ai_tool": [
+        [
+          {
+            "node": "Pabbas AI Order Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Trusted Customer Identity": {
+      "main": [
+        [
+          {
+            "node": "Look Up Message ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Pending Cart": {
+      "main": [
+        [
+          {
+            "node": "Build AI Order Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Place Final Order": {
+      "main": [
+        [
+          {
+            "node": "Clear Cart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cart Add Item": {
+      "main": [
+        [
+          {
+            "node": "Build Add Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cart Remove Item": {
+      "main": [
+        [
+          {
+            "node": "Build Rem Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Add Reply": {
+      "main": [
+        [
+          {
+            "node": "Build Outbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Rem Reply": {
+      "main": [
+        [
+          {
+            "node": "Build Outbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Cart": {
+      "main": [
+        [
+          {
+            "node": "Confirm Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Menu Items": {
+      "main": [
+        [
+          {
+            "node": "Route Inbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "BfhcbxFiXa4Vga51",
+      "projectId": "nA9h8O54aEZhDQ9B",
+      "project": {
+        "id": "nA9h8O54aEZhDQ9B",
+        "name": "Maithri Maithri <smaithri039@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
+        "createdAt": "2026-09-09T06:43:52.178Z",
+        "updatedAt": "2026-09-09T06:45:10.777Z"
+      },
+      "createdAt": "2026-09-23T04:03:01.712Z",
+      "updatedAt": "2026-09-23T04:03:01.712Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "82f4389e-4f18-489d-b7a9-20cfb08e5036",
+    "workflowId": "BfhcbxFiXa4Vga51",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "pabbas-whatsapp-inbound",
+          "authentication": "headerAuth",
+          "options": {}
+        },
+        "id": "68820459-66da-470b-a9b7-ca0e9b96345a",
+        "name": "Verified YCloud Inbound Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -3648,
+          1536
+        ],
+        "webhookId": "pabbas-whatsapp-inbound",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Xcg9YUaVyqTFWiDm",
+            "name": "x-pabbas-whatsapp-secret"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const event = $input.first().json.body || $input.first().json;\nconst data = event.data || {};\nconst message =\n  data.message ||\n  data.whatsappInboundMessage ||\n  event.message ||\n  event.whatsappInboundMessage ||\n  {};\n\nconst profile = data.customerProfile || data.profile || {};\n\nconst type = String(message.type || 'text');\n\nlet content =\n  message.text?.body ||\n  message.body ||\n  '';\n\nif (type === 'interactive') {\n  content =\n    message.interactive?.button_reply?.id ||\n    message.interactive?.list_reply?.id ||\n    '';\n}\n\nif (type === 'button') {\n  content = message.button?.text || '';\n}\n\nif (type === 'image') {\n  content = message.image?.caption || '[image]';\n}\n\nif (type === 'audio' || type === 'voice') {\n  content = '[voice note]';\n}\n\nreturn [{\n  json: {\n    event_type: event.type || '',\n    message_id: String(\n      message.id ||\n      data.messageId ||\n      event.messageId ||\n      event.id ||\n      ''\n    ),\n\n    phone: String(\n      message.from ||\n      message.sender?.phone ||\n      data.from ||\n      event.from ||\n      ''\n    ),\n\n    // IMPORTANT:\n    // Use YCloud's real BSUID when available.\n    // Never fall back to phone number.\n    channel_user_id: message.fromUserId\n      ? String(message.fromUserId)\n      : null,\n\n    customer_name: String(\n      profile.name ||\n      message.customerProfile?.name ||\n      ''\n    ),\n\n    message_type: type,\n    content: String(content),\n    direction: 'inbound',\n    sender: 'customer',\n    ai_intent: '',\n    audio_link: message.audio?.link || message.voice?.link || null\n  }\n}];"
+        },
+        "id": "be289c60-8de6-4816-a7ab-8dbde9f55812",
+        "name": "Extract Inbound Message",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3440,
+          1536
+        ]
+      },
+      {
+        "parameters": {
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "message_id",
+                "value": "=eq.{{ $('Extract Inbound Message').first().json.message_id }}"
+              },
+              {
+                "name": "select",
+                "value": "id"
+              },
+              {
+                "name": "limit",
+                "value": "1"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "31bfeda1-1331-49fb-b854-dc4b3f7d34dd",
+        "name": "Look Up Message ID",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3216,
+          1536
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const rows = $input.all().flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]);\nreturn [{ json: { duplicate: rows.some((item) => item?.id), ...$('Extract Inbound Message').first().json } }];"
+        },
+        "id": "a20f01b7-3477-4121-a154-c3f01febc45d",
+        "name": "Decide Duplicate",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2992,
+          1536
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{ $json.duplicate }}",
+                "operation": "false"
+              }
+            ],
+            "combinator": "and",
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            }
+          },
+          "options": {}
+        },
+        "id": "a2b0af3f-b135-4664-92a1-7a3ab18507e6",
+        "name": "New Message?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -2768,
+          1536
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ phone: $json.phone, direction: 'inbound', content: $json.content, sender: 'customer', message_type: $json.message_type, message_id: $json.message_id, ai_intent: '' }) }}",
+          "options": {}
+        },
+        "id": "6f3bb5a3-79a3-4bfe-9ea0-90c319b96be2",
+        "name": "Save Inbound Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2560,
+          1456
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/chat_context",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_phone: $('Extract Inbound Message').first().json.phone, p_order: null }) }}",
+          "options": {}
+        },
+        "id": "0ccb226e-0d18-4255-9afa-965a79370e33",
+        "name": "Retrieve Chat Context",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2336,
+          1456
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const input = $('Extract Inbound Message').first().json;\nconst context = $('Retrieve Chat Context').first().json || {};\nconst cart = $('Fetch Pending Cart').first().json || { empty: true, items: [] };\ncontext.pending_cart = cart;\nreturn [{ json: { customer_phone: input.phone, customer_name: input.customer_name, channel_user_id: input.channel_user_id, message: input.content, context } }];"
+        },
+        "id": "4a7ad02b-8067-4ed8-a469-182753fb9585",
+        "name": "Build AI Order Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2112,
+          1456
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const input = $('Extract Inbound Message').first().json;\nconst context = $('Retrieve Chat Context').first().json || {};\n\nconst text = String(input.content || '').trim();\nconst textLower = text.toLowerCase();\nconst match = text.match(/^btn_(confirm|cancel):([A-Z0-9-]+)$/i);\n\nlet route = 'ai';\nlet response = null;\nlet action = 'reply';\n\n// Check if new conversation\nlet isNew = !context.history || context.history.length <= 1;\n\nif (context.history && context.history.length > 1) {\n  // history is ordered by created_at ascending (oldest first, newest last)\n  // The very last message is the current one we just saved.\n  // The second-to-last message is their previous interaction.\n  const currentMsg = context.history[context.history.length - 1];\n  const previousMsg = context.history[context.history.length - 2];\n  \n  if (currentMsg.created_at && previousMsg.created_at) {\n    const currentTime = new Date(currentMsg.created_at).getTime();\n    const previousTime = new Date(previousMsg.created_at).getTime();\n    \n    const hoursSinceLast = (currentTime - previousTime) / (1000 * 60 * 60);\n    const greetings = ['hi', 'hello', 'hey', 'start', 'menu'];\n    \n    // If it's been more than 2 hours AND they started with a greeting, treat as NEW!\n    if (hoursSinceLast > 2 && greetings.includes(textLower)) {\n      isNew = true;\n    }\n  }\n}\n\n// Menu Intent detection (robust)\nconst menuKeywords = ['menu', 'show menu', 'show me the menu', 'send menu', 'send me the menu', 'what do you have', \"what's on the menu\", 'explore menu', 'order now'];\nconst isMenuIntent = menuKeywords.some(kw => textLower === kw || textLower.includes(kw)) || textLower === 'btn_menu';\n\n// 1. Staff takeover\nif (context.session && context.session.ai_enabled === false) {\n  route = 'staff';\n}\n// 2. Restaurant closed\nelse if (context.is_open === false) {\n  route = 'response';\n  const message = 'Pabbas is currently closed. Please try again during our opening hours.';\n  response = {\n    customer_phone: input.phone,\n    log_text: message,\n    outgoing: { type: 'text', text: { body: message } }\n  };\n}\n// 3. Order confirmation/cancellation buttons\nelse if (match) {\n  route = match[1].toLowerCase();\n}\n// 4. NEW CONVERSATION\nelse if (isNew) {\n  route = 'response'; // Bypass AI\n  action = 'welcome';\n}\n// 5. EXPLICIT MENU REQUEST IN EXISTING CONVO\nelse if (isMenuIntent) {\n  route = 'response'; // Bypass AI\n  action = 'menu_cta';\n}\n// 6. BUTTON CLICKS (Order on WhatsApp, Ask Me Anything)\nelse if (textLower === 'btn_order' || textLower === '🛍️ order on whatsapp' || textLower === 'order on whatsapp') {\n  route = 'response';\n  action = 'start_whatsapp_order';\n}\nelse if (textLower === 'btn_ask' || textLower === '💬 ask me anything' || textLower === 'ask me anything') {\n  route = 'response';\n  action = 'start_questions';\n}\n// 7. EVERYTHING ELSE GOES TO AI\nelse {\n  route = 'ai';\n}\n\nreturn [{\n  json: {\n    route,\n    action,\n    order_number: match ? match[2].toUpperCase() : null,\n    customer_phone: input.phone,\n    customer_name: input.customer_name,\n    channel_user_id: input.channel_user_id || null,\n    response\n  }\n}];\n"
+        },
+        "id": "b7e9489f-0232-43ab-ae73-ed8daf21dd68",
+        "name": "Route Inbound Message",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2224,
+          1184
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "staff",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "staff"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "response",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "response"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "confirm",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "confirm"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "cancel",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "cancel"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "ai"
+          }
+        },
+        "id": "828c6462-07f5-4d3b-8a91-23c9325adcf8",
+        "name": "Inbound Route Switch",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3,
+        "position": [
+          -1952,
+          1136
+        ]
+      },
+      {
+        "parameters": {},
+        "id": "aa058578-860c-4e48-9652-0887d0ae15c2",
+        "name": "Staff Handover - Stop",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          -1760,
+          880
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const d = $input.first().json;\nconst inbound = $('Extract Inbound Message').first().json;\nconst response = d.response || {};\n\nreturn [{\n  json: {\n    ...response,\n\n    customer_phone:\n      response.customer_phone ||\n      d.customer_phone ||\n      inbound.phone ||\n      '',\n\n    customer_name:\n      response.customer_name ||\n      d.customer_name ||\n      inbound.customer_name ||\n      '',\n\n    channel_user_id:\n      inbound.channel_user_id || null,\n\n    log_text:\n      response.log_text || '',\n\n    outgoing:\n      response.outgoing || {\n        type: 'text',\n        text: { body: '' }\n      }\n  }\n}];"
+        },
+        "id": "22559139-ed3d-4107-b65e-e6a8b8bac8a2",
+        "name": "Build Routed Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1696,
+          1024
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_confirm",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number }) }}",
+          "options": {}
+        },
+        "id": "60446a8e-4b69-4369-a7d1-4f7b02c80900",
+        "name": "Route Confirm Order",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1696,
+          1168
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_cancel",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_reason: 'customer_request' }) }}",
+          "options": {}
+        },
+        "id": "a6076c8b-8162-4932-9ba0-833485e6c1a0",
+        "name": "Route Cancel Order",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1696,
+          1312
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ JSON.stringify($json) }}",
+          "options": {
+            "systemMessage": "You are the WhatsApp ordering assistant for Pabbas.\n\nYour job is to help customers, answer questions, manage orders, and guide them to the secure Pabbas ordering website when useful.\n\nIMPORTANT ARCHITECTURE:\n- The AI is NOT the database. Use your tools!\n- NEVER invent prices, menu items, business information, or order status.\n- NEVER modify another customer's order.\n- NEVER bypass backend validation.\n- NEVER dump the entire menu into plain text.\n- NEVER act like a generic chatbot. Pabbas is a premium brand.\n\nRULES:\n\n1. EXISTING CONVERSATIONS & GREETINGS\nIf the user just says \"Hi\" or \"Hello\" in an ongoing conversation, give a very short, casual, and friendly response (e.g., \"Hey Maithri! Need help with anything else?\"). \nDO NOT output a full generic welcome like \"Welcome back to Pabbas. How can I assist you today?\". Be conversational and brief.\n\n2. BUSINESS QUESTIONS\nUse the Pabbas Business Info tool.\nExamples: What's your address? Where are you located? What time do you open? How long does delivery take?\n\n3. MENU QUESTIONS\nIf they ask for the menu, output intent \"menu\" so the system can attach the secure CTA link. Do not list the whole menu in plain text.\nExamples: Show me the menu. What do you have? Send me the menu.\n\n4. ORDERING\nWhen a customer wants to order items or add to cart, do NOT call tools.\nInstead, output action: \"add\" or \"remove\" with the items.\nThe system will automatically validate items against the menu and look up prices.\nExamples: \"2 golden gadbad\" = items: [{name: \"Golden Gadbad\", quantity: 2}]\n\"Add one chocolate and 3 lime juice\" = items: [{name: \"Dubai Chocolate\", quantity: 1}, {name: \"Fresh Lime Soda\", quantity: 3}]\nFor cart inquiries, check \"pending_cart\" in context and output reply. For checking out (\"place order\"), output action: \"checkout\".\n\n5. ORDER STATUS\nUse the Pabbas Order Status tool.\nExamples: Where is my order? What's my order status? Is my order ready?\n\n6. ORDER MODIFICATION\nUse the Pabbas Order Update tool ONLY after checking the order status.\nIf the backend returns ORDER_LOCKED, do not retry or bypass it. Politely tell the customer the order has already started preparation and cannot be changed.\n\nOUTPUT FORMAT\nReturn ONLY valid JSON:\n{\n  \"intent\": \"order|info|status|menu|other\",\n  \"action\": \"add|remove|checkout|null\",\n  \"reply\": \"short natural WhatsApp response\",\n  \"items\": [],\n  \"order_type\": null\n}\n\n        \n7. PENDING CART\nThe customer's current cart is in `context.pending_cart`.\nIf they add items, output: {\"intent\": \"order\", \"action\": \"add\", \"items\": [{\"name\": \"...\", \"quantity\": 1}]}\nIf they remove items, output: {\"intent\": \"order\", \"action\": \"remove\", \"items\": [{\"name\": \"...\", \"quantity\": 1}]}\nIf they confirm/checkout, output: {\"intent\": \"order\", \"action\": \"checkout\"}\nIf they ask what's in their cart, look at context.pending_cart and output a normal reply.\nDO NOT call the Pabbas Cart tool."
+          }
+        },
+        "id": "e932eef4-a668-4e07-935a-a068b03d9d94",
+        "name": "Pabbas AI Order Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.7,
+        "position": [
+          -1952,
+          1536
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-4o-mini",
+            "mode": "list"
+          },
+          "options": {
+            "temperature": 0.3
+          }
+        },
+        "id": "f78e44a7-f4b6-4bdf-ac74-5dc84a8526ff",
+        "name": "Pabbas OpenAI Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2,
+        "position": [
+          -1920,
+          1792
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "qoyVBVk1ojHK9xi0",
+            "name": "OpenAI account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const source = $('Build AI Order Request').first().json;\nconst context = source.context || {};\nconst raw = String($input.first().json.output || '').replace(/```json/gi, '').replace(/```/g, '').trim();\nconst norm = (v) => String(v || '').toLowerCase().replace(/\\s+/g, ' ').trim();\nconst out = { customer_phone: source.customer_phone, customer_name: source.customer_name, channel_user_id: source.channel_user_id, action: 'reply', reply: 'Tell me what you would like to order.', order_type: 'pickup', items: [], total: 0, order_number: null, original_items: [] };\nlet parsed = null;\ntry { const a = raw.indexOf('{'); const b = raw.lastIndexOf('}'); if (a >= 0 && b > a) parsed = JSON.parse(raw.slice(a, b + 1)); } catch {}\n\nif (!parsed || parsed.intent !== 'order') { \n  out.action = parsed?.intent === 'menu' ? 'menu_cta' : 'reply'; \n  out.reply = String(parsed?.reply || \"I didn't quite catch that. Could you please clarify what you'd like to order or ask?\"); \n  return [{ json: out }]; \n}\n\nif (parsed.action === 'checkout') {\n  const cart = context.pending_cart?.items || [];\n  if (!cart.length) { out.reply = 'Your cart is empty!'; out.action = 'reply'; return [{json: out}]; }\n  out.action = 'checkout';\n  out.items = cart;\n  out.order_type = parsed.order_type || 'pickup';\n  return [{json: out}];\n}\n\nif (parsed.action === 'add' || parsed.action === 'remove') {\n  const menu = new Map();\n  for (const line of (typeof context.menu === 'string' ? context.menu.split('\\n') : [])) { const i = line.lastIndexOf('|'); if (i > 0) menu.set(norm(line.slice(0, i)), { name: line.slice(0, i).trim(), price: Number(line.slice(i + 1)) || 0 }); }\n  for (const candidate of (Array.isArray(parsed.items) ? parsed.items : [])) { \n    const item = menu.get(norm(candidate?.name)); \n    const quantity = Math.round(Number(candidate?.quantity)); \n    if (!item || !Number.isInteger(quantity) || quantity < 1 || quantity > 50) { \n      out.reply = !item ? `I'm sorry, I couldn't find \"${candidate?.name}\" on our current menu. Could you please check the menu or clarify?` : 'Please choose a quantity between 1 and 50.'; \n      out.action = 'reply';\n      return [{ json: out }]; \n    } \n    out.items.push({ name: item.name, quantity, price: item.price }); \n  }\n\n  if (!out.items.length) { \n    out.reply = String(parsed.reply || \"I didn't catch any items. What would you like to order?\"); \n    out.action = 'reply';\n    return [{ json: out }]; \n  }\n\n  out.action = parsed.action;\n  out.original_items = out.items;\n  return out.items.map(i => ({ json: { ...out, item: i } }));\n}\n\n// Fallback logic for when AI intent is order, but action is something else (like reply)\nout.action = 'reply';\nout.reply = String(parsed.reply || \"I didn't understand. Can you rephrase?\");\nreturn [{ json: out }];\n"
+        },
+        "id": "46e1d2d4-df30-420d-bfde-7670cc7df0c2",
+        "name": "Validate Menu And Price",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1696,
+          1536
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "create",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "create"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "amend",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "amend"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "confirm",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "confirm"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "cancel",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and",
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  }
+                },
+                "renameOutput": true,
+                "outputKey": "cancel"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "add",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "add"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "remove",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "remove"
+              },
+              {
+                "conditions": {
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "checkout",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "checkout"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "no database action"
+          }
+        },
+        "id": "90eedb3b-2176-438a-9455-d674d7d8a878",
+        "name": "Order Action Switch",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3,
+        "position": [
+          -1568,
+          1472
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/orders",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  customer_id: $('Lookup Trusted Customer Identity').first().json.customer_id,\n  customer_phone: $('Extract Inbound Message').first().json.phone,\n  customer_name: $('Extract Inbound Message').first().json.customer_name || 'Customer',\n  cart_items: $json.items.map(i=>({name:i.item_name || i.name, quantity:i.quantity, menu_item_id:i.menu_item_id})),\n  order_type: $json.order_type || 'pickup',\n  source: 'whatsapp'\n}) }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "id": "2e3f4ad0-17bc-46ac-852b-3a7b6dd06863",
+        "name": "Place Final Order",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1424,
+          1376
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_amend",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_items: $json.items, p_total: $json.total }) }}",
+          "options": {}
+        },
+        "id": "cfe78b88-7194-48ef-8e06-d1632a1f0798",
+        "name": "Amend Order",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1408,
+          1504
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "\nconst orderData = Place Final Order.first().json.order || {};\nconst validateData = Validate Menu And Price.first().json;\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: Awesome! Your order  has been successfully placed 🎉\\n\\nOur team is preparing it right now!,\n    order_number: orderData.order_number\n  }\n}];\n            "
+        },
+        "id": "e8ef2fa9-03a8-43f2-b95e-105a66256c43",
+        "name": "Confirm Order",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1408,
+          1648
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/customer_cancel",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_phone: $json.customer_phone, p_order: $json.order_number, p_reason: 'customer_request' }) }}",
+          "options": {}
+        },
+        "id": "d9e0961e-ee2f-493e-9de0-76ea20583742",
+        "name": "Cancel Order",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1392,
+          1792
+        ]
+      },
+      {
+        "parameters": {},
+        "id": "f6f7303e-9df7-4feb-88d3-4b888aff2079",
+        "name": "Duplicate - Stop",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          -2560,
+          1664
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "/*\n * PABBAS - BUILD OUTBOUND MESSAGE\n * Updated to properly handle deterministic Welcome and Menu CTAs.\n */\n\nconst input = $input.first()?.json || {};\nconst inbound = $('Extract Inbound Message').first()?.json || {};\nconst route = $('Route Inbound Message').first()?.json || {};\n\nconst phone = String(input.customer_phone || input.phone || inbound.phone || route.customer_phone || '').trim();\nconst customerName = String(input.customer_name || input.name || inbound.customer_name || route.customer_name || '').trim();\nconst channelUserId = String(input.channel_user_id || inbound.channel_user_id || '').trim();\n\nconst ctaUrl = String(input.cta_url || '').trim();\n\nconst action = String(input.action || route.action || 'reply').toLowerCase();\nconst orderNumber = String(input.order_number || route.order_number || '').trim();\nconst result = String(input.result || '').trim();\n\nlet reply = String(input.reply || input.log_text || '').trim();\n\nif (!reply && route.response) {\n  reply = String(route.response.log_text || route.response.reply || '').trim();\n}\n\nif (!phone) {\n  throw new Error('Build Outbound Message: customer phone is missing.');\n}\n\nlet text = reply || 'Pabbas could not process that request.';\nlet interactive = null;\n\nconst firstName = customerName ? customerName.split(/\\s+/)[0] : '';\nconst nameGreeting = firstName ? `Hey ${firstName}!` : `Hey there!`;\n\n// ==================================================\n// ACTION ROUTING\n// ==================================================\n\nif (action === 'create' || action === 'amend') {\n  const items = Array.isArray(input.items_json) && input.items_json.length ? input.items_json : Array.isArray(input.items) ? input.items : [];\n  const lines = items.map((item) => `${String(item?.name || 'Item').trim()} x${Number(item?.quantity || 1)}`).join('\\n');\n  const total = Number(input.total || 0);\n\n  text = `${action === 'create' ? 'Order draft' : 'Order updated'}${orderNumber ? ` ${orderNumber}` : ''}:\\n${lines || 'No items'}\\nTotal: Rs ${total.toFixed(2)}\\n\\nPlease confirm your order.`;\n\n  if (orderNumber) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_confirm:${orderNumber}`, title: 'Confirm order' } },\n          { type: 'reply', reply: { id: `btn_cancel:${orderNumber}`, title: 'Cancel order' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'confirm') {\n  text = `Order ${orderNumber || ''} confirmation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'cancel') {\n  text = `Order ${orderNumber || ''} cancellation result: ${result || 'processed'}.`.trim();\n}\nelse if (action === 'greet') {\n  text = `${nameGreeting} 👋 Welcome to Pabbas! 🍨\\n\\nHow can I help you today?`;\n}\nelse if (action === 'welcome') {\n  text = `${nameGreeting} 👋 Welcome to Pabbas! 🍨\\n\\nWhat are you craving today? 😋\\n\\nI can help you order directly on WhatsApp, explore our menu, or answer any questions.\\n\\nChoose an option below 👇`;\n  \n  if (ctaUrl) {\n    interactive = {\n      type: 'button',\n      body: { text },\n      action: {\n        buttons: [\n          { type: 'reply', reply: { id: `btn_order`, title: '🛍️ Order on WhatsApp' } },\n          { type: 'reply', reply: { id: `btn_menu`, title: '🍦 Explore Menu' } }, // Fallback reply button incase URL fails\n          { type: 'reply', reply: { id: `btn_ask`, title: '💬 Ask Me Anything' } }\n        ]\n      }\n    };\n  }\n}\nelse if (action === 'menu_cta') {\n  text = reply || `Sure! 🍦 You can explore the full menu and place an order securely here.`;\n  if (ctaUrl) {\n    interactive = {\n      type: 'cta_url',\n      body: { text },\n      action: {\n        name: 'cta_url',\n        parameters: {\n          display_text: '🍦 Explore Menu',\n          url: ctaUrl\n        }\n      }\n    };\n  }\n}\nelse if (action === 'start_whatsapp_order') {\n  text = `Absolutely! 😋 What would you like to order?`;\n}\nelse if (action === 'start_questions') {\n  text = `Of course! 😊 What would you like to know?`;\n}\nelse if (action === 'reply') {\n  text = `${reply}`;\n}\n\n\n\n// --------------------------------------------------\n// FINAL OUTGOING PAYLOAD\n// --------------------------------------------------\n\nconst outgoing = interactive\n  ? {\n      type: 'interactive',\n      interactive\n    }\n  : {\n      type: 'text',\n      text: {\n        body: text\n      }\n    };\n\n\n// --------------------------------------------------\n// RETURN\n// --------------------------------------------------\n\nreturn [\n  {\n    json: {\n\n      customer_phone: phone,\n\n      customer_name: customerName,\n\n      channel_user_id: channelUserId,\n\n      order_number: orderNumber || null,\n\n      action,\n\n      log_text: text,\n\n      outgoing,\n\n      ycloud_payload: {\n        from: '+919180348124',\n        to: phone,\n        ...outgoing\n      }\n    }\n  }\n];"
+        },
+        "id": "369a8c5a-466b-4843-9458-48c45b27ade5",
+        "name": "Build Outbound Message",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -416,
+          1344
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.ycloud.com/v2/whatsapp/messages",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-API-Key",
+                "value": "d5502caecd15e608b38bb515f76d5f35"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.ycloud_payload) }}",
+          "options": {
+            "timeout": 15000
+          }
+        },
+        "id": "2062f6bb-9077-4892-ba80-420694ff603c",
+        "name": "Send YCloud WhatsApp (Disabled)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -192,
+          1328
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ phone: $('Build Outbound Message').first().json.customer_phone, direction: 'outbound', sender: 'system', message_type: $('Build Outbound Message').first().json.outgoing.type, content: $('Build Outbound Message').first().json.log_text, message_id: $json.id || $json.messageId || '' }) }}",
+          "options": {}
+        },
+        "id": "417ac816-2ee4-4802-850c-84c632ac67bf",
+        "name": "Log Successful Outbound",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          0,
+          1328
+        ]
+      },
+      {
+        "parameters": {},
+        "id": "639f5929-dc2f-4cfc-abfa-2c833f0b58a3",
+        "name": "YCloud Status Handling TODO (Disabled)",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          -3216,
+          1808
+        ],
+        "disabled": true,
+        "notes": "TODO: implement only after the verified Pabbas YCloud delivery/read/failed callback payload is supplied."
+      },
+      {
+        "parameters": {
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "channel_user_id",
+                "value": "={{ $json.channel_user_id }}"
+              },
+              {
+                "name": "phone",
+                "value": "={{ $json.customer_phone }}"
+              },
+              {
+                "name": "name",
+                "value": "={{ $json.customer_name || 'WhatsApp Customer' }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          },
+          "options": {},
+          "authentication": "none"
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -1040,
+          1248
+        ],
+        "id": "7b5f0ab8-5809-45d4-adef-d44ee0eedcab",
+        "name": "Resolve Customer Identity for CTA"
+      },
+      {
+        "parameters": {
+          "jsCode": "const input = $input.first().json || {};\n\n// Since the HTTP node (Resolve Customer Identity) overwrites input data,\n// we MUST recover the original AI or Route data here before building the message!\nlet originalData = {};\ntry { originalData = { ...originalData, ...$('Build Routed Response').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Cancel Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Validate Menu And Price').first().json }; } catch(e) {}\n\n// If an Order Action Switch HTTP node executed, merge its output too\ntry { originalData = { ...originalData, ...$('Create Draft Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Amend Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cancel Order').first().json }; } catch(e) {}\n\n// Finally merge with whatever the HTTP node itself outputted (e.g. cta_url)\nconst merged = { ...originalData, ...input };\n\nconst phone = String(merged.phone || merged.customer_phone || '').trim();\nconst channelUserId = String(merged.channel_user_id || '').trim();\nconst name = String(merged.name || merged.customer_name || '').trim();\nconst ctaUrl = String(merged.cta_url || '').trim();\n\nconst ctaReady = Boolean(phone) && Boolean(channelUserId) && Boolean(ctaUrl);\n\nreturn [\n  {\n    json: {\n      ...merged,\n      customer_phone: phone,\n      customer_name: name,\n      channel_user_id: channelUserId,\n      cta_url: ctaUrl,\n      cta_ready: ctaReady\n    }\n  }\n];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -848,
+          1232
+        ],
+        "id": "1ef1bdb7-5e34-4225-b311-cf7e0ec559ad",
+        "name": "Validate CTA Customer"
+      },
+      {
+        "parameters": {
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "=phone ",
+                "value": "={{ $('Validate CTA Customer').first().json.customer_phone }}"
+              },
+              {
+                "name": "channel_user_id",
+                "value": "={{ $('Validate CTA Customer').first().json.channel_user_id }}"
+              },
+              {
+                "name": "name",
+                "value": "={{ $('Validate CTA Customer').first().json.customer_name || 'WhatsApp Customer' }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          },
+          "options": {},
+          "authentication": "none"
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -704,
+          1040
+        ],
+        "id": "400a2a6f-ed76-49ce-ab61-13d8626fafb7",
+        "name": "Resolve Secure Customer Session"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/info",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+          "name": "Pabbas Business Info",
+          "description": "Use this to answer questions about the restaurant address, delivery areas, delivery time, charges, opening hours, or payment methods.",
+          "authentication": "none"
+        },
+        "id": "3a538756-6617-49aa-85c6-22c0b6a9f63d",
+        "name": "Pabbas Business Info",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1,
+        "position": [
+          300,
+          1200
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+          "name": "Pabbas Cart",
+          "description": "Use this to add items, remove items, or get the current shopping cart. Provide action (add, remove, get), menu_item_id, and quantity.",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth"
+        },
+        "id": "1cc5849d-bc9f-407c-ac0a-a0013dfc5234",
+        "name": "Pabbas Cart",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1,
+        "position": [
+          500,
+          1200
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/order_status",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+          "name": "Pabbas Order Status",
+          "description": "Use this to check the status of the customer's most recent order.",
+          "authentication": "none"
+        },
+        "id": "576a68aa-1c61-44c3-ab11-26c332cb3f65",
+        "name": "Pabbas Order Status",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1,
+        "position": [
+          700,
+          1200
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/order_update",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\\n  \"customer_id\": \"{{ $('Extract Inbound Message').first().json.customer_id }}\",\\n  \"channel_user_id\": \"{{ $('Extract Inbound Message').first().json.channel_user_id }}\",\\n  ...$input.all()[0].json\\n}",
+          "name": "Pabbas Order Update",
+          "description": "Use this to add or remove items from an active, unlocked order. Requires order_id, action, menu_item_id, quantity.",
+          "authentication": "none"
+        },
+        "id": "d330d386-f722-49bb-81ae-19c56b171372",
+        "name": "Pabbas Order Update",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1,
+        "position": [
+          900,
+          1200
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{ !!$json.audio_link }}",
+                "value2": true
+              }
+            ]
+          }
+        },
+        "name": "Is Audio Message?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          700,
+          200
+        ],
+        "id": "17e1045f-836e-4593-85cb-e416f2545282"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $json.audio_link }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "d5502caecd15e608b38bb515f76d5f35"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "audio"
+              }
+            }
+          }
+        },
+        "name": "Download Audio",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          900,
+          100
+        ],
+        "id": "cbb111df-f343-42c6-8e3b-297b04e0e411"
+      },
+      {
+        "parameters": {
+          "resource": "audio",
+          "operation": "transcribe",
+          "binaryPropertyName": "audio"
+        },
+        "name": "Transcribe Audio",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 1,
+        "position": [
+          1100,
+          100
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "qoyVBVk1ojHK9xi0",
+            "name": "OpenAI account"
+          }
+        },
+        "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313"
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nitem.content = item.text || '[Voice Note]';\ndelete item.text;\nreturn [{ json: item }];"
+        },
+        "name": "Format Transcription",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1300,
+          100
+        ],
+        "id": "b24ab83a-0185-4100-b26c-fb4901f8f73c"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/menu",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "options": {},
+          "name": "Pabbas Menu",
+          "description": "Use this to search the menu and get menu_item_id before adding to cart.",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "id": "menu-tool-1234",
+        "name": "Pabbas Menu",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1,
+        "position": [
+          -2152,
+          1836
+        ]
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/customer/lookup",
+          "authentication": "none",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "phone",
+                "value": "={{ $('Extract Inbound Message').first().json.phone }}"
+              },
+              {
+                "name": "channel_user_id",
+                "value": "={{ $('Extract Inbound Message').first().json.channel_user_id }}"
+              },
+              {
+                "name": "name",
+                "value": "={{ $('Extract Inbound Message').first().json.customer_name || 'Customer' }}"
+              }
+            ]
+          },
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "id": "lookup-customer-id",
+        "name": "Lookup Trusted Customer Identity",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -3240,
+          1536
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+          "authentication": "none",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Extract Inbound Message').first().json.channel_user_id, action: 'get' }) }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "name": "Fetch Pending Cart",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2440,
+          1260
+        ],
+        "id": "fetch-pending-cart-id"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'add', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "name": "Cart Add Item",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -700,
+          1500
+        ],
+        "id": "cart-add-node"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $json.channel_user_id, action: 'remove', menu_item_id: $json.item.menu_item_id, quantity: $json.item.quantity }) }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "name": "Cart Remove Item",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -700,
+          1700
+        ],
+        "id": "cart-remove-node"
+      },
+      {
+        "parameters": {
+          "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've updated your cart! Would you like to add anything else or place the order?\"}}]"
+        },
+        "name": "Build Add Reply",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -300,
+          1500
+        ],
+        "id": "reply-add"
+      },
+      {
+        "parameters": {
+          "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've removed that from your cart. Ready to order?\"}}]"
+        },
+        "name": "Build Rem Reply",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -300,
+          1700
+        ],
+        "id": "reply-rem"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://pabbas-one.vercel.app/api/ai/tools/cart",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ channel_user_id: $('Validate Menu And Price').first().json.channel_user_id, action: 'clear' }) }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-pabbas-ai-secret",
+                "value": "OST5qgjSrWK4NU8h_ZwnwNhAvCqBHUBOorEIWwAj0ag"
+              }
+            ]
+          }
+        },
+        "name": "Clear Cart",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1200,
+          1376
+        ],
+        "id": "clear-cart-node"
+      },
+      {
+        "name": "Fetch Menu Items",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3050,
+          1750
+        ],
+        "id": "fetch-menu-items-node",
+        "parameters": {
+          "method": "GET",
+          "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/menu_items?select=id,item_name,price",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Verified YCloud Inbound Webhook": {
+        "main": [
+          [
+            {
+              "node": "Extract Inbound Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Inbound Message": {
+        "main": [
+          [
+            {
+              "node": "Lookup Trusted Customer Identity",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Look Up Message ID": {
+        "main": [
+          [
+            {
+              "node": "Decide Duplicate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Decide Duplicate": {
+        "main": [
+          [
+            {
+              "node": "New Message?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "New Message?": {
+        "main": [
+          [
+            {
+              "node": "Save Inbound Message",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Duplicate - Stop",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Inbound Message": {
+        "main": [
+          [
+            {
+              "node": "Is Audio Message?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Retrieve Chat Context": {
+        "main": [
+          [
+            {
+              "node": "Fetch Menu Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Inbound Message": {
+        "main": [
+          [
+            {
+              "node": "Inbound Route Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Inbound Route Switch": {
+        "main": [
+          [
+            {
+              "node": "Staff Handover - Stop",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Routed Response",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Route Confirm Order",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Route Cancel Order",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Fetch Pending Cart",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Routed Response": {
+        "main": [
+          [
+            {
+              "node": "Resolve Customer Identity for CTA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Confirm Order": {
+        "main": [
+          [
+            {
+              "node": "Resolve Customer Identity for CTA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Cancel Order": {
+        "main": [
+          [
+            {
+              "node": "Resolve Customer Identity for CTA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build AI Order Request": {
+        "main": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pabbas OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pabbas AI Order Agent": {
+        "main": [
+          [
+            {
+              "node": "Validate Menu And Price",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Menu And Price": {
+        "main": [
+          [
+            {
+              "node": "Order Action Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Order Action Switch": {
+        "main": [
+          [
+            {
+              "node": "Place Final Order",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Amend Order",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Confirm Order",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Cancel Order",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Cart Add Item",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Cart Remove Item",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Place Final Order",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Outbound Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Amend Order": {
+        "main": [
+          [
+            {
+              "node": "Resolve Customer Identity for CTA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Confirm Order": {
+        "main": [
+          [
+            {
+              "node": "Resolve Customer Identity for CTA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cancel Order": {
+        "main": [
+          [
+            {
+              "node": "Resolve Customer Identity for CTA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Outbound Message": {
+        "main": [
+          [
+            {
+              "node": "Send YCloud WhatsApp (Disabled)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send YCloud WhatsApp (Disabled)": {
+        "main": [
+          [
+            {
+              "node": "Log Successful Outbound",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolve Customer Identity for CTA": {
+        "main": [
+          [
+            {
+              "node": "Validate CTA Customer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate CTA Customer": {
+        "main": [
+          [
+            {
+              "node": "Build Outbound Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolve Secure Customer Session": {
+        "main": [
+          []
+        ]
+      },
+      "Pabbas Business Info": {
+        "tool": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pabbas Cart": {
+        "tool": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pabbas Order Status": {
+        "tool": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pabbas Order Update": {
+        "tool": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Audio Message?": {
+        "main": [
+          [
+            {
+              "node": "Download Audio",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Retrieve Chat Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download Audio": {
+        "main": [
+          [
+            {
+              "node": "Transcribe Audio",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transcribe Audio": {
+        "main": [
+          [
+            {
+              "node": "Format Transcription",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Transcription": {
+        "main": [
+          [
+            {
+              "node": "Retrieve Chat Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pabbas Menu": {
+        "ai_tool": [
+          [
+            {
+              "node": "Pabbas AI Order Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lookup Trusted Customer Identity": {
+        "main": [
+          [
+            {
+              "node": "Look Up Message ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Pending Cart": {
+        "main": [
+          [
+            {
+              "node": "Build AI Order Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Place Final Order": {
+        "main": [
+          [
+            {
+              "node": "Clear Cart",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cart Add Item": {
+        "main": [
+          [
+            {
+              "node": "Build Add Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cart Remove Item": {
+        "main": [
+          [
+            {
+              "node": "Build Rem Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Add Reply": {
+        "main": [
+          [
+            {
+              "node": "Build Outbound Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Rem Reply": {
+        "main": [
+          [
+            {
+              "node": "Build Outbound Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Clear Cart": {
+        "main": [
+          [
+            {
+              "node": "Confirm Order",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Menu Items": {
+        "main": [
+          [
+            {
+              "node": "Route Inbound Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Maithri Maithri",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-02T06:47:49.192Z",
+    "updatedAt": "2026-10-02T06:47:49.192Z",
+    "workflowPublishHistory": [
+      {
+        "id": 364,
+        "workflowId": "BfhcbxFiXa4Vga51",
+        "versionId": "82f4389e-4f18-489d-b7a9-20cfb08e5036",
+        "event": "activated",
+        "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
+        "createdAt": "2026-10-02T06:47:49.432Z"
+      }
+    ]
+  }
+}

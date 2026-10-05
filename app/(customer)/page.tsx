@@ -138,9 +138,7 @@ export default function Home() {
         cart_items: cart.map(line => ({
           menu_item_id: line.item.id,
           quantity: line.quantity
-        })),
-        table_id: orderType === "dine-in" ? selectedTableId : null,
-        party_size: orderType === "dine-in" ? partySize : 1
+        }))
       };
 
       const res = await fetch('/api/orders', {
@@ -291,7 +289,7 @@ function RestaurantInfo({ orderType, table }: { orderType: OrderType, table: str
       <div className="flex-1">
         <h1 className="text-[26px] font-extrabold flex items-center gap-2 text-gray-900 leading-tight">Pabbas <Info size={18} className="text-gray-400 mt-1"/></h1>
         <p className="text-gray-600 text-[13px] mt-1.5 flex items-center gap-1 font-medium"><MapPin size={14} className="text-gray-400"/> 1.2 km • Lalbagh</p>
-        <p className="text-gray-600 text-[13px] mt-1 flex items-center gap-1 font-medium"><Clock3 size={14} className="text-gray-400"/> 25-30 mins • {orderType === 'dine-in' ? table : (orderType === 'pickup' ? 'Takeaway' : 'Delivery')} <ChevronDown size={14} className="text-gray-400"/></p>
+        <p className="text-gray-600 text-[13px] mt-1 flex items-center gap-1 font-medium"><Clock3 size={14} className="text-gray-400"/> 25-30 mins • {orderType === 'pickup' ? 'Takeaway' : 'Delivery'} <ChevronDown size={14} className="text-gray-400"/></p>
       </div>
       <div className="flex flex-col items-center border border-gray-200 rounded-xl p-2 shadow-sm shrink-0 mt-1">
         <span className="flex items-center gap-1 text-green-700 font-bold text-[15px] bg-green-100 px-1.5 py-0.5 rounded-lg leading-none">
@@ -306,8 +304,7 @@ function RestaurantInfo({ orderType, table }: { orderType: OrderType, table: str
 function Welcome({ orderType, setOrderType }: { orderType: OrderType; setOrderType: (type: OrderType) => void; }) { 
   const modes = [
     { type: "delivery" as const, title: "Delivery", copy: "Fresh treats delivered to you", icon: <MapPin size={24} /> }, 
-    { type: "pickup" as const, title: "Takeaway", copy: "Pick up your order in person", icon: <ShoppingBag size={24} /> }, 
-    { type: "dine-in" as const, title: "Dine-in", copy: "Enjoy our ambiance and service", icon: <Utensils size={24} /> }
+    { type: "pickup" as const, title: "Takeaway", copy: "Pick up your order in person", icon: <ShoppingBag size={24} /> }
   ]; 
   
   return <main className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
@@ -729,66 +726,6 @@ function Checkout({
               </>
             )}
 
-            {orderType === "dine-in" && (
-              <>
-                <h2 className="text-[17px] font-bold mt-8 mb-4 text-gray-800">Dine-in Details</h2>
-                <div className="grid gap-4 sm:grid-cols-2 mb-4">
-                  <div>
-                    <label className="text-[14px] font-bold text-gray-800 block mb-2">Select Table</label>
-                    <select
-                      className="checkout-input bg-gray-50 w-full appearance-none"
-                      value={selectedTableId}
-                      onChange={(e) => {
-                        setSelectedTableId(e.target.value);
-                        const matched = tables.find(t => t.id === e.target.value);
-                        if (matched) setTable(matched.table_number);
-                      }}
-                    >
-                      {tables.length === 0 ? (
-                        <option value="" disabled>Loading tables...</option>
-                      ) : (
-                        tables.map(t => (
-                          <option key={t.id} value={t.id}>{t.table_number} (Capacity: {t.capacity})</option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[14px] font-bold text-gray-800 block mb-2">Party Size (Guests)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      className="checkout-input bg-gray-50 w-full"
-                      value={partySize}
-                      onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-4 mb-4 mt-6">
-                  <label className="flex items-center gap-2 text-[15px] font-medium text-gray-800 cursor-pointer">
-                    <input type="radio" name="dineinTime" checked={isAsap} onChange={() => setIsAsap(true)} className="w-4 h-4 text-[#ef4f5f] accent-[#ef4f5f]" />
-                    Now
-                  </label>
-                  <label className="flex items-center gap-2 text-[15px] font-medium text-gray-800 cursor-pointer">
-                    <input type="radio" name="dineinTime" checked={!isAsap} onChange={() => setIsAsap(false)} className="w-4 h-4 text-[#ef4f5f] accent-[#ef4f5f]" />
-                    Schedule Later
-                  </label>
-                </div>
-                {!isAsap && (
-                  <div className="grid gap-4 sm:grid-cols-2 mt-2">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500 font-medium ml-1">Date</label>
-                      <input className="checkout-input bg-gray-50" type="date" value={details.pickupDate} onChange={(e) => setDetails({ ...details, pickupDate: e.target.value })} />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500 font-medium ml-1">Time</label>
-                      <input className="checkout-input bg-gray-50" type="time" value={details.pickupTime} onChange={(e) => setDetails({ ...details, pickupTime: e.target.value })} />
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </div>
           
           <div>
@@ -821,7 +758,7 @@ function Checkout({
 
           <button
             onClick={onPlace}
-            disabled={isSubmitting || !details.name || !details.phone || (orderType === "delivery" && !details.address) || (orderType === "dine-in" && !selectedTableId)}
+            disabled={isSubmitting || !details.name || !details.phone || (orderType === "delivery" && !details.address)}
             className="w-full bg-[#e23744] text-white font-bold text-[16px] py-[15px] rounded-[14px] mt-6 disabled:opacity-50 shadow-md shadow-red-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
@@ -900,7 +837,7 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
         </div>
         <div className="flex justify-between mb-3">
           <span className="text-gray-500 text-[14px] font-medium">Order Type</span>
-          <strong className="font-bold text-gray-900 capitalize">{orderType === "dine-in" ? table : orderType}</strong>
+          <strong className="font-bold text-gray-900 capitalize">{orderType}</strong>
         </div>
         <div className="flex justify-between border-t border-dashed border-gray-200 pt-3 mt-1">
           <span className="text-gray-500 text-[14px] font-medium">Amount Paid</span>

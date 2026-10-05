@@ -121,7 +121,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     try {
       const { data, error: fetchErr } = await supabase.current
         .from("orders")
-        .select("id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json")
+        .select("id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone, collected_amount, is_collected")
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -132,8 +132,8 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       setLastUpdated(new Date());
       setError(null);
 
-      // Detect unacknowledged new orders
-      const unackNew = latestOrders.filter(o => o.status === 'new' && !acknowledgedIds.current.has(o.id));
+      // Detect unacknowledged new orders (excluding POS orders, as staff created them)
+      const unackNew = latestOrders.filter(o => o.status === 'new' && o.order_type !== 'pos' && !acknowledgedIds.current.has(o.id));
       
       setQueuedNewOrders(prev => {
         const prevIds = new Set(prev.map(p => p.id));
@@ -155,7 +155,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   // Initial load effect to queue any existing new orders
   useEffect(() => {
     if (initialOrders.length > 0) {
-      const unackNew = initialOrders.filter(o => o.status === 'new' && !acknowledgedIds.current.has(o.id));
+      const unackNew = initialOrders.filter(o => o.status === 'new' && o.order_type !== 'pos' && !acknowledgedIds.current.has(o.id));
       if (unackNew.length > 0) {
         setQueuedNewOrders(unackNew);
       }

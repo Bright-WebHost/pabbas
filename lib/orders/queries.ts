@@ -52,6 +52,8 @@ export interface DashboardOrder {
   rider_id?: string | null;
   rider_name?: string | null;
   rider_phone?: string | null;
+  collected_amount?: number;
+  is_collected?: boolean;
 }
 
 export async function getDashboardOrders(): Promise<{

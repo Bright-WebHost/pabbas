@@ -40,3 +40,47 @@ export async function notifyStatusWebhook(order_number: string, status: string, 
     return { success: false, error: error.message };
   }
 }
+
+export async function collectCash(orderId: string, expectedAmount: number, receivedAmount: number, riderId?: string) {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const adminClient = createAdminClient();
+
+    // 1. Update the order
+    const { error: orderError } = await adminClient
+      .from("orders")
+      .update({
+        collected_amount: receivedAmount,
+        is_collected: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", orderId);
+
+    if (orderError) throw orderError;
+
+    // 2. If short-paid and rider exists, update the rider's pending cash
+    if (riderId && receivedAmount < expectedAmount) {
+      const shortPay = expectedAmount - receivedAmount;
+      
+      // Get current rider data
+      const { data: rider, error: fetchRiderError } = await adminClient
+        .from("riders")
+        .select("pending_cash")
+        .eq("id", riderId)
+        .single();
+        
+      if (!fetchRiderError && rider) {
+        const newPending = (Number(rider.pending_cash) || 0) + shortPay;
+        await adminClient
+          .from("riders")
+          .update({ pending_cash: newPending })
+          .eq("id", riderId);
+      }
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to collect cash:", error);
+    return { success: false, error: error.message };
+  }
+}

@@ -6,6 +6,7 @@ import { useOrderManager } from "../../OrderManagerProvider";
 import { AssignRiderModal } from "./AssignRiderModal";
 import { SlideAction } from "@/components/dashboard/ui/SlideAction";
 import { motion, AnimatePresence } from "framer-motion";
+import { collectCash } from "./actions";
 
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
@@ -207,6 +208,31 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
   const items = buildItemList(order);
   const countdown = formatCountdown(order, now);
   const slideAction = getSlideAction(order);
+  const [isCollecting, setIsCollecting] = useState(false);
+
+  const handleCollectCash = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const amountStr = window.prompt(`Amount Received from Rider (Expected: ₹${order.total}):`, String(order.total));
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (isNaN(amount) || amount < 0) {
+      alert("Invalid amount");
+      return;
+    }
+    setIsCollecting(true);
+    try {
+      const res = await collectCash(order.id, order.total, amount, order.rider_id || undefined);
+      if (res.success) {
+        onClose();
+      } else {
+        alert("Failed to collect cash: " + res.error);
+      }
+    } catch(err) {
+      alert("Error collecting cash");
+    } finally {
+      setIsCollecting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111A26]/80 p-4 backdrop-blur-sm transition-all duration-300" role="presentation" onMouseDown={onClose}>
@@ -358,6 +384,36 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
                 Cancel
               </button>
             )}
+
+            {order.status === "cancelled" && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const pin = window.prompt("Enter Security PIN to Undo Cancel:");
+                  if (pin === "0000") {
+                    onStatusChange(order, "new", "Undo Cancel");
+                    onClose();
+                  } else if (pin) {
+                    alert("Incorrect PIN");
+                  }
+                }}
+                className="h-[48px] rounded-[12px] border border-[#C6ECD6] bg-[#E5F5EC] px-5 text-[14px] font-extrabold text-[#146C43] hover:bg-[#D1E7DD] transition-colors"
+              >
+                Undo Cancel
+              </button>
+            )}
+
+            {order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
+              <button
+                type="button"
+                disabled={isCollecting}
+                onClick={handleCollectCash}
+                className="h-[48px] rounded-[12px] border border-[#B8D5F6] bg-[#EAF3FF] px-5 text-[14px] font-extrabold text-[#1A5FA8] hover:bg-[#DCE9FA] transition-colors disabled:opacity-50"
+              >
+                {isCollecting ? "Processing..." : `Collect ₹${order.total}`}
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -455,6 +511,11 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
         {Number(order.amendment_count ?? 0) > 0 && <span className="rounded bg-[#FFEFD6] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#9A5B00]">Amended ×{order.amendment_count}</span>}
         {order.cancel_requested_at && order.status !== "cancelled" && order.status !== "delivered" && (
           <span className="rounded border border-[#F5C6CB] bg-[#FDE8E8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#B42318]">Cancel request</span>
+        )}
+        {order.order_type === "delivery" && (order.status === "out_for_delivery" || order.status === "delivered") && !order.is_collected && (
+          <span className="rounded border border-[#B8D5F6] bg-[#EAF3FF] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1A5FA8]">
+            Collect ₹{order.total}
+          </span>
         )}
       </div>
 

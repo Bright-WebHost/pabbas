@@ -147,8 +147,8 @@ export async function POST(request: Request) {
   }
 
   if (errors.length > 0 && currentItems.length === 0) {
-    // If nothing succeeded, return the first error
-    return NextResponse.json({ error: errors[0] }, { status: 400 })
+    // If nothing succeeded, return the first error as a 200 so n8n doesn't crash
+    return NextResponse.json({ error: errors[0], empty: true, items: [] }, { status: 200 })
   }
 
   const { error: upsertError } = await adminClient

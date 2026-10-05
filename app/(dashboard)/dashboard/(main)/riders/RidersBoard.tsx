@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { fetchRiders, addRider, toggleRiderStatus, Rider } from "./actions";
+import { fetchRiders, addRider, toggleRiderStatus, settlePendingCash, Rider } from "./actions";
 import { Plus } from "lucide-react";
 
 export default function RidersBoard() {
@@ -54,6 +54,18 @@ export default function RidersBoard() {
     }
   };
 
+  const handleSettleCash = async (riderId: string) => {
+    if (!confirm("Are you sure you want to settle the pending cash balance?")) return;
+    
+    // Optimistic UI
+    setRiders(prev => prev.map(r => r.id === riderId ? { ...r, pending_cash: 0 } : r));
+    const result = await settlePendingCash(riderId);
+    if (!result.success) {
+      loadRiders(); // Revert on failure
+      alert(result.error || "Failed to settle cash");
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
       <div className="mb-8 flex items-center justify-between">
@@ -100,6 +112,7 @@ export default function RidersBoard() {
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Number</th>
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Deliveries</th>
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Cash Collected</th>
+                <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Pending Cash</th>
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-24">Status</th>
               </tr>
             </thead>
@@ -112,15 +125,20 @@ export default function RidersBoard() {
                 </tr>
               ) : riders.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-[#8799AF] font-bold text-[14px]">
+                  <td colSpan={6} className="px-6 py-8 text-center text-[#8799AF] font-bold text-[14px]">
                     No riders added yet.
                   </td>
                 </tr>
               ) : (
                 riders.map((rider) => (
-                  <tr key={rider.id} className="hover:bg-[#F8FAFB] transition-colors">
+                  <tr key={rider.id} className={`hover:bg-[#F8FAFB] transition-colors ${!rider.is_active ? 'opacity-60' : ''}`}>
                     <td className="px-6 py-4 text-[14px] font-extrabold text-[#0A1017]">
                       {rider.name}
+                      {!rider.is_active && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                          Discontinued
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-[14px] font-bold text-[#6B7A90]">
                       {rider.whatsapp_number}
@@ -132,18 +150,41 @@ export default function RidersBoard() {
                       ₹{rider.cash_collected}
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleToggleStatus(rider.id, rider.is_active)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                          rider.is_active ? 'bg-[#22C55E]' : 'bg-[#D1D5DB]'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            rider.is_active ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
+                      {Number(rider.pending_cash) > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[14px] font-extrabold text-[#C0392B]">₹{rider.pending_cash}</span>
+                          <button
+                            onClick={() => handleSettleCash(rider.id)}
+                            className="rounded-lg bg-[#EAF3FF] px-2 py-1 text-[11px] font-bold text-[#1A5FA8] hover:bg-[#DCE9FA] transition-colors"
+                          >
+                            Settle
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[14px] font-bold text-[#6B7A90]">₹0</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 flex gap-2">
+                      {rider.is_active && (
+                        <button
+                          onClick={() => {
+                            if (confirm("Are you sure you want to discontinue this rider? Their historical data will be saved.")) {
+                              handleToggleStatus(rider.id, true); // true = current status, so it flips to false
+                            }
+                          }}
+                          className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
+                      {!rider.is_active && (
+                        <button
+                          onClick={() => handleToggleStatus(rider.id, false)} // flips to true
+                          className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-bold text-green-600 hover:bg-green-100 transition-colors"
+                        >
+                          Restore
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
