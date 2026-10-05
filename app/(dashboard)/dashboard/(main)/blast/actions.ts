@@ -6,8 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function getYCloudTemplates() {
   try {
     const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return { success: false, error: "Unauthorized" };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
 
     const apiKey = process.env.YCLOUD_API_KEY;
     if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
@@ -32,8 +32,8 @@ export async function getYCloudTemplates() {
 export async function uploadYCloudMedia(formData: FormData) {
   try {
     const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return { success: false, error: "Unauthorized" };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
 
     const apiKey = process.env.YCLOUD_API_KEY;
     if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
@@ -61,9 +61,13 @@ export async function uploadYCloudMedia(formData: FormData) {
 export async function sendBlast(filter: string, templateName: string, components: any[], phones: string[] = []) {
   try {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.access_token) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "No access token" };
     }
 
     const adminClient = createAdminClient();
