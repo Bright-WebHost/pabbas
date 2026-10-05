@@ -3,12 +3,12 @@
   "name": "Pabbas | Production | WhatsApp AI Order Bridge",
   "description": null,
   "active": true,
-  "activeVersionId": "c0070394-aaf1-447e-a4ae-d787a20e8d02",
+  "activeVersionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
   "createdAt": "2026-09-23T04:03:01.708Z",
-  "updatedAt": "2026-10-05T05:46:55.842Z",
+  "updatedAt": "2026-10-05T05:51:56.011Z",
   "isArchived": false,
-  "versionId": "c0070394-aaf1-447e-a4ae-d787a20e8d02",
-  "versionCounter": 312,
+  "versionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
+  "versionCounter": 313,
   "sourceWorkflowId": null,
   "triggerCount": 1,
   "nodes": [
@@ -712,7 +712,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const orderData = $('Place Final Order').first().json || {};\nconst validateData = $('Validate Menu And Price').first().json || {};\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: `Awesome! Your order #${orderData.order_number || ''} has been successfully placed 🎉\\n\\nOur team is preparing it right now!`,\n    order_number: orderData.order_number\n  }\n}];"
+        "jsCode": "\nconst orderData = Place Final Order.first().json.order || {};\nconst validateData = Validate Menu And Price.first().json;\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: Awesome! Your order  has been successfully placed 🎉\\n\\nOur team is preparing it right now!,\n    order_number: orderData.order_number\n  }\n}];\n            "
       },
       "id": "e8ef2fa9-03a8-43f2-b95e-105a66256c43",
       "name": "Confirm Order",
@@ -910,7 +910,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst input = $input.first().json || {};\n\nlet originalData = {};\ntry { originalData = { ...originalData, ...$('Build Routed Response').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Cancel Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Validate Menu And Price').first().json }; } catch(e) {}\n\ntry { originalData = { ...originalData, ...$('Create Draft Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Amend Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cancel Order').first().json }; } catch(e) {}\n\ntry { originalData = { ...originalData, ...$('Build Add Reply').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Build Rem Reply').first().json }; } catch(e) {}\n\nconst merged = { ...originalData, ...input };\n\nconst phone = String(merged.phone || merged.customer_phone || '').trim();\nconst channelUserId = String(merged.channel_user_id || '').trim();\nconst name = String(merged.name || merged.customer_name || '').trim();\nconst ctaUrl = String(merged.cta_url || '').trim();\n\nconst ctaReady = Boolean(phone) && Boolean(channelUserId) && Boolean(ctaUrl);\n\nreturn [\n  {\n    json: {\n      ...merged,\n      customer_phone: phone,\n      customer_name: name,\n      channel_user_id: channelUserId,\n      cta_url: ctaUrl,\n      cta_ready: ctaReady\n    }\n  }\n];"
+        "jsCode": "\nconst input = $input.first().json || {};\n\nlet originalData = {};\ntry { originalData = { ...originalData, ...$('Build Routed Response').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Cancel Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Validate Menu And Price').first().json }; } catch(e) {}\n\ntry { originalData = { ...originalData, ...$('Create Draft Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Amend Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cancel Order').first().json }; } catch(e) {}\n\n// ADD Cart Add Item and Cart Remove Item to recover their output data!!\ntry { originalData = { ...originalData, ...$('Cart Add Item').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cart Remove Item').first().json }; } catch(e) {}\n\nconst merged = { ...originalData, ...input };\n\nconst phone = String(merged.phone || merged.customer_phone || '').trim();\nconst channelUserId = String(merged.channel_user_id || '').trim();\nconst name = String(merged.name || merged.customer_name || '').trim();\nconst ctaUrl = String(merged.cta_url || '').trim();\n\nconst ctaReady = Boolean(phone) && Boolean(channelUserId) && Boolean(ctaUrl);\n\nreturn [\n  {\n    json: {\n      ...merged,\n      customer_phone: phone,\n      customer_name: name,\n      channel_user_id: channelUserId,\n      cta_url: ctaUrl,\n      cta_ready: ctaReady\n    }\n  }\n];\n    "
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1316,7 +1316,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've updated your cart! Would you like to add anything else or place the order?\"}}]"
+        "jsCode": "const first = $input.first().json; \nconst validateData = $('Validate Menu And Price').first().json || {};\nconst items = first.items || [];\nlet lines = items.map(i => `- ${i.item_name || i.name} x${i.quantity}`).join('\\n');\nif (!lines) lines = 'Your cart is empty.';\nconst reply = (first.ai_reply || \"I've updated your cart!\") + `\\n\\n*Current Order:*\\n${lines}\\n*Total:* ₹${first.total || 0}\\n\\nWould you like to add anything else or place the order?`;\n\nreturn [{\n  json: {\n    ...first,\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: validateData.action,\n    reply\n  }\n}];"
       },
       "name": "Build Add Reply",
       "type": "n8n-nodes-base.code",
@@ -1329,7 +1329,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've removed that from your cart. Ready to order?\"}}]"
+        "jsCode": "const first = $input.first().json; \nconst validateData = $('Validate Menu And Price').first().json || {};\nconst items = first.items || [];\nlet lines = items.map(i => `- ${i.item_name || i.name} x${i.quantity}`).join('\\n');\nif (!lines) lines = 'Your cart is empty.';\nconst reply = (first.ai_reply || \"I've updated your cart!\") + `\\n\\n*Current Order:*\\n${lines}\\n*Total:* ₹${first.total || 0}\\n\\nWould you like to add anything else or place the order?`;\n\nreturn [{\n  json: {\n    ...first,\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: validateData.action,\n    reply\n  }\n}];"
       },
       "name": "Build Rem Reply",
       "type": "n8n-nodes-base.code",
@@ -1918,7 +1918,7 @@
       "main": [
         [
           {
-            "node": "Resolve Customer Identity for CTA",
+            "node": "Build Outbound Message",
             "type": "main",
             "index": 0
           }
@@ -1929,7 +1929,7 @@
       "main": [
         [
           {
-            "node": "Resolve Customer Identity for CTA",
+            "node": "Build Outbound Message",
             "type": "main",
             "index": 0
           }
@@ -1991,7 +1991,7 @@
     }
   ],
   "activeVersion": {
-    "versionId": "c0070394-aaf1-447e-a4ae-d787a20e8d02",
+    "versionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
     "workflowId": "BfhcbxFiXa4Vga51",
     "nodes": [
       {
@@ -2694,7 +2694,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const orderData = $('Place Final Order').first().json || {};\nconst validateData = $('Validate Menu And Price').first().json || {};\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: `Awesome! Your order #${orderData.order_number || ''} has been successfully placed 🎉\\n\\nOur team is preparing it right now!`,\n    order_number: orderData.order_number\n  }\n}];"
+          "jsCode": "\nconst orderData = Place Final Order.first().json.order || {};\nconst validateData = Validate Menu And Price.first().json;\nreturn [{\n  json: {\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: 'reply',\n    reply: Awesome! Your order  has been successfully placed 🎉\\n\\nOur team is preparing it right now!,\n    order_number: orderData.order_number\n  }\n}];\n            "
         },
         "id": "e8ef2fa9-03a8-43f2-b95e-105a66256c43",
         "name": "Confirm Order",
@@ -2892,7 +2892,7 @@
       },
       {
         "parameters": {
-          "jsCode": "\nconst input = $input.first().json || {};\n\nlet originalData = {};\ntry { originalData = { ...originalData, ...$('Build Routed Response').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Cancel Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Validate Menu And Price').first().json }; } catch(e) {}\n\ntry { originalData = { ...originalData, ...$('Create Draft Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Amend Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cancel Order').first().json }; } catch(e) {}\n\ntry { originalData = { ...originalData, ...$('Build Add Reply').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Build Rem Reply').first().json }; } catch(e) {}\n\nconst merged = { ...originalData, ...input };\n\nconst phone = String(merged.phone || merged.customer_phone || '').trim();\nconst channelUserId = String(merged.channel_user_id || '').trim();\nconst name = String(merged.name || merged.customer_name || '').trim();\nconst ctaUrl = String(merged.cta_url || '').trim();\n\nconst ctaReady = Boolean(phone) && Boolean(channelUserId) && Boolean(ctaUrl);\n\nreturn [\n  {\n    json: {\n      ...merged,\n      customer_phone: phone,\n      customer_name: name,\n      channel_user_id: channelUserId,\n      cta_url: ctaUrl,\n      cta_ready: ctaReady\n    }\n  }\n];"
+          "jsCode": "\nconst input = $input.first().json || {};\n\nlet originalData = {};\ntry { originalData = { ...originalData, ...$('Build Routed Response').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Route Cancel Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Validate Menu And Price').first().json }; } catch(e) {}\n\ntry { originalData = { ...originalData, ...$('Create Draft Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Amend Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Confirm Order').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cancel Order').first().json }; } catch(e) {}\n\n// ADD Cart Add Item and Cart Remove Item to recover their output data!!\ntry { originalData = { ...originalData, ...$('Cart Add Item').first().json }; } catch(e) {}\ntry { originalData = { ...originalData, ...$('Cart Remove Item').first().json }; } catch(e) {}\n\nconst merged = { ...originalData, ...input };\n\nconst phone = String(merged.phone || merged.customer_phone || '').trim();\nconst channelUserId = String(merged.channel_user_id || '').trim();\nconst name = String(merged.name || merged.customer_name || '').trim();\nconst ctaUrl = String(merged.cta_url || '').trim();\n\nconst ctaReady = Boolean(phone) && Boolean(channelUserId) && Boolean(ctaUrl);\n\nreturn [\n  {\n    json: {\n      ...merged,\n      customer_phone: phone,\n      customer_name: name,\n      channel_user_id: channelUserId,\n      cta_url: ctaUrl,\n      cta_ready: ctaReady\n    }\n  }\n];\n    "
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -3298,7 +3298,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've updated your cart! Would you like to add anything else or place the order?\"}}]"
+          "jsCode": "const first = $input.first().json; \nconst validateData = $('Validate Menu And Price').first().json || {};\nconst items = first.items || [];\nlet lines = items.map(i => `- ${i.item_name || i.name} x${i.quantity}`).join('\\n');\nif (!lines) lines = 'Your cart is empty.';\nconst reply = (first.ai_reply || \"I've updated your cart!\") + `\\n\\n*Current Order:*\\n${lines}\\n*Total:* ₹${first.total || 0}\\n\\nWould you like to add anything else or place the order?`;\n\nreturn [{\n  json: {\n    ...first,\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: validateData.action,\n    reply\n  }\n}];"
         },
         "name": "Build Add Reply",
         "type": "n8n-nodes-base.code",
@@ -3311,7 +3311,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const first = $input.first().json; return [{json:{...first, reply: \"I've removed that from your cart. Ready to order?\"}}]"
+          "jsCode": "const first = $input.first().json; \nconst validateData = $('Validate Menu And Price').first().json || {};\nconst items = first.items || [];\nlet lines = items.map(i => `- ${i.item_name || i.name} x${i.quantity}`).join('\\n');\nif (!lines) lines = 'Your cart is empty.';\nconst reply = (first.ai_reply || \"I've updated your cart!\") + `\\n\\n*Current Order:*\\n${lines}\\n*Total:* ₹${first.total || 0}\\n\\nWould you like to add anything else or place the order?`;\n\nreturn [{\n  json: {\n    ...first,\n    customer_phone: validateData.customer_phone,\n    customer_name: validateData.customer_name,\n    channel_user_id: validateData.channel_user_id,\n    action: validateData.action,\n    reply\n  }\n}];"
         },
         "name": "Build Rem Reply",
         "type": "n8n-nodes-base.code",
@@ -3900,7 +3900,7 @@
         "main": [
           [
             {
-              "node": "Resolve Customer Identity for CTA",
+              "node": "Build Outbound Message",
               "type": "main",
               "index": 0
             }
@@ -3911,7 +3911,7 @@
         "main": [
           [
             {
-              "node": "Resolve Customer Identity for CTA",
+              "node": "Build Outbound Message",
               "type": "main",
               "index": 0
             }
@@ -3946,16 +3946,16 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-05T05:46:55.844Z",
-    "updatedAt": "2026-10-05T05:46:55.844Z",
+    "createdAt": "2026-10-05T05:51:56.014Z",
+    "updatedAt": "2026-10-05T05:51:56.014Z",
     "workflowPublishHistory": [
       {
-        "id": 380,
+        "id": 382,
         "workflowId": "BfhcbxFiXa4Vga51",
-        "versionId": "c0070394-aaf1-447e-a4ae-d787a20e8d02",
+        "versionId": "84c38851-1f6f-48c3-bec2-1232cdc26f8b",
         "event": "activated",
         "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-10-05T05:46:56.074Z"
+        "createdAt": "2026-10-05T05:51:56.240Z"
       }
     ]
   }
