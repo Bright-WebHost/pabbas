@@ -98,6 +98,25 @@ export default function BlastBoard() {
         }
       }
 
+      // Check if template has a URL button with a dynamic parameter
+      const buttonComponent = selectedTemplate?.components?.find((c: any) => c.type === "BUTTONS");
+      if (buttonComponent) {
+        const urlButtonIndex = buttonComponent.buttons?.findIndex((b: any) => b.type === "URL" && b.url?.includes("{{1}}"));
+        if (urlButtonIndex !== undefined && urlButtonIndex !== -1) {
+          components.push({
+            type: "button",
+            sub_type: "url",
+            index: urlButtonIndex,
+            parameters: [
+              {
+                type: "text",
+                text: "pabbas_promo_blast" // Supply the required parameter value
+              }
+            ]
+          });
+        }
+      }
+
       const res = await sendBlast(filter, selectedTemplateName, components, selectedPhones);
       if (res.success && res.data) {
         setResult({
