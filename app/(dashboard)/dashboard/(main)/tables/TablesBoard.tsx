@@ -10,6 +10,10 @@ export default function TablesBoard() {
   const [isAdding, startAdding] = useTransition();
   const [newTable, setNewTable] = useState("");
   const [printTable, setPrintTable] = useState<RestaurantTable | null>(null);
+  
+  const [historyModalTable, setHistoryModalTable] = useState<string | null>(null);
+  const [tableHistory, setTableHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     loadTables();
@@ -68,13 +72,24 @@ export default function TablesBoard() {
       window.print();
     }, 100);
   };
+  
+  const openHistory = async (tableNumber: string) => {
+    setHistoryModalTable(tableNumber);
+    setLoadingHistory(true);
+    const { fetchTableHistory } = await import('./actions');
+    const res = await fetchTableHistory(tableNumber);
+    if (res.success && res.history) {
+      setTableHistory(res.history);
+    }
+    setLoadingHistory(false);
+  };
 
   if (loading) {
     return <div className="p-8 text-center text-[#8799AF] font-bold">Loading tables...</div>;
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto w-full relative">
       
       {/* Hide dashboard when printing */}
       <div className="print:hidden">
@@ -193,6 +208,12 @@ export default function TablesBoard() {
                     🖨️ Print QR
                   </button>
                   <button
+                    onClick={() => openHistory(table.table_number)}
+                    className="px-3 py-2 text-[12px] font-extrabold text-[#0A1017] border border-[#EAF0F6] bg-white rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    History
+                  </button>
+                  <button
                     onClick={() => handleDeleteTable(table.id)}
                     className="px-3 py-2 text-[12px] font-extrabold text-[#C0392B] border border-red-100 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                   >
@@ -212,6 +233,44 @@ export default function TablesBoard() {
           </div>
         )}
       </div>
+
+      {historyModalTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A1017]/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-[#EAF0F6]">
+            <div className="p-6 border-b border-[#EAF0F6] flex justify-between items-center bg-[#F8FAFB]">
+              <h2 className="text-xl font-black text-[#0A1017]">Order History - Table {historyModalTable}</h2>
+              <button onClick={() => setHistoryModalTable(null)} className="text-[#8799AF] hover:text-[#0A1017] font-bold text-lg px-2">✕</button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {loadingHistory ? (
+                <p className="text-[#8799AF] font-bold text-center py-8">Loading history...</p>
+              ) : tableHistory.length > 0 ? (
+                <div className="space-y-4">
+                  {tableHistory.map((order) => (
+                    <div key={order.id} className="border border-[#EAF0F6] rounded-xl p-4 bg-white">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <span className="text-[14px] font-black text-[#0A1017]">{order.order_number}</span>
+                          <div className="text-[12px] font-bold text-[#8799AF] mt-0.5">{new Date(order.created_at).toLocaleString()}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[15px] font-black text-[#0A1017]">₹{order.total}</div>
+                          <div className={`text-[11px] font-extrabold uppercase tracking-wider mt-1 ${order.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>{order.status}</div>
+                        </div>
+                      </div>
+                      <div className="text-[13px] text-[#6B7A90] font-medium pt-3 border-t border-dashed border-[#EAF0F6]">
+                        {order.customer_name ? `Customer: ${order.customer_name} (${order.customer_phone})` : "Dine-in Customer"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[#8799AF] font-bold text-center py-8">No past orders found for this table.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Print QR Code Template - Only visible during print */}
       <div className="hidden print:flex flex-col items-center justify-center h-screen w-full bg-white">

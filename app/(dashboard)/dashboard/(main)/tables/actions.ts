@@ -130,3 +130,23 @@ export async function clearTable(id: string) {
     return { success: false, error: "Failed to clear table" };
   }
 }
+export async function fetchTableHistory(tableNumber: string) {
+  try {
+    const adminClient = createAdminClient();
+    
+    const { data, error } = await adminClient
+      .from("orders")
+      .select("id, order_number, total, status, created_at, items_json, customer_name, customer_phone")
+      .eq("table_number", tableNumber)
+      .in("status", ["delivered", "cancelled"])
+      .order("created_at", { ascending: false })
+      .limit(20);
+      
+    if (error) throw error;
+    
+    return { success: true, history: data };
+  } catch (error: any) {
+    console.error("[fetchTableHistory] Error:", error);
+    return { success: false, error: "Failed to fetch table history" };
+  }
+}

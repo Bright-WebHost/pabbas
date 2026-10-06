@@ -128,7 +128,8 @@ function buildItemList(order: DashboardOrder) {
       unit_price: item.unit_price ?? item.price,
       is_new_addition: item.is_new_addition || false,
       old_quantity: item.old_quantity || 0,
-      variant_name: item.variant_name || ""
+      variant_name: item.variant_name || "",
+      round: item.round || 1
     }));
   }
 
@@ -140,7 +141,8 @@ function buildItemList(order: DashboardOrder) {
     unit_price: order.total,
     is_new_addition: false,
     old_quantity: 0,
-    variant_name: ""
+    variant_name: "",
+    round: 1
   }] : [];
 }
 
@@ -323,25 +325,37 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
 
         <div className="flex-1 py-5 overflow-y-auto">
           <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-3">Order Items</span>
-          <div className="space-y-2">
-            {items.length > 0 ? items.map((item) => (
-              <div key={item.id} className={`flex justify-between items-start p-3 ${item.is_new_addition ? "bg-[#FFF8E6] border-[#F2C94C] shadow-[0_2px_8px_rgba(242,201,76,0.15)]" : "bg-[#F8FAFB] border-[var(--line)]"} rounded-xl`}>
-                <div className="flex gap-3">
-                  <span className={`font-extrabold text-[15px] w-[24px] ${item.is_new_addition ? "text-[#D97706]" : "text-[var(--ink)]"}`}>{item.quantity}×</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-[15px] text-[var(--ink)]">
-                      {item.name} {item.variant_name && <span className="text-[12px] font-medium text-[var(--muted)] ml-1">({item.variant_name})</span>}
-                    </span>
-                    {item.is_new_addition && (
-                      <span className="text-[11px] font-extrabold text-[#D97706] mt-1 uppercase tracking-widest bg-[#FEF3C7] px-2 py-0.5 rounded-md inline-block w-fit">
-                        {item.old_quantity > 0 ? `+${item.quantity - item.old_quantity} Added` : 'New Item'}
-                      </span>
-                    )}
+          <div className="space-y-4">
+            {items.length > 0 ? Array.from(new Set(items.map(item => item.round || 1))).sort().map((roundNum: any) => {
+              const roundItems = items.filter(item => (item.round || 1) === roundNum);
+              return (
+                <div key={roundNum}>
+                  <h4 className={`text-[12px] font-extrabold uppercase tracking-widest mb-2 ${roundNum > 1 ? 'text-[#D97706]' : 'text-[var(--muted)]'}`}>
+                    Round {roundNum} {roundNum > 1 && '(Added Items)'}
+                  </h4>
+                  <div className="space-y-2">
+                    {roundItems.map((item) => (
+                      <div key={item.id} className={`flex justify-between items-start p-3 ${roundNum > 1 || item.is_new_addition ? "bg-[#FFF8E6] border-[#F2C94C] shadow-[0_2px_8px_rgba(242,201,76,0.15)]" : "bg-[#F8FAFB] border-[var(--line)]"} rounded-xl`}>
+                        <div className="flex gap-3">
+                          <span className={`font-extrabold text-[15px] w-[24px] ${roundNum > 1 || item.is_new_addition ? "text-[#D97706]" : "text-[var(--ink)]"}`}>{item.quantity}×</span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-[15px] text-[var(--ink)]">
+                              {item.name} {item.variant_name && <span className="text-[12px] font-medium text-[var(--muted)] ml-1">({item.variant_name})</span>}
+                            </span>
+                            {(roundNum > 1 || item.is_new_addition) && (
+                              <span className="text-[11px] font-extrabold text-[#D97706] mt-1 uppercase tracking-widest bg-[#FEF3C7] px-2 py-0.5 rounded-md inline-block w-fit">
+                                {item.old_quantity > 0 ? `+${item.quantity - item.old_quantity} Added` : 'New Item'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-bold text-[15px] text-[var(--ink)]">{money(item.unit_price * item.quantity)}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <span className="font-bold text-[15px] text-[var(--ink)]">{money(item.unit_price * item.quantity)}</span>
-              </div>
-            )) : <p className="text-[13px] text-[var(--muted)]">Items unavailable.</p>}
+              );
+            }) : <p className="text-[13px] text-[var(--muted)]">Items unavailable.</p>}
           </div>
 
           <div className="mt-4 flex items-center justify-between text-[18px] font-extrabold bg-[#FFF0F1] p-4 rounded-xl border border-[#F5C2C6]">
