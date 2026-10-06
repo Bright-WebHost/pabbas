@@ -33,10 +33,11 @@ export async function POST(request: Request) {
       sessionCustomerId = body.customer_id
     } else {
       const session = await getSessionCookie()
-      if (!session || !session.customerId) {
+      if (session && session.customerId) {
+        sessionCustomerId = session.customerId
+      } else if (body.order_type !== 'dine-in') {
         return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
       }
-      sessionCustomerId = session.customerId
     }
     const {
       order_type,
@@ -64,11 +65,15 @@ export async function POST(request: Request) {
 
     const adminClient = createAdminClient()
 
-    const { data: customerData } = await adminClient
-      .from('app_customers')
-      .select('name, phone')
-      .eq('id', sessionCustomerId)
-      .single()
+    let customerData: any = null
+    if (sessionCustomerId) {
+      const { data } = await adminClient
+        .from('app_customers')
+        .select('name, phone')
+        .eq('id', sessionCustomerId)
+        .single()
+      customerData = data
+    }
 
     const resolvedName = typeof customer_name === 'string' && customer_name.trim() ? customer_name.trim() : customerData?.name || 'Valued Customer'
     const resolvedPhone = typeof customer_phone === 'string' && customer_phone.trim() ? customer_phone.trim() : customerData?.phone || ''
