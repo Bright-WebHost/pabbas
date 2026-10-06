@@ -102,12 +102,13 @@ export default function PosBoard() {
       const editId = params.get("edit");
       if (editId) {
         setEditOrderId(editId);
-        const { data: orderData } = await supabase
+        const { data } = await supabase
           .from("orders")
           .select("*")
           .eq("id", editId)
           .single();
         
+        const orderData = data as any;
         if (orderData) {
           setOrderType(orderData.order_type as any);
           setCustomerName(orderData.customer_name || "");
