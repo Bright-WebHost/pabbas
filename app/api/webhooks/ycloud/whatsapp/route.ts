@@ -127,9 +127,37 @@ export async function POST(request: Request) {
         
         // Return HTTP 200 so we do NOT forward this rider interactive message to the customer n8n AI Bridge
         return new NextResponse('OK', { status: 200 });
+      } else if (buttonId && buttonId.startsWith('decline_')) {
+        const orderNumber = buttonId.replace('decline_', '');
+        const riderPhone = (message.from || message.sender?.phone || '').replace(/[^0-9]/g, '');
+        
+        if (orderNumber && riderPhone) {
+          const declineUrl = new URL('/api/webhooks/rider/decline', request.url).toString();
+          try {
+            const declineRes = await fetch(declineUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-pabbas-whatsapp-secret': process.env.PABBAS_WHATSAPP_INBOUND_SECRET || ''
+              },
+              body: JSON.stringify({ order_number: orderNumber, rider_phone: riderPhone })
+            });
+            
+            if (declineRes.ok) {
+              console.log(`[RIDER DECLINE] Successfully processed decline for order ${orderNumber} by ${riderPhone}`);
+            } else {
+              console.error(`[RIDER DECLINE] Failed to process decline for order ${orderNumber}: ${await declineRes.text()}`);
+            }
+          } catch(err) {
+            console.error('[RIDER DECLINE] Internal API call error', err);
+          }
+        }
+        
+        // Return HTTP 200 so we do NOT forward this rider interactive message to the customer n8n AI Bridge
+        return new NextResponse('OK', { status: 200 });
       }
     }
-    // --- END INTERCEPTION FOR RIDER ACCEPT ---
+    // --- END INTERCEPTION FOR RIDER ACCEPT/DECLINE ---
 
     // 13. Forward the verified event to the n8n production webhook
     const n8nUrl = process.env.N8N_WHATSAPP_INBOUND_WEBHOOK_URL;

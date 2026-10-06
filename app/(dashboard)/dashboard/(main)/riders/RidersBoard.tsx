@@ -146,7 +146,7 @@ export default function RidersBoard() {
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-[14px] font-bold text-[#146C43]">{rider.deliveries_count} Accepted</span>
-                        <span className="text-[12px] font-medium text-[#8799AF]">0 Declined</span>
+                        <span className="text-[12px] font-medium text-[#8799AF]">{rider.declines_count || 0} Declined</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-[14px] font-extrabold text-[#0A1017]">

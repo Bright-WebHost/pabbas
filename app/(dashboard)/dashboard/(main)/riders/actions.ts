@@ -8,6 +8,7 @@ export type Rider = {
   whatsapp_number: string;
   is_active: boolean;
   deliveries_count: number;
+  declines_count: number;
   cash_collected: number;
   pending_cash: number;
   created_at: string;
