@@ -58,22 +58,25 @@ export async function collectCash(orderId: string, expectedAmount: number, recei
 
     if (orderError) throw orderError;
 
-    // 2. If short-paid and rider exists, update the rider's pending cash
-    if (riderId && receivedAmount < expectedAmount) {
-      const shortPay = expectedAmount - receivedAmount;
-      
-      // Get current rider data
+    // 2. Update the rider's pending cash and total cash_collected
+    if (riderId) {
       const { data: rider, error: fetchRiderError } = await adminClient
         .from("riders")
-        .select("pending_cash")
+        .select("pending_cash, cash_collected")
         .eq("id", riderId)
         .single();
         
       if (!fetchRiderError && rider) {
-        const newPending = (Number(rider.pending_cash) || 0) + shortPay;
+        const shortPay = expectedAmount - receivedAmount;
+        const newPending = (Number(rider.pending_cash) || 0) + Math.max(0, shortPay);
+        const newCollected = (Number(rider.cash_collected) || 0) + receivedAmount;
+
         await adminClient
           .from("riders")
-          .update({ pending_cash: newPending })
+          .update({ 
+            pending_cash: newPending,
+            cash_collected: newCollected
+          })
           .eq("id", riderId);
       }
     }

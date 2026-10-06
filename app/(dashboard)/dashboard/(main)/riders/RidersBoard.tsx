@@ -110,10 +110,10 @@ export default function RidersBoard() {
               <tr className="border-b border-[#EAF0F6]">
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Rider</th>
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Number</th>
-                <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Deliveries</th>
+                <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Orders (Accepted/Declined)</th>
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Cash Collected</th>
                 <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-1/4">Pending Cash</th>
-                <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-24">Status</th>
+                <th className="px-6 py-4 text-[11px] font-black tracking-widest text-[#8799AF] uppercase w-24">Duty Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EAF0F6]">
@@ -135,16 +135,19 @@ export default function RidersBoard() {
                     <td className="px-6 py-4 text-[14px] font-extrabold text-[#0A1017]">
                       {rider.name}
                       {!rider.is_active && (
-                        <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
-                          Discontinued
+                        <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-extrabold text-red-600 uppercase tracking-widest">
+                          Off Duty
                         </span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-[14px] font-bold text-[#6B7A90]">
                       {rider.whatsapp_number}
                     </td>
-                    <td className="px-6 py-4 text-[14px] font-bold text-[#6B7A90]">
-                      {rider.deliveries_count}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="text-[14px] font-bold text-[#146C43]">{rider.deliveries_count} Accepted</span>
+                        <span className="text-[12px] font-medium text-[#8799AF]">0 Declined</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-[14px] font-extrabold text-[#0A1017]">
                       ₹{rider.cash_collected}
@@ -165,26 +168,14 @@ export default function RidersBoard() {
                       )}
                     </td>
                     <td className="px-6 py-4 flex gap-2">
-                      {rider.is_active && (
-                        <button
-                          onClick={() => {
-                            if (confirm("Are you sure you want to discontinue this rider? Their historical data will be saved.")) {
-                              handleToggleStatus(rider.id, true); // true = current status, so it flips to false
-                            }
-                          }}
-                          className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      )}
-                      {!rider.is_active && (
-                        <button
-                          onClick={() => handleToggleStatus(rider.id, false)} // flips to true
-                          className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-bold text-green-600 hover:bg-green-100 transition-colors"
-                        >
-                          Restore
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleToggleStatus(rider.id, rider.is_active)}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${rider.is_active ? 'bg-green-500' : 'bg-gray-300'}`}
+                        role="switch"
+                        aria-checked={rider.is_active}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${rider.is_active ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
                     </td>
                   </tr>
                 ))

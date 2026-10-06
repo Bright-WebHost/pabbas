@@ -239,7 +239,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
         if (updates.rider_name && !order.rider_name) {
           // PHASE A: Send notification to the rider via existing n8n webhook
-          const riderMessage = `🚚 *New Delivery*\n\nYou have a new delivery from Pabbas.\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${[order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided"}\n*Total:* ₹${order.total}\n\nPlease accept the order to start the delivery.`;
+          const riderMessage = `🚚 *New Delivery*\n\nYou have a new delivery from Pabbas.\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${[order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided"}\n\n*Amount to Collect: ₹${order.total}*\n\nPlease accept the order to start the delivery.`;
           
           const riderNotifyResult = await notifyStatusWebhook(order.order_number, "rider_assigned", undefined, {
             target: "rider",
