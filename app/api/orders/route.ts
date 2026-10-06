@@ -246,6 +246,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 })
     }
 
+    if (normalizedOrderType === 'dine-in' && finalTableNumber) {
+      const { error: tableUpdateError } = await adminClient
+        .from('restaurant_tables')
+        .update({
+          is_active: true,
+          current_order_id: createdOrder.id
+        })
+        .eq('table_number', finalTableNumber)
+      
+      if (tableUpdateError) {
+        console.error('[POST /api/orders] Failed to update table with active order:', tableUpdateError.message)
+      }
+    }
+
     // --- Notify customer via WhatsApp ---
     try {
       const notifyUrl = process.env.N8N_ORDER_CREATED_WEBHOOK_URL || 'https://staff.brightmedia.tech/webhook/pabbas-order-created'
