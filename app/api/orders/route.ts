@@ -82,10 +82,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Customer phone is required' }, { status: 400 })
     }
 
-    if (normalizedOrderType === 'dine-in' && (!table_id || typeof table_id !== 'string')) {
-      return NextResponse.json({ error: 'Table selection is required for dine-in orders' }, { status: 400 })
-    }
-
     if (normalizedOrderType === 'delivery' && (!delivery_address || typeof delivery_address !== 'string' || !delivery_address.trim())) {
       return NextResponse.json({ error: 'Delivery address is required for delivery orders' }, { status: 400 })
     }
@@ -159,20 +155,26 @@ export async function POST(request: Request) {
       })
     }
 
-    let tableNumber: string | null = null
-    if (normalizedOrderType === 'dine-in' && table_id) {
+    let finalTableNumber: string | null = null
+    if (normalizedOrderType === 'dine-in') {
+      const inputTableNumber = body.table_number || body.table_id;
+      if (!inputTableNumber || typeof inputTableNumber !== 'string') {
+        return NextResponse.json({ error: 'Table selection is required for dine-in orders' }, { status: 400 })
+      }
+
+      // Verify the table number exists
       const { data: tableRow, error: tableError } = await adminClient
         .from('restaurant_tables')
         .select('table_number')
-        .eq('id', table_id)
+        .eq('table_number', inputTableNumber)
         .maybeSingle()
 
-      if (tableError) {
-        console.error('[POST /api/orders] Table lookup failed:', tableError.message)
+      if (tableError || !tableRow) {
+        console.error('[POST /api/orders] Table lookup failed:', tableError?.message)
         return NextResponse.json({ error: 'Invalid table selection' }, { status: 400 })
       }
 
-      tableNumber = tableRow?.table_number ?? null
+      finalTableNumber = tableRow.table_number
     }
 
     const orderNumberResult = await adminClient.rpc('next_order_number', { src: 'pwa' })
@@ -200,7 +202,7 @@ export async function POST(request: Request) {
       landmark: normalizedOrderType === 'delivery' ? (typeof landmark === 'string' ? landmark.trim() : null) : null,
       city: null,
       pincode: normalizedOrderType === 'delivery' ? (typeof pincode === 'string' ? pincode.trim() : null) : null,
-      table_number: normalizedOrderType === 'dine-in' ? tableNumber : null,
+      table_number: normalizedOrderType === 'dine-in' ? finalTableNumber : null,
       items_json: orderedItems.map((item) => ({
         menu_item_id: item.menu_item_id,
         item_name: item.item_name,
