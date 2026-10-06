@@ -133,7 +133,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       setError(null);
 
       // Detect unacknowledged new orders (excluding POS orders, as staff created them)
-      const unackNew = latestOrders.filter(o => o.status === 'new' && o.order_type !== 'pos' && !acknowledgedIds.current.has(o.id));
+      const unackNew = latestOrders.filter(o => o.status === 'new' && o.source !== 'pos' && !acknowledgedIds.current.has(o.id));
       
       setQueuedNewOrders(prev => {
         const prevIds = new Set(prev.map(p => p.id));
@@ -155,7 +155,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   // Initial load effect to queue any existing new orders
   useEffect(() => {
     if (initialOrders.length > 0) {
-      const unackNew = initialOrders.filter(o => o.status === 'new' && o.order_type !== 'pos' && !acknowledgedIds.current.has(o.id));
+      const unackNew = initialOrders.filter(o => o.status === 'new' && o.source !== 'pos' && !acknowledgedIds.current.has(o.id));
       if (unackNew.length > 0) {
         setQueuedNewOrders(unackNew);
       }
@@ -219,7 +219,11 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     if (nextStatus === "cancelled") {
       updates.cancelled_by = "staff";
       updates.cancelled_at = new Date().toISOString();
-      updates.cancel_reason = reason || "staff_cancelled";
+      updates.cancel_reason = `${order.status}|${reason || "staff_cancelled"}`;
+    } else if (order.status === "cancelled") {
+      updates.cancelled_by = null;
+      updates.cancelled_at = null;
+      updates.cancel_reason = null;
     }
 
     try {

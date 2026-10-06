@@ -15,6 +15,8 @@ type OrderRow = {
   cancel_reason?: string;
   cancelled_by?: string;
   cancelled_at?: string;
+  order_type?: string;
+  source?: string;
 };
 
 export default function AnalyticsBoard() {
@@ -31,7 +33,7 @@ export default function AnalyticsBoard() {
     try {
       let query = supabase
         .from("orders")
-        .select("id, order_number, status, total, created_at, items_json, cancel_reason, cancelled_by, cancelled_at")
+        .select("id, order_number, status, total, created_at, items_json, cancel_reason, cancelled_by, cancelled_at, order_type, source")
         .neq("status", "draft");
 
       const now = new Date();
@@ -129,12 +131,36 @@ export default function AnalyticsBoard() {
       order_number: o.order_number,
       created_at: o.created_at,
       total: o.total,
-      reason: o.cancel_reason || 'No reason provided',
+      reason: (o.cancel_reason?.includes("|") ? o.cancel_reason.split("|").slice(1).join("|") : o.cancel_reason) || 'No reason provided',
       cancelled_by: o.cancelled_by || 'Unknown',
       items: o.items_json ? o.items_json.map((i: any) => `${i.quantity}x ${i.item_name}`).join(', ') : 'No items'
     }));
 
-    return { totalOrders, totalRevenue, avgOrder, topItems, dailySales, heatmap, maxHeat, cancelledOrders: cancelledOrdersList };
+    // Order Type Distribution
+    let posCount = 0;
+    let takeawayCount = 0;
+    let deliveryCount = 0;
+    validOrders.forEach((o) => {
+      if (o.source === "pos") {
+        posCount++;
+      } else if (o.order_type === "delivery") {
+        deliveryCount++;
+      } else {
+        takeawayCount++;
+      }
+    });
+
+    return { 
+      totalOrders, 
+      totalRevenue, 
+      avgOrder, 
+      topItems, 
+      dailySales, 
+      heatmap, 
+      maxHeat, 
+      cancelledOrders: cancelledOrdersList,
+      orderTypeDistribution: { pos: posCount, takeaway: takeawayCount, delivery: deliveryCount }
+    };
   }, [orders]);
 
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -241,7 +267,57 @@ export default function AnalyticsBoard() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Order Type Distribution */}
+            <div className="rounded-[20px] border border-[#EAF0F6] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
+              <div className="border-b border-[#EAF0F6] bg-[#F8FAFB] px-6 py-4">
+                <h3 className="font-extrabold text-[15px] tracking-[-0.2px] text-[#0A1017]">Order Types</h3>
+              </div>
+              <div className="p-6 flex-1 flex flex-col items-center justify-center gap-6 min-h-[250px]">
+                {stats.totalOrders > 0 ? (
+                  <>
+                    <div 
+                      className="w-40 h-40 rounded-full"
+                      style={{
+                        background: `conic-gradient(
+                          #C0392B 0% ${(stats.orderTypeDistribution.pos / stats.totalOrders) * 100}%,
+                          #F5B041 ${(stats.orderTypeDistribution.pos / stats.totalOrders) * 100}% ${((stats.orderTypeDistribution.pos + stats.orderTypeDistribution.takeaway) / stats.totalOrders) * 100}%,
+                          #2E86C1 ${((stats.orderTypeDistribution.pos + stats.orderTypeDistribution.takeaway) / stats.totalOrders) * 100}% 100%
+                        )`
+                      }}
+                    />
+                    <div className="w-full flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-[#C0392B]" />
+                          <span className="text-[13px] font-bold text-[#0A1017]">POS Orders</span>
+                        </div>
+                        <span className="text-[13px] font-extrabold text-[#8799AF]">{stats.orderTypeDistribution.pos}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-[#F5B041]" />
+                          <span className="text-[13px] font-bold text-[#0A1017]">Takeaway</span>
+                        </div>
+                        <span className="text-[13px] font-extrabold text-[#8799AF]">{stats.orderTypeDistribution.takeaway}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-[#2E86C1]" />
+                          <span className="text-[13px] font-bold text-[#0A1017]">Delivery</span>
+                        </div>
+                        <span className="text-[13px] font-extrabold text-[#8799AF]">{stats.orderTypeDistribution.delivery}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[#8799AF] font-semibold text-sm">
+                    No orders to display
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Top Items */}
             <div className="rounded-[20px] border border-[#EAF0F6] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
               <div className="border-b border-[#EAF0F6] bg-[#F8FAFB] px-6 py-4">

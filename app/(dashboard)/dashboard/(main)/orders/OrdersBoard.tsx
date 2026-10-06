@@ -334,7 +334,7 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
           <div className="mb-4 bg-[#FDE8E8] border border-[#F5C6CB] rounded-xl p-4">
             <h4 className="text-[12px] font-extrabold uppercase tracking-[1px] text-[#B42318] mb-1">Cancellation Details</h4>
             <p className="text-[14px] text-[#B42318]">
-              <strong>Reason:</strong> {order.cancel_reason || "None provided"}<br/>
+              <strong>Reason:</strong> {(order.cancel_reason?.includes("|") ? order.cancel_reason.split("|").slice(1).join("|") : order.cancel_reason) || "None provided"}<br/>
               <strong>By:</strong> {order.cancelled_by || "Unknown"}<br/>
               <strong>At:</strong> {dateTime(order.cancelled_at)}
             </p>
@@ -384,24 +384,7 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
               </button>
             )}
 
-            {order.status === "cancelled" && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const pin = window.prompt("Enter Security PIN to Undo Cancel:");
-                  if (pin === "0000") {
-                    onStatusChange(order, "new", "Undo Cancel");
-                    onClose();
-                  } else if (pin) {
-                    alert("Incorrect PIN");
-                  }
-                }}
-                className="h-[48px] rounded-[12px] border border-[#C6ECD6] bg-[#E5F5EC] px-5 text-[14px] font-extrabold text-[#146C43] hover:bg-[#D1E7DD] transition-colors"
-              >
-                Undo Cancel
-              </button>
-            )}
+
 
             {order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
               <button
@@ -547,6 +530,26 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
               Cancel
             </button>
           )}
+          {order.status === "cancelled" && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                const pin = window.prompt("Enter Security PIN to Undo Cancel:");
+                if (pin === "0000") {
+                  const prevStatus = (order.cancel_reason && order.cancel_reason.includes("|")) 
+                    ? order.cancel_reason.split("|")[0] 
+                    : "new";
+                  onStatusChange(order, prevStatus as any, "Undo Cancel");
+                } else if (pin) {
+                  alert("Incorrect PIN");
+                }
+              }}
+              className="text-[#146C43] hover:underline font-bold"
+            >
+              Undo Cancel
+            </button>
+          )}
           <button
             type="button"
             onClick={(event) => {
@@ -647,37 +650,7 @@ export default function OrdersBoard() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8799AF]">🔍</span>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search orders..."
-              className="min-w-[200px] rounded-xl border border-[#EAF0F6] bg-white pl-9 pr-4 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 transition-all placeholder:text-[#A1B2C6]"
-            />
-          </div>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value as "all" | OrderStatus)}
-            className="rounded-xl border border-[#EAF0F6] bg-white px-4 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 transition-all appearance-none cursor-pointer"
-          >
-            <option value="all">All statuses</option>
-            {Object.entries(statusLabels).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-          <select
-            value={orderType}
-            onChange={(event) => setOrderType(event.target.value as "all" | DashboardOrder["order_type"])}
-            className="rounded-xl border border-[#EAF0F6] bg-white px-4 py-2 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 transition-all appearance-none cursor-pointer"
-          >
-            <option value="all">All types</option>
-            <option value="delivery">Delivery</option>
-            <option value="pickup">Pickup</option>
-            <option value="pos">POS</option>
-          </select>
-        </div>
+        {/* Removed search and filters per user request */}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">

@@ -1,0 +1,1188 @@
+{
+  "id": "12467",
+  "finished": true,
+  "mode": "webhook",
+  "retryOf": null,
+  "retrySuccessId": null,
+  "status": "success",
+  "createdAt": "2026-10-06T04:43:43.750Z",
+  "startedAt": "2026-10-06T04:43:43.756Z",
+  "stoppedAt": "2026-10-06T04:43:44.932Z",
+  "deletedAt": null,
+  "workflowId": "k7mayj1bhUGCmz8x",
+  "waitTill": null,
+  "storedAt": "db",
+  "tracingContext": null,
+  "deduplicationKey": null,
+  "jsonSizeBytes": 19894,
+  "binaryDataSizeBytes": 0,
+  "workflowVersionId": "054d5103-be49-4cb9-ad1b-fd2c7ced096d",
+  "usedPrivateCredentials": false,
+  "data": {
+    "version": 1,
+    "startData": {},
+    "resultData": {
+      "runData": {
+        "Blast Webhook": [
+          {
+            "startTime": 1791261823766,
+            "executionIndex": 0,
+            "source": [],
+            "hints": [],
+            "executionTime": 0,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [
+                  {
+                    "json": {
+                      "headers": {
+                        "connection": "upgrade",
+                        "host": "staff.brightmedia.tech",
+                        "x-real-ip": "44.213.110.19",
+                        "x-forwarded-for": "44.213.110.19",
+                        "x-forwarded-proto": "https",
+                        "content-length": "1228",
+                        "content-type": "application/json",
+                        "authorization": "Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjVmM2NlMDIyLWQ5ODYtNGNiYi1hZDY3LWVkOWExNWVkNTdmYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NscXpjdG50a3d6YWhkZmplcWx4LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIwNmFiZjliYy1jMGEzLTQwZmEtODhmMy1mNGQ3MWQ3MGMzZTEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzkxMjY1MzcwLCJpYXQiOjE3OTEyNjE3NzAsImVtYWlsIjoiYWRtaW5AcGFiYmFzLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzkwOTE0MjEzfV0sInNlc3Npb25faWQiOiI3ZTA1Zjc5ZS00ZDQ3LTRiYWMtOTZiZS01MDk3MGNlNzYxOTQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.94inVZ0GuSjD-iJPE588kYw1WCb3pzoiBhx3vnqm1qgmOAKSs6cGlsYipWhP1Sw1NJ0XLo6UTIjyfBbt3OWZRA",
+                        "x-vercel-id": "bom1::2w2kj-1791261822060-185f154340a3",
+                        "x-invocation-id": "bom1::2w2kj-1791261822060-185f154340a3",
+                        "accept": "*/*",
+                        "accept-language": "*",
+                        "sec-fetch-mode": "cors",
+                        "user-agent": "node",
+                        "accept-encoding": "br, gzip, deflate"
+                      },
+                      "params": {},
+                      "query": {},
+                      "body": {
+                        "filter": "all",
+                        "template_name": "weekend_promo_dynamic",
+                        "language": "en",
+                        "components": [
+                          {
+                            "type": "header",
+                            "parameters": [
+                              {
+                                "type": "image",
+                                "image": {
+                                  "link": "https://api.ycloud.com/v2/whatsapp/media/1613128140557133"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "type": "button",
+                            "sub_type": "url",
+                            "index": 0,
+                            "parameters": [
+                              {
+                                "type": "text",
+                                "text": "pabbas_promo_blast"
+                              }
+                            ]
+                          }
+                        ],
+                        "ycloud_api_key": "d5502caecd15e608b38bb515f76d5f35",
+                        "phones": [
+                          "919035960307"
+                        ],
+                        "headers": {
+                          "authorization": "Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjVmM2NlMDIyLWQ5ODYtNGNiYi1hZDY3LWVkOWExNWVkNTdmYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NscXpjdG50a3d6YWhkZmplcWx4LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIwNmFiZjliYy1jMGEzLTQwZmEtODhmMy1mNGQ3MWQ3MGMzZTEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzkxMjY1MzcwLCJpYXQiOjE3OTEyNjE3NzAsImVtYWlsIjoiYWRtaW5AcGFiYmFzLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzkwOTE0MjEzfV0sInNlc3Npb25faWQiOiI3ZTA1Zjc5ZS00ZDQ3LTRiYWMtOTZiZS01MDk3MGNlNzYxOTQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.94inVZ0GuSjD-iJPE588kYw1WCb3pzoiBhx3vnqm1qgmOAKSs6cGlsYipWhP1Sw1NJ0XLo6UTIjyfBbt3OWZRA"
+                        }
+                      },
+                      "webhookUrl": "https://staff.brightmedia.tech/webhook/pabbas-blast",
+                      "executionMode": "production"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "Verify Staff": [
+          {
+            "startTime": 1791261823767,
+            "executionIndex": 1,
+            "source": [
+              {
+                "previousNode": "Blast Webhook",
+                "previousNodeOutput": 0,
+                "previousNodeRun": 0
+              }
+            ],
+            "hints": [],
+            "executionTime": 304,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [
+                  {
+                    "json": {
+                      "body": {
+                        "email": "admin@pabbas.com",
+                        "staff": true
+                      },
+                      "headers": {
+                        "date": "Tue, 06 Oct 2026 04:43:44 GMT",
+                        "content-type": "application/json; charset=utf-8",
+                        "content-length": "44",
+                        "connection": "close",
+                        "content-range": "0-0/*",
+                        "cf-ray": "a46201becd2acca5-MAN",
+                        "cf-cache-status": "DYNAMIC",
+                        "server": "cloudflare",
+                        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+                        "content-profile": "public",
+                        "sb-gateway-version": "2",
+                        "sb-jwt-alg": "ES256",
+                        "sb-jwt-iss": "https://clqzctntkwzahdfjeqlx.supabase.co/auth/v1",
+                        "sb-jwt-sub": "06abf9bc-c0a3-40fa-88f3-f4d71d70c3e1",
+                        "sb-project-ref": "clqzctntkwzahdfjeqlx",
+                        "sb-request-id": "01a10f86-535a-774e-8f54-d51cf356c448",
+                        "x-content-type-options": "nosniff",
+                        "x-envoy-attempt-count": "1",
+                        "x-envoy-upstream-service-time": "7",
+                        "set-cookie": [
+                          "__cf_bm=2TbNqAEIqOgsSJG9cexmlbtcDLNLGg82wZWMJ5odb8g-1791261823.8090208-1.0.1.1-gRAwW7igcDTQlznbp9wQOeaCg_irX3pq5AMeyRl67zXCKHI4bj6m.GqKk3jrU2SC0WFwr6lMmdNQLnFnJjLuBXgvggNbo7SIo_m91MRDPZ9y.CEyHlhOd57KdMNAlfUt; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Tue, 06 Oct 2026 05:13:44 GMT"
+                        ],
+                        "alt-svc": "h3=\":443\"; ma=86400"
+                      },
+                      "statusCode": 200,
+                      "statusMessage": "OK"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "Is Staff?": [
+          {
+            "startTime": 1791261824071,
+            "executionIndex": 2,
+            "source": [
+              {
+                "previousNode": "Verify Staff",
+                "previousNodeOutput": 0,
+                "previousNodeRun": 0
+              }
+            ],
+            "hints": [],
+            "executionTime": 3,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [
+                  {
+                    "json": {
+                      "body": {
+                        "email": "admin@pabbas.com",
+                        "staff": true
+                      },
+                      "headers": {
+                        "date": "Tue, 06 Oct 2026 04:43:44 GMT",
+                        "content-type": "application/json; charset=utf-8",
+                        "content-length": "44",
+                        "connection": "close",
+                        "content-range": "0-0/*",
+                        "cf-ray": "a46201becd2acca5-MAN",
+                        "cf-cache-status": "DYNAMIC",
+                        "server": "cloudflare",
+                        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+                        "content-profile": "public",
+                        "sb-gateway-version": "2",
+                        "sb-jwt-alg": "ES256",
+                        "sb-jwt-iss": "https://clqzctntkwzahdfjeqlx.supabase.co/auth/v1",
+                        "sb-jwt-sub": "06abf9bc-c0a3-40fa-88f3-f4d71d70c3e1",
+                        "sb-project-ref": "clqzctntkwzahdfjeqlx",
+                        "sb-request-id": "01a10f86-535a-774e-8f54-d51cf356c448",
+                        "x-content-type-options": "nosniff",
+                        "x-envoy-attempt-count": "1",
+                        "x-envoy-upstream-service-time": "7",
+                        "set-cookie": [
+                          "__cf_bm=2TbNqAEIqOgsSJG9cexmlbtcDLNLGg82wZWMJ5odb8g-1791261823.8090208-1.0.1.1-gRAwW7igcDTQlznbp9wQOeaCg_irX3pq5AMeyRl67zXCKHI4bj6m.GqKk3jrU2SC0WFwr6lMmdNQLnFnJjLuBXgvggNbo7SIo_m91MRDPZ9y.CEyHlhOd57KdMNAlfUt; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Tue, 06 Oct 2026 05:13:44 GMT"
+                        ],
+                        "alt-svc": "h3=\":443\"; ma=86400"
+                      },
+                      "statusCode": 200,
+                      "statusMessage": "OK"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ],
+                []
+              ]
+            }
+          }
+        ],
+        "Extract Params": [
+          {
+            "startTime": 1791261824074,
+            "executionIndex": 3,
+            "source": [
+              {
+                "previousNode": "Is Staff?",
+                "previousNodeOutput": 0,
+                "previousNodeRun": 0
+              }
+            ],
+            "hints": [],
+            "executionTime": 41,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [
+                  {
+                    "json": {
+                      "run_id": "blast_1791261824112",
+                      "filter": "all",
+                      "template_name": "weekend_promo_dynamic",
+                      "language": "en",
+                      "components": [
+                        {
+                          "type": "header",
+                          "parameters": [
+                            {
+                              "type": "image",
+                              "image": {
+                                "link": "https://api.ycloud.com/v2/whatsapp/media/1613128140557133"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "button",
+                          "sub_type": "url",
+                          "index": 0,
+                          "parameters": [
+                            {
+                              "type": "text",
+                              "text": "pabbas_promo_blast"
+                            }
+                          ]
+                        }
+                      ],
+                      "ycloud_api_key": "d5502caecd15e608b38bb515f76d5f35",
+                      "phones": [
+                        "919035960307"
+                      ]
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "Get Customers": [
+          {
+            "startTime": 1791261824115,
+            "executionIndex": 4,
+            "source": [
+              {
+                "previousNode": "Extract Params",
+                "previousNodeOutput": 0,
+                "previousNodeRun": 0
+              }
+            ],
+            "hints": [],
+            "executionTime": 800,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [
+                  {
+                    "json": {
+                      "phone": "917795240605",
+                      "name": "Shahil",
+                      "total_orders": 2,
+                      "last_order_date": "2026-10-05"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "15551234567",
+                      "name": "Test User 5",
+                      "total_orders": 4,
+                      "last_order_date": "2026-09-25"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "",
+                      "name": "Walk-in",
+                      "total_orders": 2,
+                      "last_order_date": "2026-10-03"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "919035960307",
+                      "name": "Maithri S",
+                      "total_orders": 52,
+                      "last_order_date": "2026-10-05"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "917676219138",
+                      "name": "Muktha",
+                      "total_orders": 1,
+                      "last_order_date": "2026-09-28"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "919876543210",
+                      "name": "TestUser",
+                      "total_orders": 1,
+                      "last_order_date": "2026-10-01"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "919180108354",
+                      "name": "Bright Media",
+                      "total_orders": 3,
+                      "last_order_date": "2026-10-01"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "918431585310",
+                      "name": "Junaid",
+                      "total_orders": 1,
+                      "last_order_date": "2026-10-01"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  },
+                  {
+                    "json": {
+                      "phone": "918747806127",
+                      "name": "lathish",
+                      "total_orders": 1,
+                      "last_order_date": "2026-10-02"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "Filter & Clean Phones": [
+          {
+            "startTime": 1791261824916,
+            "executionIndex": 5,
+            "source": [
+              {
+                "previousNode": "Get Customers",
+                "previousNodeOutput": 0,
+                "previousNodeRun": 0
+              }
+            ],
+            "hints": [],
+            "executionTime": 16,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [
+                  {
+                    "json": {
+                      "phone": "919035960307",
+                      "template_name": "weekend_promo_dynamic",
+                      "language": "en",
+                      "components": [
+                        {
+                          "type": "header",
+                          "parameters": [
+                            {
+                              "type": "image",
+                              "image": {
+                                "link": "https://api.ycloud.com/v2/whatsapp/media/1613128140557133"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "button",
+                          "sub_type": "url",
+                          "index": 0,
+                          "parameters": [
+                            {
+                              "type": "text",
+                              "text": "pabbas_promo_blast"
+                            }
+                          ]
+                        }
+                      ],
+                      "ycloud_api_key": "d5502caecd15e608b38bb515f76d5f35"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "Loop Customers": [
+          {
+            "startTime": 1791261824932,
+            "executionIndex": 6,
+            "source": [
+              {
+                "previousNode": "Filter & Clean Phones",
+                "previousNodeOutput": 0,
+                "previousNodeRun": 0
+              }
+            ],
+            "hints": [],
+            "executionTime": 0,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [],
+                [
+                  {
+                    "json": {
+                      "phone": "919035960307",
+                      "template_name": "weekend_promo_dynamic",
+                      "language": "en",
+                      "components": [
+                        {
+                          "type": "header",
+                          "parameters": [
+                            {
+                              "type": "image",
+                              "image": {
+                                "link": "https://api.ycloud.com/v2/whatsapp/media/1613128140557133"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "button",
+                          "sub_type": "url",
+                          "index": 0,
+                          "parameters": [
+                            {
+                              "type": "text",
+                              "text": "pabbas_promo_blast"
+                            }
+                          ]
+                        }
+                      ],
+                      "ycloud_api_key": "d5502caecd15e608b38bb515f76d5f35"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        ],
+        "Done": [
+          {
+            "startTime": 1791261824932,
+            "executionIndex": 7,
+            "source": [
+              {
+                "previousNode": "Loop Customers",
+                "previousNodeOutput": 1,
+                "previousNodeRun": 0
+              }
+            ],
+            "hints": [],
+            "executionTime": 0,
+            "executionStatus": "success",
+            "data": {
+              "main": [
+                [
+                  {
+                    "json": {
+                      "phone": "919035960307",
+                      "template_name": "weekend_promo_dynamic",
+                      "language": "en",
+                      "components": [
+                        {
+                          "type": "header",
+                          "parameters": [
+                            {
+                              "type": "image",
+                              "image": {
+                                "link": "https://api.ycloud.com/v2/whatsapp/media/1613128140557133"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "button",
+                          "sub_type": "url",
+                          "index": 0,
+                          "parameters": [
+                            {
+                              "type": "text",
+                              "text": "pabbas_promo_blast"
+                            }
+                          ]
+                        }
+                      ],
+                      "ycloud_api_key": "d5502caecd15e608b38bb515f76d5f35"
+                    },
+                    "pairedItem": {
+                      "item": 0
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "lastNodeExecuted": "Done"
+    },
+    "executionData": {
+      "contextData": {
+        "node:Loop Customers": {
+          "currentRunIndex": 0,
+          "maxRunIndex": 1,
+          "sourceData": {
+            "previousNode": "Filter & Clean Phones",
+            "previousNodeOutput": 0,
+            "previousNodeRun": 0
+          },
+          "items": [],
+          "processedItems": [],
+          "noItemsLeft": true,
+          "done": false
+        }
+      },
+      "nodeExecutionStack": [],
+      "metadata": {},
+      "waitingExecution": {},
+      "waitingExecutionSource": {},
+      "runtimeData": {
+        "version": 1,
+        "establishedAt": 1791261823750,
+        "source": "webhook",
+        "triggerNode": {
+          "name": "Blast Webhook",
+          "type": "n8n-nodes-base.webhook"
+        },
+        "redaction": {
+          "version": 2,
+          "production": false,
+          "manual": false
+        }
+      }
+    },
+    "resumeToken": "03815e4f0e37464635d059f49054609d431e1a5a9d02c8e1a39b644e8fd598ab"
+  },
+  "workflowData": {
+    "id": "k7mayj1bhUGCmz8x",
+    "name": "Pabbas | Blast Sender",
+    "nodes": [
+      {
+        "parameters": {
+          "multipleMethods": false,
+          "httpMethod": "POST",
+          "path": "pabbas-blast",
+          "authentication": "none",
+          "responseMode": "onReceived",
+          "contentTypeNotice": "",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "ecc54992-2103-4e1a-ac18-337a721c5a40",
+        "name": "Blast Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -16,
+          208
+        ],
+        "webhookId": "pabbas-blast"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const body = $('Blast Webhook').first().json.body || {};\nreturn [{\n  json: {\n    run_id: 'blast_' + Date.now(),\n    filter: body.filter || 'all',\n    template_name: body.template_name || '',\n    language: body.language || 'en',\n    components: Array.isArray(body.components) ? body.components : [],\n    ycloud_api_key: body.ycloud_api_key || '',\n    phones: Array.isArray(body.phones) ? body.phones : []\n  }\n}];",
+          "notice": ""
+        },
+        "id": "b2a5e827-b65f-445d-8707-38af2a039136",
+        "name": "Extract Params",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          512,
+          -16
+        ]
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "GET",
+          "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/customers",
+          "authentication": "none",
+          "provideSslCertificates": false,
+          "sendQuery": true,
+          "specifyQuery": "keypair",
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "opted_out",
+                "value": "=eq.false"
+              },
+              {
+                "name": "select",
+                "value": "phone,name,total_orders,last_order_date"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": false,
+          "options": {
+            "timeout": 10000
+          },
+          "infoMessage": ""
+        },
+        "id": "5815e02b-33a4-46a0-9551-6b10db9565bb",
+        "name": "Get Customers",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          672,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const params = $('Extract Params').first().json;\nconst dbCustomers = $input.all().flatMap(i => Array.isArray(i.json) ? i.json : [i.json]) || [];\nconst explicitPhones = params.phones || [];\n\nlet targetPhones = [];\nif (explicitPhones.length > 0) {\n  targetPhones = explicitPhones;\n} else {\n  const now = Date.now();\n  targetPhones = dbCustomers.filter(c => {\n    if (params.filter === 'repeat' && c.total_orders < 2) return false;\n    if (params.filter === 'active_30') {\n      if (!c.last_order_date) return false;\n      const days = (now - new Date(c.last_order_date).getTime()) / (1000 * 60 * 60 * 24);\n      if (days > 30) return false;\n    }\n    return true;\n  }).map(c => c.phone);\n}\n\nconst unique = [...new Set(targetPhones.map(p => String(p).replace(/[^0-9]/g, '')).filter(Boolean))];\n\nreturn unique.map(p => ({\n  json: {\n    phone: p,\n    template_name: params.template_name,\n    language: params.language,\n    components: params.components,\n    ycloud_api_key: params.ycloud_api_key\n  }\n}));",
+          "notice": ""
+        },
+        "id": "7fe107b7-6944-44db-8fd7-d21f53c66a0e",
+        "name": "Filter & Clean Phones",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          912,
+          -16
+        ]
+      },
+      {
+        "parameters": {
+          "splitInBatchesNotice": "",
+          "batchSize": 1,
+          "options": {}
+        },
+        "id": "fea21b54-13e0-4a68-a54f-1922b7788062",
+        "name": "Loop Customers",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          1136,
+          -48
+        ]
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "POST",
+          "url": "https://api.ycloud.com/v2/whatsapp/messages",
+          "authentication": "none",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-API-Key",
+                "value": "={{ $json.ycloud_api_key || \"d5502caecd15e608b38bb515f76d5f35\" }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: $json.phone,\n  type: 'template',\n  template: {\n    name: $json.template_name,\n    language: { code: $json.language },\n    components: $json.components || []\n  }\n}) }}",
+          "options": {
+            "timeout": 15000
+          },
+          "infoMessage": ""
+        },
+        "id": "4388c928-8502-40a0-b0a2-5dbdad00511e",
+        "name": "Send Template",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1344,
+          -64
+        ],
+        "alwaysOutputData": true,
+        "disabled": false,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const req = $input.first().json || {};\nconst phone = $('Loop Customers').item.json.phone;\n\nreturn [{\n  json: {\n    phone: phone,\n    blast_status: req.error ? 'failed' : 'sent',\n    blast_message_id: req.id || req.message_id || 'msg_' + Date.now(),\n    blast_sent_at: new Date().toISOString(),\n    blast_error: req.error ? JSON.stringify(req.error) : null\n  }\n}];",
+          "notice": ""
+        },
+        "id": "37bf7b01-42a8-4e70-b5e8-a55c0e22c738",
+        "name": "Parse Send Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1552,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "PATCH",
+          "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/customers",
+          "authentication": "none",
+          "provideSslCertificates": false,
+          "sendQuery": true,
+          "specifyQuery": "keypair",
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "phone",
+                "value": "=eq.{{ $json.phone }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ blast_message_id: $json.blast_message_id, blast_sent_at: $json.blast_sent_at, blast_read_at: null }) }}",
+          "options": {
+            "timeout": 10000
+          },
+          "infoMessage": ""
+        },
+        "id": "82c370bd-999d-47f9-8872-0c33a1a4b925",
+        "name": "Update Customer",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1952,
+          -80
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "resume": "timeInterval",
+          "amount": 1,
+          "unit": "seconds"
+        },
+        "id": "5a9ad7d1-c339-4e2d-b339-4d93506479e5",
+        "name": "Throttle 1s",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          2160,
+          -64
+        ],
+        "webhookId": "pabbas-blast-wait"
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "POST",
+          "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/blast_log",
+          "authentication": "none",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ \n  run_id: $('Extract Params').first().json.run_id, \n  phone: $json.phone, \n  status: $json.blast_status, \n  message_id: $json.blast_message_id, \n  error: $json.blast_error \n}) }}",
+          "options": {
+            "timeout": 10000
+          },
+          "infoMessage": ""
+        },
+        "id": "64cb999e-9a8b-4db3-807d-d22043e4381a",
+        "name": "Log Blast",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1728,
+          -80
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {},
+        "id": "f8a45d86-56c4-4bf9-bdaa-9741913e0420",
+        "name": "Done",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          1280,
+          288
+        ]
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "POST",
+          "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/staff_check",
+          "authentication": "none",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": true,
+          "specifyHeaders": "keypair",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "={{ $json.headers.authorization }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({}) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "autodetect"
+              }
+            },
+            "timeout": 10000
+          },
+          "infoMessage": ""
+        },
+        "id": "bf361d24-c0d9-49eb-b5be-74721b00c01c",
+        "name": "Verify Staff",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          0,
+          0
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "pabbas-blast-is-staff-check",
+                "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "886f0ccb-45a8-4141-b92a-daf27b581046",
+        "name": "Is Staff?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          224,
+          0
+        ]
+      }
+    ],
+    "connections": {
+      "Blast Webhook": {
+        "main": [
+          [
+            {
+              "node": "Verify Staff",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verify Staff": {
+        "main": [
+          [
+            {
+              "node": "Is Staff?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Staff?": {
+        "main": [
+          [
+            {
+              "node": "Extract Params",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      },
+      "Extract Params": {
+        "main": [
+          [
+            {
+              "node": "Get Customers",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Customers": {
+        "main": [
+          [
+            {
+              "node": "Filter & Clean Phones",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter & Clean Phones": {
+        "main": [
+          [
+            {
+              "node": "Loop Customers",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Customers": {
+        "main": [
+          [
+            {
+              "node": "Send Template",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Done",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Send Result": {
+        "main": [
+          [
+            {
+              "node": "Log Blast",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Blast": {
+        "main": [
+          [
+            {
+              "node": "Update Customer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update Customer": {
+        "main": [
+          [
+            {
+              "node": "Throttle 1s",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Throttle 1s": {
+        "main": [
+          [
+            {
+              "node": "Loop Customers",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Template": {
+        "main": [
+          [
+            {
+              "node": "Parse Send Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate"
+    },
+    "nodeGroups": []
+  },
+  "customData": {}
+}
