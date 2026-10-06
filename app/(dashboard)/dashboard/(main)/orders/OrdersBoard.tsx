@@ -624,9 +624,6 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
 
 export default function OrdersBoard() {
   const { orders, error, updateOrderStatus, isLoading } = useOrderManager();
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | OrderStatus>("all");
-  const [orderType, setOrderType] = useState<"all" | DashboardOrder["order_type"]>("all");
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -662,15 +659,10 @@ export default function OrdersBoard() {
   }, [updateOrderStatus, assignRiderOrder]);
 
   const filteredOrders = useMemo(() => {
-    const query = search.trim().toLowerCase();
     return orders.filter((order) => {
-      const matchesRange = inRange(order, range);
-      const matchesSearch = !query || [order.order_number, order.customer_name || "", order.customer_phone].some((value) => value.toLowerCase().includes(query));
-      const matchesStatus = status === "all" || order.status === status;
-      const matchesType = orderType === "all" || order.order_type === orderType;
-      return matchesRange && matchesSearch && matchesStatus && matchesType;
+      return inRange(order, range);
     });
-  }, [orderType, orders, range, search, status]);
+  }, [orders, range]);
 
   const visibleOrders = filteredOrders.filter((order) => order.status !== "cancelled");
   const cancelledOrders = filteredOrders.filter((order) => order.status === "cancelled");

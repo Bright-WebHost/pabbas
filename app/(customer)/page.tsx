@@ -28,6 +28,11 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
 
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [activeOrderItems, setActiveOrderItems] = useState<any[]>([]);
+  const [activeOrderStatus, setActiveOrderStatus] = useState<string | null>(null);
+  const [activeOrderTotal, setActiveOrderTotal] = useState<number>(0);
+
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
   const [menuError, setMenuError] = useState(false);
@@ -59,6 +64,28 @@ export default function Home() {
 
   useEffect(() => {
     fetchMenu();
+    
+    // Check for table QR code parameter
+    const params = new URLSearchParams(window.location.search);
+    const tableParam = params.get("table");
+    if (tableParam) {
+      setOrderType("dine-in");
+      setTable(tableParam);
+      setScreen("menu"); // Go straight to menu
+      
+      // Fetch active order for this table
+      fetch(`/api/tables/active?table=${encodeURIComponent(tableParam)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.active_order) {
+            setActiveOrderId(data.active_order.id);
+            setActiveOrderItems(data.active_order.items || []);
+            setActiveOrderStatus(data.active_order.status);
+            setActiveOrderTotal(data.active_order.total || 0);
+          }
+        })
+        .catch(console.error);
+    }
   }, []);
 
   const visibleItems = useMemo(() => {
@@ -70,7 +97,8 @@ export default function Home() {
     });
   }, [category, search, menuItems, dietFilter]);
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
-  const subtotal = cart.reduce((sum, line) => sum + line.item.price * line.quantity, 0);
+  const newItemsSubtotal = cart.reduce((sum, line) => sum + line.item.price * line.quantity, 0);
+  const subtotal = newItemsSubtotal + activeOrderTotal;
   const deliveryFee = orderType === "delivery" && subtotal > 0 ? 35 : 0;
   const total = subtotal + deliveryFee;
 
@@ -125,38 +153,72 @@ export default function Home() {
     if (!idempotencyKey) setIdempotencyKey(currentIdempotencyKey);
 
     try {
-      const payload = {
-        order_type: orderType,
-        customer_name: details.name,
-        customer_phone: details.phone,
-        delivery_address: orderType === "delivery" ? details.address : null,
-        landmark: orderType === "delivery" ? details.landmark : null,
-        pincode: orderType === "delivery" ? details.pincode : null,
-        scheduled_time: !isAsap && details.pickupDate && details.pickupTime ? new Date(`${details.pickupDate}T${details.pickupTime}`).toISOString() : null,
-        payment_method: details.payment,
-        idempotency_key: currentIdempotencyKey,
-        cart_items: cart.map(line => ({
-          menu_item_id: line.item.id,
-          quantity: line.quantity
-        }))
-      };
+      if (activeOrderId && orderType === "dine-in") {
+        // APPEND TO EXISTING ORDER
+        const appendPayload = {
+          order_id: activeOrderId,
+          table_number: table,
+          new_items: cart.map(line => ({
+            menu_item_id: line.item.id,
+            item_name: line.item.name,
+            quantity: line.quantity,
+            price: line.item.price
+          }))
+        };
+        const res = await fetch('/api/orders/append', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(appendPayload)
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          setOrderNumber(data.merged_items ? "Updated successfully" : "Updated");
+          setCart([]);
+          setCartOpen(false);
+          setScreen("confirmed");
+          if (data.new_total) setActiveOrderTotal(data.new_total);
+          if (data.merged_items) setActiveOrderItems(data.merged_items);
+        } else {
+          setSubmitError(data.error || "Failed to update order");
+        }
+      } else {
+        // CREATE NEW ORDER
+        const payload = {
+          order_type: orderType,
+          table_number: orderType === "dine-in" ? table : null,
+          customer_name: details.name,
+          customer_phone: details.phone,
+          delivery_address: orderType === "delivery" ? details.address : null,
+          landmark: orderType === "delivery" ? details.landmark : null,
+          pincode: orderType === "delivery" ? details.pincode : null,
+          scheduled_time: !isAsap && details.pickupDate && details.pickupTime ? new Date(`${details.pickupDate}T${details.pickupTime}`).toISOString() : null,
+          payment_method: details.payment,
+          idempotency_key: currentIdempotencyKey,
+          cart_items: cart.map(line => ({
+            menu_item_id: line.item.id,
+            quantity: line.quantity
+          }))
+        };
 
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setSubmitError(data.error || 'Failed to place order');
-        setIsSubmitting(false);
-        return;
-      }
+        const data = await res.json();
+        
+        if (!res.ok || data.error) {
+          setSubmitError(data.error || 'Failed to place order');
+          setIsSubmitting(false);
+          return;
+        }
 
-      setOrderNumber(data.order?.order_number || `PAB-${Math.floor(1000 + Math.random() * 8999)}`);
-      setScreen("confirmed");
-      setCartOpen(false);
+        setOrderNumber(data.order?.order_number || `PAB-${Math.floor(1000 + Math.random() * 8999)}`);
+        setScreen("confirmed");
+        setCartOpen(false);
+      } // CLOSE THE ELSE BLOCK
     } catch (err: any) {
       setSubmitError(err?.message || 'Network error placing order');
     } finally {
@@ -166,7 +228,7 @@ export default function Home() {
 
   if (screen === "welcome") return <Welcome orderType={orderType} setOrderType={(type) => { setOrderType(type); setScreen("menu"); }} />;
 
-  if (screen === "checkout") return <Checkout orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} total={total} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
+  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} total={total} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
 
   if (screen === "confirmed") return <Confirmation orderNumber={orderNumber} orderType={orderType} table={table} cart={cart} total={total} onContinue={() => { setScreen("welcome"); setCart([]); setIdempotencyKey(""); }} />;
 
@@ -260,7 +322,7 @@ export default function Home() {
               <h2 className="text-xl font-bold">Your Order</h2>
               <button aria-label="Close cart" onClick={() => setCartOpen(false)} className="p-2 rounded-full bg-white border border-gray-200 text-gray-600"><X size={19} /></button>
             </div>
-            <CartPanel cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} total={total} onChange={changeQuantity} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
+            <CartPanel cart={cart} activeOrderItems={activeOrderItems} subtotal={subtotal} deliveryFee={deliveryFee} total={total} onChange={changeQuantity} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
           </motion.div>
         </div>}
       </AnimatePresence>
@@ -371,9 +433,9 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
   </article> 
 }
 
-function CartPanel({ cart, subtotal, deliveryFee, total, onChange, onCheckout }: { cart: CartItem[]; subtotal: number; deliveryFee: number; total: number; onChange: (id: string, delta: number) => void; onCheckout: () => void }) { 
+function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, onChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; onChange: (id: string, delta: number) => void; onCheckout: () => void }) { 
   return <div className="bg-white rounded-[20px] p-5">
-    {cart.length === 0 ? (
+    {cart.length === 0 && (!activeOrderItems || activeOrderItems.length === 0) ? (
       <div className="text-center py-8 text-gray-500">
         <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
           <ShoppingBag size={24} className="text-gray-300" />
@@ -383,8 +445,34 @@ function CartPanel({ cart, subtotal, deliveryFee, total, onChange, onCheckout }:
     ) : (
       <>
         <div className="flex flex-col gap-5 max-h-[350px] overflow-auto mb-4">
-          {cart.map((line) => (
-            <div className="flex items-start gap-3" key={line.item.id}>
+          {activeOrderItems && activeOrderItems.length > 0 && (
+            <div className="mb-2">
+              <h4 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-3">Already Ordered</h4>
+              <div className="flex flex-col gap-4">
+                {activeOrderItems.map((item, idx) => (
+                  <div className="flex items-start gap-3 opacity-60" key={`active-${idx}`}>
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2">
+                        <strong className="text-[15px] text-gray-800 leading-tight">{item.item_name} {item.variant_name ? `(${item.variant_name})` : ''}</strong>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[14px] font-bold text-gray-500">{item.quantity}x</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {cart.length > 0 && (
+            <div>
+              {activeOrderItems && activeOrderItems.length > 0 && (
+                <h4 className="text-[12px] font-bold text-[#ef4f5f] uppercase tracking-wider mb-3 mt-4 border-t border-dashed border-gray-200 pt-4">New Additions</h4>
+              )}
+              <div className="flex flex-col gap-4">
+                {cart.map((line) => (
+                  <div className="flex items-start gap-3" key={line.item.id}>
               <div className="flex-1">
                 <div className="flex items-start gap-2">
                   <span className={`shrink-0 mt-1 w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] ${line.item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
@@ -404,13 +492,18 @@ function CartPanel({ cart, subtotal, deliveryFee, total, onChange, onCheckout }:
               </div>
             </div>
           ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="border-t border-dashed border-gray-200 pt-4 text-[14px] flex flex-col gap-2.5">
           <div className="flex justify-between text-gray-600 font-medium"><span>Item Total</span><span>{money(subtotal)}</span></div>
           {deliveryFee > 0 && <div className="flex justify-between text-gray-600 font-medium"><span>Delivery Partner Fee</span><span>{money(deliveryFee)}</span></div>}
           <div className="flex justify-between font-bold text-gray-900 text-[17px] mt-2 border-t border-gray-100 pt-3"><span>To Pay</span><span>{money(total)}</span></div>
         </div>
-        <button onClick={onCheckout} className="w-full bg-[#e23744] text-white rounded-[14px] py-3.5 font-bold text-[16px] mt-6 active:scale-[0.98] transition shadow-md shadow-red-500/20">Proceed to Checkout</button>
+        {cart.length > 0 && (
+          <button onClick={onCheckout} className="w-full bg-[#e23744] text-white rounded-[14px] py-3.5 font-bold text-[16px] mt-6 active:scale-[0.98] transition shadow-md shadow-red-500/20">Proceed to Checkout</button>
+        )}
       </>
     )}
   </div> 
@@ -449,6 +542,7 @@ function ProductDetails({ item, onClose, onAdd }: { item: MenuItem; onClose: () 
 }
 
 function Checkout({
+  activeOrderItems,
   orderType,
   table,
   setTable,
@@ -468,6 +562,7 @@ function Checkout({
   onBack,
   onPlace
 }: {
+  activeOrderItems?: any[];
   orderType: OrderType;
   table: string;
   setTable: (table: string) => void;
@@ -744,6 +839,17 @@ function Checkout({
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h2 className="text-[17px] font-bold mb-4 text-gray-800">Order Summary</h2>
           <div className="flex flex-col gap-3.5 mb-5">
+            {activeOrderItems && activeOrderItems.length > 0 && (
+              <div className="mb-2">
+                <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Already Ordered</h4>
+                {activeOrderItems.map((item, idx) => (
+                  <div className="flex justify-between text-[14px] text-gray-500 opacity-70" key={`active-${idx}`}>
+                    <span className="font-medium">{item.quantity} × {item.item_name} {item.variant_name ? `(${item.variant_name})` : ''}</span>
+                  </div>
+                ))}
+                <h4 className="text-[11px] font-bold text-[#ef4f5f] uppercase tracking-wider mt-4 mb-2 border-t border-dashed border-gray-200 pt-3">New Additions</h4>
+              </div>
+            )}
             {cart.map((line) => <div className="flex justify-between text-[14px]" key={line.item.id}><span className="text-gray-700 font-medium">{line.quantity} × {line.item.name}</span><strong className="text-gray-900">{money(line.item.price * line.quantity)}</strong></div>)}
           </div>
           <div className="border-t border-dashed border-gray-200 pt-4">
