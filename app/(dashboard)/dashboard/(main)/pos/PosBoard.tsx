@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, XCircle, ArrowLeft, ListOrdered } from "lucide-react";
 import { createPosOrder, updatePosOrder } from "./actions";
+import { useOrderManager } from "../../OrderManagerProvider";
 
 type VariantOption = {
   label: string;
@@ -80,6 +81,12 @@ export default function PosBoard() {
   const [orderResult, setOrderResult] = useState<{ success: boolean; order_number?: string; error?: string } | null>(null);
 
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [showActiveOrders, setShowActiveOrders] = useState(false);
+  const { orders } = useOrderManager();
+
+  const activePosOrders = useMemo(() => {
+    return orders.filter(o => o.source === "pos" && o.status !== "delivered" && o.status !== "cancelled");
+  }, [orders]);
 
   const supabase = createClient();
 
@@ -282,9 +289,18 @@ export default function PosBoard() {
       <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFB]">
         {/* Header / Search */}
         <div className="px-6 py-5 border-b border-[#EAF0F6] bg-white flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div>
-            <h1 className="text-[24px] font-black tracking-tight text-[#0A1017] leading-none mb-1.5">Point of Sale</h1>
-            <p className="text-[13px] font-bold text-[#8799AF]">Walk-in order management</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-[24px] font-black tracking-tight text-[#0A1017] leading-none mb-1.5">Point of Sale</h1>
+              <p className="text-[13px] font-bold text-[#8799AF]">Walk-in order management</p>
+            </div>
+            <button 
+              onClick={() => setShowActiveOrders(prev => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#EAF3FF] text-[#1A5FA8] hover:bg-[#DCE9FA] font-extrabold text-[12px] border border-[#B8D5F6] transition-colors shadow-sm"
+            >
+              <ListOrdered className="h-4 w-4" />
+              Active Orders ({activePosOrders.length})
+            </button>
           </div>
           <div className="relative w-full sm:w-[320px] shrink-0">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-[#A1B2C6]" />
@@ -756,6 +772,50 @@ export default function PosBoard() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Active Orders Panel */}
+      {showActiveOrders && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-[#0A1017]/40 backdrop-blur-sm" onClick={() => setShowActiveOrders(false)}>
+          <div className="w-full max-w-sm h-full bg-white shadow-[-8px_0_32px_rgba(0,0,0,0.1)] flex flex-col transform transition-transform" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-[#EAF0F6] flex justify-between items-center bg-[#F8FAFB]">
+              <h3 className="text-[18px] font-extrabold text-[#0A1017]">Active POS Orders</h3>
+              <button onClick={() => setShowActiveOrders(false)} className="text-[#8799AF] hover:text-[#0A1017]"><XCircle className="h-6 w-6" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFB]">
+              {activePosOrders.length === 0 ? (
+                <p className="text-[14px] font-bold text-[#8799AF] text-center mt-10">No active POS orders</p>
+              ) : (
+                activePosOrders.map(order => (
+                  <div key={order.id} className="bg-white border border-[#EAF0F6] rounded-xl p-4 shadow-sm">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[16px] font-black text-[#0A1017]">{order.order_number}</span>
+                      <span className={`text-[11px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                        order.status === 'preparing' ? 'bg-[#EAF3FF] text-[#1A5FA8]' :
+                        order.status === 'ready_for_pickup' ? 'bg-[#EAF8EF] text-[#0D5424]' :
+                        'bg-[#F3F6F9] text-[#6B7A90]'
+                      }`}>
+                        {order.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="text-[13px] font-semibold text-[#6B7A90] mb-3">
+                      {order.customer_name || 'Walk-in'} • ₹{order.total}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowActiveOrders(false);
+                        window.location.href = `/dashboard/pos?edit=${order.id}`;
+                      }}
+                      className="w-full py-2 bg-[#F3F6F9] hover:bg-[#EAF0F6] text-[#0A1017] rounded-lg font-extrabold text-[13px] transition-colors"
+                    >
+                      Edit Order
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}

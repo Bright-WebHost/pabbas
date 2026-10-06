@@ -70,8 +70,32 @@ export async function updatePosOrder(orderId: string, payload: PosOrderPayload) 
   try {
     const adminClient = createAdminClient();
 
+    // Fetch old order to compare
+    const { data: oldOrder } = await adminClient.from("orders").select("total, items_json, status").eq("id", orderId).single();
+
+    let newStatus = undefined;
+    let finalItemsJson = payload.items_json;
+
+    if (oldOrder) {
+      const oldItems = oldOrder.items_json || [];
+      
+      finalItemsJson = payload.items_json.map(newItem => {
+        const oldItem = oldItems.find((oi: any) => oi.item_name === newItem.item_name && oi.variant_name === newItem.variant_name);
+        if (!oldItem || newItem.quantity > oldItem.quantity) {
+          return { ...newItem, is_new_addition: true, old_quantity: oldItem ? oldItem.quantity : 0 };
+        }
+        return newItem;
+      });
+
+      if (payload.total > oldOrder.total) {
+        if (["ready_for_pickup", "out_for_delivery", "delivered"].includes(oldOrder.status)) {
+          newStatus = "preparing";
+        }
+      }
+    }
+
     // Update order row
-    const { error: orderError } = await adminClient.from("orders").update({
+    const updatePayload: any = {
       customer_name: payload.customer_name,
       customer_phone: payload.customer_phone,
       order_type: payload.order_type,
@@ -81,9 +105,15 @@ export async function updatePosOrder(orderId: string, payload: PosOrderPayload) 
       pincode: payload.pincode,
       total: payload.total,
       items: payload.items_summary,
-      items_json: payload.items_json,
+      items_json: finalItemsJson,
       updated_at: new Date().toISOString()
-    }).eq("id", orderId);
+    };
+
+    if (newStatus) {
+      updatePayload.status = newStatus;
+    }
+
+    const { error: orderError } = await adminClient.from("orders").update(updatePayload).eq("id", orderId);
 
     if (orderError) throw orderError;
 

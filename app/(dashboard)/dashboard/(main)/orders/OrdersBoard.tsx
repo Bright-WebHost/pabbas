@@ -121,16 +121,27 @@ function destinationFor(order: DashboardOrder) {
 
 function buildItemList(order: DashboardOrder) {
   if (Array.isArray(order.items_json) && order.items_json.length > 0) {
-    return order.items_json.map((item: any) => ({
-      id: `${order.id}-${item.menu_item_id ?? (item.item_name || item.name)}`,
+    return order.items_json.map((item: any, idx: number) => ({
+      id: `${order.id}-${item.menu_item_id ?? (item.item_name || item.name)}-${idx}`,
       name: item.item_name || item.name,
       quantity: item.quantity,
       unit_price: item.unit_price ?? item.price,
+      is_new_addition: item.is_new_addition || false,
+      old_quantity: item.old_quantity || 0,
+      variant_name: item.variant_name || ""
     }));
   }
 
   const summary = order.items || "";
-  return summary ? [{ id: `${order.id}-summary`, name: summary, quantity: 1, unit_price: order.total }] : [];
+  return summary ? [{ 
+    id: `${order.id}-summary`, 
+    name: summary, 
+    quantity: 1, 
+    unit_price: order.total,
+    is_new_addition: false,
+    old_quantity: 0,
+    variant_name: ""
+  }] : [];
 }
 
 function canTransitionStatus(current: OrderStatus, next: OrderStatus) {
@@ -314,10 +325,19 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
           <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-3">Order Items</span>
           <div className="space-y-2">
             {items.length > 0 ? items.map((item) => (
-              <div key={item.id} className="flex justify-between items-start p-3 bg-[#F8FAFB] border border-[var(--line)] rounded-xl">
+              <div key={item.id} className={`flex justify-between items-start p-3 ${item.is_new_addition ? "bg-[#FFF8E6] border-[#F2C94C] shadow-[0_2px_8px_rgba(242,201,76,0.15)]" : "bg-[#F8FAFB] border-[var(--line)]"} rounded-xl`}>
                 <div className="flex gap-3">
-                  <span className="font-extrabold text-[15px] text-[var(--ink)] w-[24px]">{item.quantity}×</span>
-                  <span className="font-bold text-[15px] text-[var(--ink)]">{item.name}</span>
+                  <span className={`font-extrabold text-[15px] w-[24px] ${item.is_new_addition ? "text-[#D97706]" : "text-[var(--ink)]"}`}>{item.quantity}×</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[15px] text-[var(--ink)]">
+                      {item.name} {item.variant_name && <span className="text-[12px] font-medium text-[var(--muted)] ml-1">({item.variant_name})</span>}
+                    </span>
+                    {item.is_new_addition && (
+                      <span className="text-[11px] font-extrabold text-[#D97706] mt-1 uppercase tracking-widest bg-[#FEF3C7] px-2 py-0.5 rounded-md inline-block w-fit">
+                        {item.old_quantity > 0 ? `+${item.quantity - item.old_quantity} Added` : 'New Item'}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="font-bold text-[15px] text-[var(--ink)]">{money(item.unit_price * item.quantity)}</span>
               </div>
@@ -580,7 +600,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
                 event.stopPropagation();
                 window.location.href = `/dashboard/pos?edit=${order.id}`;
               }}
-              className="text-[#0D6EFD] hover:underline"
+              className="px-3 py-1.5 rounded-[8px] bg-[#EAF3FF] text-[#1A5FA8] font-extrabold text-[12px] hover:bg-[#DCE9FA] border border-[#B8D5F6] shadow-sm transition-colors"
             >
               Edit
             </button>
