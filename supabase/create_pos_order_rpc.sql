@@ -48,7 +48,7 @@ BEGIN
     p_customer_name,
     p_items_summary,
     p_total,
-    'new',
+    'preparing',
     p_order_type,
     'pos',
     p_address,

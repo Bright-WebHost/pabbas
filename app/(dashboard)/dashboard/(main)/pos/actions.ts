@@ -49,6 +49,10 @@ export async function createPosOrder(payload: PosOrderPayload) {
       return { success: false, error: "Failed to create order." };
     }
 
+    // Fix: the RPC defaults POS orders to 'new', but we want them to skip the acceptance popup
+    // and go straight to 'preparing' (kitchen)
+    await adminClient.from("orders").update({ status: "preparing" }).eq("id", data.id);
+
     return {
       success: true,
       order: {
