@@ -51,7 +51,7 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ready_for_pickup: ["delivered", "cancelled"],
   out_for_delivery: ["delivered", "cancelled"],
   delivered: [],
-  cancelled: [],
+  cancelled: ["new", "preparing", "ready_for_pickup", "out_for_delivery"],
 };
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
@@ -384,6 +384,28 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
               </button>
             )}
 
+            {order.status === "cancelled" && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const pin = window.prompt("Enter Security PIN to Undo Cancel:");
+                  if (pin === "0000") {
+                    const prevStatus = (order.cancel_reason && order.cancel_reason.includes("|")) 
+                      ? order.cancel_reason.split("|")[0] 
+                      : "new";
+                    onStatusChange(order, prevStatus as any, "Undo Cancel");
+                    onClose();
+                  } else if (pin) {
+                    alert("Incorrect PIN");
+                  }
+                }}
+                className="h-[48px] rounded-[12px] border border-[#C6ECD6] bg-[#E5F5EC] px-5 text-[14px] font-extrabold text-[#146C43] hover:bg-[#D1E7DD] transition-colors shadow-sm"
+              >
+                Undo Cancel
+              </button>
+            )}
+
 
 
             {order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
@@ -545,9 +567,21 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
                   alert("Incorrect PIN");
                 }
               }}
-              className="text-[#146C43] hover:underline font-bold"
+              className="px-3 py-1.5 rounded-[8px] bg-[#E5F5EC] text-[#146C43] font-extrabold text-[12px] hover:bg-[#D1E7DD] border border-[#C6ECD6] shadow-sm transition-colors"
             >
               Undo Cancel
+            </button>
+          )}
+          {order.source === "pos" && order.status !== "cancelled" && order.status !== "delivered" && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                window.location.href = `/dashboard/pos?edit=${order.id}`;
+              }}
+              className="text-[#0D6EFD] hover:underline"
+            >
+              Edit
             </button>
           )}
           <button

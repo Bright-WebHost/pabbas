@@ -60,3 +60,46 @@ export async function createPosOrder(payload: PosOrderPayload) {
     return { success: false, error: "Internal server error." };
   }
 }
+
+export async function updatePosOrder(orderId: string, payload: PosOrderPayload) {
+  try {
+    const adminClient = createAdminClient();
+
+    // Update order row
+    const { error: orderError } = await adminClient.from("orders").update({
+      customer_name: payload.customer_name,
+      customer_phone: payload.customer_phone,
+      order_type: payload.order_type,
+      table_number: payload.table_number,
+      address: payload.address,
+      landmark: payload.landmark,
+      pincode: payload.pincode,
+      total: payload.total,
+      items: payload.items_summary,
+      items_json: payload.items_json,
+      updated_at: new Date().toISOString()
+    }).eq("id", orderId);
+
+    if (orderError) throw orderError;
+
+    // Delete old items
+    await adminClient.from("order_items").delete().eq("order_id", orderId);
+
+    // Insert new items
+    if (payload.items_json && payload.items_json.length > 0) {
+      const itemsToInsert = payload.items_json.map(item => ({
+        order_id: orderId,
+        menu_item_id: item.menu_item_id,
+        item_name: item.item_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }));
+      await adminClient.from("order_items").insert(itemsToInsert);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[updatePosOrder] Server action error:", error);
+    return { success: false, error: "Failed to update order." };
+  }
+}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
-import { createPosOrder } from "./actions";
+import { createPosOrder, updatePosOrder } from "./actions";
 
 type VariantOption = {
   label: string;
@@ -79,23 +79,59 @@ export default function PosBoard() {
   const [isPending, startTransition] = useTransition();
   const [orderResult, setOrderResult] = useState<{ success: boolean; order_number?: string; error?: string } | null>(null);
 
+  const [editOrderId, setEditOrderId] = useState<string | null>(null);
+
   const supabase = createClient();
 
   useEffect(() => {
-    async function fetchMenu() {
+    async function init() {
       setLoading(true);
-      const { data, error } = await supabase
+      // Fetch menu
+      const { data: menuData } = await supabase
         .from("menu_items")
         .select("*")
         .order("category")
         .order("item_number");
 
-      if (!error && data) {
-        setMenuItems(data as MenuItem[]);
+      if (menuData) {
+        setMenuItems(menuData as MenuItem[]);
+      }
+
+      // Check for edit mode
+      const params = new URLSearchParams(window.location.search);
+      const editId = params.get("edit");
+      if (editId) {
+        setEditOrderId(editId);
+        const { data: orderData } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", editId)
+          .single();
+        
+        if (orderData) {
+          setOrderType(orderData.order_type as any);
+          setCustomerName(orderData.customer_name || "");
+          setWhatsappNumber(orderData.customer_phone || "");
+          setTableNumber(orderData.table_number || "");
+          setDeliveryAddress(orderData.address || "");
+          setDeliveryLandmark(orderData.landmark || "");
+          setDeliveryPincode(orderData.pincode || "");
+          
+          if (orderData.items_json && Array.isArray(orderData.items_json)) {
+            setCart(orderData.items_json.map((item: any) => ({
+              cartId: `${item.menu_item_id}-${item.variant_name || 'default'}`,
+              menu_item_id: item.menu_item_id,
+              item_name: item.item_name,
+              unit_price: item.unit_price,
+              quantity: item.quantity,
+              variant_name: item.variant_name || null
+            })));
+          }
+        }
       }
       setLoading(false);
     }
-    fetchMenu();
+    init();
   }, [supabase]);
 
   const categories = useMemo(() => {
@@ -203,16 +239,29 @@ export default function PosBoard() {
         }))
       };
 
-      const result = await createPosOrder(payload);
-      if (result.success) {
-        setOrderResult({ success: true, order_number: result.order?.order_number });
+      if (editOrderId) {
+        const result = await updatePosOrder(editOrderId, payload);
+        if (result.success) {
+          setOrderResult({ success: true, order_number: "Updated Successfully" });
+        } else {
+          setOrderResult({ success: false, error: result.error });
+        }
       } else {
-        setOrderResult({ success: false, error: result.error });
+        const result = await createPosOrder(payload);
+        if (result.success) {
+          setOrderResult({ success: true, order_number: result.order?.order_number });
+        } else {
+          setOrderResult({ success: false, error: result.error });
+        }
       }
     });
   };
 
   const startNewOrder = () => {
+    if (editOrderId) {
+      window.location.href = "/dashboard/pos";
+      return;
+    }
     setCart([]);
     setCustomerName("");
     setWhatsappNumber("");
@@ -495,7 +544,7 @@ export default function PosBoard() {
             disabled={cart.length === 0}
             className="w-full rounded-[14px] bg-[#E23744] px-4 py-4 text-[16px] font-black tracking-wide text-white shadow-[0_6px_20px_rgba(226,55,68,0.25)] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(226,55,68,0.35)] transition-all disabled:opacity-50 disabled:transform-none disabled:shadow-none active:translate-y-0"
           >
-            Review Order
+            {editOrderId ? "Review Updates" : "Review Order"}
           </button>
         </div>
       </div>
@@ -570,7 +619,7 @@ export default function PosBoard() {
                 <div className="w-20 h-20 bg-[#E6F4EA] text-[#0D5424] rounded-full flex items-center justify-center mb-6">
                   <CheckCircle className="w-10 h-10" />
                 </div>
-                <h2 className="text-[28px] font-black text-[#0A1017] tracking-tight mb-2">Order Created!</h2>
+                <h2 className="text-[28px] font-black text-[#0A1017] tracking-tight mb-2">{editOrderId ? "Order Updated!" : "Order Created!"}</h2>
                 <p className="text-[15px] font-bold text-[#8799AF] mb-1">Order Number:</p>
                 <div className="bg-[#F8FAFB] px-6 py-3 rounded-xl border border-[#EAF0F6] mb-8">
                   <span className="text-[24px] font-extrabold text-[#0D6EFD] tracking-widest">{orderResult.order_number}</span>
@@ -579,7 +628,7 @@ export default function PosBoard() {
                   onClick={startNewOrder}
                   className="rounded-xl bg-[#0A1017] px-8 py-3.5 text-[15px] font-extrabold text-white hover:bg-[#111923] transition-colors"
                 >
-                  Start New Order
+                  {editOrderId ? "Back to POS" : "Start New Order"}
                 </button>
               </div>
             ) : (
@@ -593,7 +642,7 @@ export default function PosBoard() {
                     >
                       <ArrowLeft className="w-5 h-5 text-[#6B7A90]" />
                     </button>
-                    <h2 className="text-[20px] font-black text-[#0A1017] tracking-tight">Review Order</h2>
+                    <h2 className="text-[20px] font-black text-[#0A1017] tracking-tight">{editOrderId ? "Review Updates" : "Review Order"}</h2>
                   </div>
                 </div>
 
@@ -683,7 +732,7 @@ export default function PosBoard() {
                         Processing...
                       </>
                     ) : (
-                      "Confirm & Place Order"
+                      editOrderId ? "Confirm & Update Order" : "Confirm & Place Order"
                     )}
                   </button>
                 </div>
