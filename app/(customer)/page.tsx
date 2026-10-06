@@ -351,7 +351,14 @@ function RestaurantInfo({ orderType, table }: { orderType: OrderType, table: str
       <div className="flex-1">
         <h1 className="text-[26px] font-extrabold flex items-center gap-2 text-gray-900 leading-tight">Pabbas <Info size={18} className="text-gray-400 mt-1"/></h1>
         <p className="text-gray-600 text-[13px] mt-1.5 flex items-center gap-1 font-medium"><MapPin size={14} className="text-gray-400"/> 1.2 km • Lalbagh</p>
-        <p className="text-gray-600 text-[13px] mt-1 flex items-center gap-1 font-medium"><Clock3 size={14} className="text-gray-400"/> 25-30 mins • {orderType === 'pickup' ? 'Takeaway' : 'Delivery'} <ChevronDown size={14} className="text-gray-400"/></p>
+        <p className="text-gray-600 text-[13px] mt-1 flex items-center gap-1 font-medium">
+          <Clock3 size={14} className="text-gray-400"/>
+          {orderType === 'dine-in' ? (
+            <>Dine-In • Table {table}</>
+          ) : (
+            <>25-30 mins • {orderType === 'pickup' ? 'Takeaway' : 'Delivery'} <ChevronDown size={14} className="text-gray-400"/></>
+          )}
+        </p>
       </div>
       <div className="flex flex-col items-center border border-gray-200 rounded-xl p-2 shadow-sm shrink-0 mt-1">
         <span className="flex items-center gap-1 text-green-700 font-bold text-[15px] bg-green-100 px-1.5 py-0.5 rounded-lg leading-none">
@@ -700,15 +707,23 @@ function Checkout({
           ) : null}
 
           <div className="mb-8">
-            <h2 className="text-[17px] font-bold mb-4 text-gray-800">Contact Details</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <input className="checkout-input bg-gray-50" placeholder="Full name" value={details.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} />
-              <div className="bg-gray-100 border border-gray-200 rounded-xl p-3 flex flex-col justify-center gap-1 opacity-80 cursor-not-allowed">
-                <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">WhatsApp Number</span>
-                <span className="text-gray-900 font-semibold text-[15px] leading-tight">{details.phone || "Not linked"}</span>
-                <span className="text-[11px] text-green-700 font-semibold flex items-center gap-1 mt-0.5">🔒 Linked to WhatsApp</span>
-              </div>
-            </div>
+            {(!activeOrderItems || activeOrderItems.length === 0) && (
+              <>
+                <h2 className="text-[17px] font-bold mb-4 text-gray-800">Contact Details</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input className="checkout-input bg-gray-50" placeholder="Full name" value={details.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} />
+                  {user ? (
+                    <div className="bg-gray-100 border border-gray-200 rounded-xl p-3 flex flex-col justify-center gap-1 opacity-80 cursor-not-allowed">
+                      <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">WhatsApp Number</span>
+                      <span className="text-gray-900 font-semibold text-[15px] leading-tight">{details.phone || "Not linked"}</span>
+                      <span className="text-[11px] text-green-700 font-semibold flex items-center gap-1 mt-0.5">🔒 Linked to WhatsApp</span>
+                    </div>
+                  ) : (
+                    <input className="checkout-input bg-gray-50" placeholder="WhatsApp Number" value={details.phone} onChange={(e) => setDetails({ ...details, phone: e.target.value })} />
+                  )}
+                </div>
+              </>
+            )}
 
             {orderType === "delivery" && <>
               <h2 className="text-[17px] font-bold mt-8 mb-4 text-gray-800">Delivery Address</h2>
@@ -864,7 +879,7 @@ function Checkout({
 
           <button
             onClick={onPlace}
-            disabled={isSubmitting || !details.name || !details.phone || (orderType === "delivery" && !details.address)}
+            disabled={isSubmitting || ((!activeOrderItems || activeOrderItems.length === 0) && (!details.name || !details.phone)) || (orderType === "delivery" && !details.address)}
             className="w-full bg-[#e23744] text-white font-bold text-[16px] py-[15px] rounded-[14px] mt-6 disabled:opacity-50 shadow-md shadow-red-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
           >
             {isSubmitting ? (

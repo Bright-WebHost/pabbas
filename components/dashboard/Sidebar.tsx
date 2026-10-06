@@ -14,7 +14,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-[230px] bg-[#0A1017] text-white p-4 sticky top-0 h-screen flex-col border-r border-[#1C2633] shrink-0 z-40">
+      <aside className="hidden md:flex print:hidden w-[230px] bg-[#0A1017] text-white p-4 sticky top-0 h-screen flex-col border-r border-[#1C2633] shrink-0 z-40">
         <div className="flex items-center gap-3 py-3 mb-6 px-2">
           <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#E23744] to-[#B0202B] text-white font-[Fraunces] text-xl font-bold grid place-items-center shadow-[0_4px_12px_rgba(226,55,68,0.3)]">
             P
@@ -52,7 +52,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Bar */}
-      <aside className="md:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0A1017] border-t border-[#1C2633] z-50 flex items-center justify-around px-2 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
+      <aside className="md:hidden print:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0A1017] border-t border-[#1C2633] z-50 flex items-center justify-around px-2 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
         <MobileTab href="/dashboard" icon="🧾" active={pathname === "/dashboard"} />
         <MobileTab href="/dashboard/pos" icon="💻" active={pathname === "/dashboard/pos"} />
         <MobileTab href="/dashboard/tables" icon="🍽️" active={pathname === "/dashboard/tables"} />

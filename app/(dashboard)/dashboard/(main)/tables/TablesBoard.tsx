@@ -112,7 +112,7 @@ export default function TablesBoard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {tables.map((table) => {
             const isActive = table.is_active && table.orders;
-            const orderLink = typeof window !== "undefined" ? `${window.location.origin}/menu?table=${encodeURIComponent(table.table_number)}` : "";
+            const orderLink = typeof window !== "undefined" ? `${window.location.origin}/?table=${encodeURIComponent(table.table_number)}` : "";
 
             return (
               <div 
@@ -209,7 +209,7 @@ export default function TablesBoard() {
             
             <div className="relative z-10 mt-12 mb-4 bg-white p-4 rounded-3xl border-4 border-[#0A1017] shadow-xl">
               <QRCodeSVG 
-                value={typeof window !== "undefined" ? `${window.location.origin}/menu?table=${encodeURIComponent(printTable.table_number)}` : ""}
+                value={typeof window !== "undefined" ? `${window.location.origin}/?table=${encodeURIComponent(printTable.table_number)}` : ""}
                 size={200}
                 bgColor={"#ffffff"}
                 fgColor={"#0A1017"}
