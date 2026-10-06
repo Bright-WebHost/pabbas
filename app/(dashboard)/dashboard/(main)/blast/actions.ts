@@ -6,15 +6,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function getYCloudTemplates() {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { success: false, error: "Unauthorized" };
 
     const apiKey = process.env.YCLOUD_API_KEY;
     if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
 
     const res = await fetch("https://api.ycloud.com/v2/whatsapp/templates?limit=50", {
-      headers: { "X-API-Key": apiKey },
-      cache: "no-store"
+      headers: { "X-API-Key": apiKey }
     });
 
     if (!res.ok) throw new Error(`YCloud API error: ${res.status}`);
@@ -32,13 +31,13 @@ export async function getYCloudTemplates() {
 export async function uploadYCloudMedia(formData: FormData) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { success: false, error: "Unauthorized" };
 
     const apiKey = process.env.YCLOUD_API_KEY;
     if (!apiKey) return { success: false, error: "YCLOUD_API_KEY not configured" };
 
-    const res = await fetch("https://api.ycloud.com/v2/whatsapp/media/%2B919180348124/upload", {
+    const res = await fetch("https://api.ycloud.com/v2/whatsapp/media/upload", {
       method: "POST",
       headers: { "X-API-Key": apiKey },
       body: formData
@@ -50,8 +49,8 @@ export async function uploadYCloudMedia(formData: FormData) {
       throw new Error(`Upload failed: ${res.status}`);
     }
 
-    const json = await res.json();
-    return { success: true, media_id: json.id };
+    const data = await res.json();
+    return { success: true, media_id: data.id };
   } catch (err: any) {
     console.error("uploadYCloudMedia error:", err);
     return { success: false, error: err.message };
@@ -61,13 +60,9 @@ export async function uploadYCloudMedia(formData: FormData) {
 export async function sendBlast(filter: string, templateName: string, components: any[], phones: string[] = []) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { success: false, error: "Unauthorized" };
-    }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.access_token) {
-      return { success: false, error: "No access token" };
+      return { success: false, error: "Unauthorized" };
     }
 
     const adminClient = createAdminClient();
