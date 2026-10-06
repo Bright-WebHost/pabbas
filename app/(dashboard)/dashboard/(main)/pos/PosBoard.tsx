@@ -58,7 +58,7 @@ export default function PosBoard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [orderType, setOrderType] = useState<"takeaway" | "delivery">("takeaway");
+  const [orderType, setOrderType] = useState<"takeaway" | "delivery" | "dine-in">("takeaway");
 
   // Customer Details State
   const [customerName, setCustomerName] = useState("");
@@ -226,7 +226,7 @@ export default function PosBoard() {
         customer_name: customerName.trim() || "Walk-in",
         customer_phone: whatsappNumber.trim(),
         order_type: orderType,
-        table_number: "",
+        table_number: orderType === "dine-in" ? tableNumber.trim() : "",
         address: orderType === "delivery" ? deliveryAddress.trim() : "",
         landmark: orderType === "delivery" ? deliveryLandmark.trim() : "",
         pincode: orderType === "delivery" ? deliveryPincode.trim() : "",
@@ -236,7 +236,8 @@ export default function PosBoard() {
           menu_item_id: c.menu_item_id,
           item_name: c.item_name,
           quantity: c.quantity,
-          unit_price: c.unit_price
+          unit_price: c.unit_price,
+          variant_name: c.variant_name || null
         }))
       };
 
@@ -403,6 +404,7 @@ export default function PosBoard() {
             {([
               { id: "takeaway", label: "Takeaway" },
               { id: "delivery", label: "Delivery" },
+              { id: "dine-in", label: "Dine-in" },
             ] as const).map((type) => (
               <button
                 key={type.id}
@@ -474,7 +476,7 @@ export default function PosBoard() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-black text-[#6B7A90] uppercase tracking-widest mb-1.5 block">
-                {orderType === "takeaway" ? "Name (Opt)" : "Name"}
+                {orderType === "takeaway" || orderType === "dine-in" ? "Name (Opt)" : "Name"}
               </label>
               <input
                 type="text"
@@ -496,6 +498,21 @@ export default function PosBoard() {
             </div>
           </div>
 
+
+          {orderType === "dine-in" && (
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="text-[11px] font-black text-[#6B7A90] uppercase tracking-widest mb-1.5 block">Table Number</label>
+                <input
+                  type="text"
+                  value={tableNumber}
+                  onChange={(e) => setTableNumber(e.target.value)}
+                  placeholder="e.g. 5"
+                  className="w-full px-3.5 py-2.5 rounded-[10px] border border-[#EAF0F6] bg-[#F8FAFB] text-[13px] font-black text-[#0A1017] focus:border-[#0D6EFD] focus:bg-white focus:ring-4 focus:ring-[#0D6EFD]/10 outline-none transition-all placeholder:text-[#A1B2C6]"
+                />
+              </div>
+            </div>
+          )}
 
 
           {orderType === "delivery" && (

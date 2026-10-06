@@ -106,6 +106,7 @@ const formatCountdown = (order: DashboardOrder, now: number) => {
 };
 
 function normalizeOrderType(value: string | null | undefined) {
+  if (value === "dine-in") return "Dine-in";
   if (value === "takeaway" || value === "pickup") return "Pickup";
   if (value === "pos") return "POS";
   return "Delivery";

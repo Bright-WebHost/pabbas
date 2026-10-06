@@ -17,6 +17,7 @@ type PosOrderPayload = {
     item_name: string;
     quantity: number;
     unit_price: number;
+    variant_name?: string | null;
   }>;
 };
 
