@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyStatusWebhook } from "../orders/actions";
 
 type PosOrderPayload = {
   customer_name: string;
@@ -52,6 +53,9 @@ export async function createPosOrder(payload: PosOrderPayload) {
     // Fix: the RPC defaults POS orders to 'new', but we want them to skip the acceptance popup
     // and go straight to 'preparing' (kitchen)
     await adminClient.from("orders").update({ status: "preparing" }).eq("id", data.id);
+
+    // Notify the customer via WhatsApp that their order is confirmed and being prepared
+    await notifyStatusWebhook(data.order_number, "preparing");
 
     return {
       success: true,
