@@ -13,6 +13,8 @@ export type RestaurantTable = {
     total: number;
     status: string;
     items_json: any;
+    customer_name: string | null;
+    customer_phone: string | null;
   } | null;
 };
 
@@ -28,7 +30,9 @@ export async function fetchTables() {
         orders:current_order_id (
           total,
           status,
-          items_json
+          items_json,
+          customer_name,
+          customer_phone
         )
       `)
       .order("table_number", { ascending: true });
@@ -81,10 +85,20 @@ export async function deleteTable(id: string) {
   }
 }
 
-// Function to handle clearing a table after dine-in is done
 export async function clearTable(id: string) {
   try {
     const adminClient = createAdminClient();
+    
+    // 1. Fetch current order id
+    const { data: table, error: fetchError } = await adminClient
+      .from("restaurant_tables")
+      .select("current_order_id")
+      .eq("id", id)
+      .single();
+      
+    if (fetchError) throw fetchError;
+    
+    // 2. Update table
     const { error } = await adminClient
       .from("restaurant_tables")
       .update({ 
@@ -94,6 +108,22 @@ export async function clearTable(id: string) {
       .eq("id", id);
       
     if (error) throw error;
+    
+    // 3. Mark order as delivered & notify customer
+    if (table?.current_order_id) {
+      const { data: order } = await adminClient
+        .from("orders")
+        .update({ status: 'delivered' })
+        .eq("id", table.current_order_id)
+        .select("order_number")
+        .single();
+        
+      if (order?.order_number) {
+        const { notifyStatusWebhook } = await import('@/app/(dashboard)/dashboard/(main)/orders/actions');
+        await notifyStatusWebhook(order.order_number, 'delivered');
+      }
+    }
+    
     return { success: true };
   } catch (error: any) {
     console.error("[clearTable] Error:", error);

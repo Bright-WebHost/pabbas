@@ -24,40 +24,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
     }
 
-    // 2. Merge items
+    // 2. Append items with new round
     let existingItems = order.items_json || [];
     let updatedTotal = order.total;
+
+    // Determine the next round number
+    const currentMaxRound = existingItems.reduce((max: number, item: any) => Math.max(max, item.round || 1), 0);
+    const nextRound = currentMaxRound + 1;
 
     const mergedItems = [...existingItems];
 
     for (const newItem of new_items) {
-      // Find if item already exists in the original order
-      const existingIdx = mergedItems.findIndex((item: any) => 
-        item.menu_item_id === newItem.menu_item_id && item.variant_name === newItem.variant_name
-      );
-
-      if (existingIdx >= 0) {
-        // Increment quantity and flag as new addition
-        mergedItems[existingIdx] = {
-          ...mergedItems[existingIdx],
-          old_quantity: mergedItems[existingIdx].old_quantity || mergedItems[existingIdx].quantity,
-          quantity: mergedItems[existingIdx].quantity + newItem.quantity,
-          is_new_addition: true
-        };
-      } else {
-        // Add completely new item
-        mergedItems.push({
-          ...newItem,
-          is_new_addition: true,
-          old_quantity: 0
-        });
-      }
+      mergedItems.push({
+        ...newItem,
+        is_new_addition: true,
+        round: nextRound
+      });
 
       updatedTotal += (newItem.price || newItem.unit_price) * newItem.quantity;
     }
 
-    // Generate new items summary string
-    const itemsSummary = mergedItems.map(item => `${item.quantity}x ${item.item_name}${item.variant_name ? ` (${item.variant_name})` : ''}`).join(', ');
+    // Generate new items summary string (combining all items with same name for the summary)
+    const summaryMap = new Map<string, number>();
+    for (const item of mergedItems) {
+      const key = `${item.item_name}${item.variant_name ? ` (${item.variant_name})` : ''}`;
+      summaryMap.set(key, (summaryMap.get(key) || 0) + item.quantity);
+    }
+    const itemsSummary = Array.from(summaryMap.entries()).map(([name, qty]) => `${qty}x ${name}`).join(', ');
 
     // 3. Determine new status
     let newStatus = order.status;

@@ -938,6 +938,29 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
     </main>;
   }
 
+  if (orderType === 'dine-in') {
+    return <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-[24px] p-8 shadow-xl text-center border border-gray-100">
+        <div className="w-[84px] h-[84px] bg-[#22C55E] text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30">
+          <Check size={44} strokeWidth={3} />
+        </div>
+        <h1 className="text-[26px] font-extrabold mb-3 text-gray-900">Sent to the kitchen</h1>
+        <p className="text-gray-600 mb-6 font-medium leading-relaxed">
+          Table {table} • we'll start preparing once the counter confirms it. Pay for everything together at the end.
+        </p>
+        
+        <div className="inline-block bg-red-50 text-[#e23744] font-bold px-4 py-2 rounded-xl mb-8 border border-red-100">
+          {orderNumber}
+        </div>
+        
+        <div className="flex flex-col gap-3">
+          <button onClick={() => window.location.reload()} className="w-full bg-[#e23744] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition">Add more to this table</button>
+          <a href="whatsapp://" className="w-full bg-white text-gray-900 border-2 border-gray-900 font-bold py-[15px] rounded-[14px] active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
+        </div>
+      </div>
+    </main>;
+  }
+
   return <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
     <div className="max-w-md w-full bg-white rounded-[24px] p-8 shadow-xl text-center border border-gray-100">
       <div className="w-[84px] h-[84px] bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">

@@ -208,6 +208,7 @@ export async function POST(request: Request) {
         item_name: item.item_name,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        round: 1
       })),
     }
 

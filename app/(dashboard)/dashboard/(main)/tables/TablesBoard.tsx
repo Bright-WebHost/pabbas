@@ -136,25 +136,44 @@ export default function TablesBoard() {
                   </div>
 
                   {isActive ? (
-                    <div className="mb-4 space-y-2">
-                      <div className="flex justify-between items-center text-[14px]">
-                        <span className="font-bold text-[#8799AF]">Total Bill:</span>
-                        <span className="font-extrabold text-[#0A1017]">₹{table.orders?.total}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[14px]">
-                        <span className="font-bold text-[#8799AF]">Status:</span>
-                        <span className="font-extrabold text-[#0D6EFD] capitalize">
-                          {table.orders?.status.replace(/_/g, ' ')}
-                        </span>
+                    <div className="mb-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="text-[13px] text-[#8799AF] font-medium mb-0.5">
+                            {table.orders?.customer_name} • {table.orders?.customer_phone} • {table.orders?.items_json?.reduce((max: number, item: any) => Math.max(max, item.round || 1), 1)} round(s)
+                          </div>
+                        </div>
+                        <div className="text-[16px] font-extrabold text-[#0A1017]">
+                          ₹{table.orders?.total}
+                        </div>
                       </div>
                       
-                      {/* Show active items summary if needed */}
-                      <div className="pt-2 border-t border-[#EAF0F6]">
+                      <div className="space-y-4 pt-3 border-t border-dashed border-[#EAF0F6]">
+                        {Array.from(new Set((table.orders?.items_json || []).map((item: any) => item.round || 1))).sort().map((roundNumber: any) => {
+                          const roundItems = (table.orders?.items_json || []).filter((item: any) => (item.round || 1) === roundNumber);
+                          const roundTotal = roundItems.reduce((sum: number, item: any) => sum + (item.price || item.unit_price) * item.quantity, 0);
+                          
+                          return (
+                            <div key={roundNumber} className="text-[13px]">
+                              <div className="font-bold text-[#0A1017] mb-1">
+                                Round {roundNumber} • {table.orders?.status.replace(/_/g, ' ')} • ₹{roundTotal}
+                              </div>
+                              <div className="text-[#6B7A90] font-medium">
+                                {roundItems.map((item: any, idx: number) => (
+                                  <div key={idx}>{item.item_name} {item.variant_name ? `(${item.variant_name})` : ''} x{item.quantity}</div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      <div className="pt-4 mt-2">
                          <button 
                             onClick={() => handleClearTable(table.id)}
-                            className="w-full py-2 bg-red-50 text-red-600 font-bold text-[12px] rounded-lg hover:bg-red-100 transition-colors"
+                            className="w-max px-4 py-2 bg-green-50 border border-green-200 text-green-700 font-bold text-[13px] rounded-lg hover:bg-green-100 transition-colors flex items-center gap-2"
                           >
-                            Clear Table (Settled)
+                            <span className="text-green-600">💵</span> Close table • ₹{table.orders?.total}
                          </button>
                       </div>
                     </div>
