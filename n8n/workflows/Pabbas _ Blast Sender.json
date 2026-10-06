@@ -16,7 +16,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "pabbas-blast",
-        "authentication": "headerAuth",
+        "authentication": "none",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -36,13 +36,7 @@
         -16,
         208
       ],
-      "webhookId": "pabbas-blast",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "Xcg9YUaVyqTFWiDm",
-          "name": "x-pabbas-whatsapp-secret"
-        }
-      }
+      "webhookId": "pabbas-blast"
     },
     {
       "parameters": {
