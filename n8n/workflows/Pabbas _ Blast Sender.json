@@ -263,17 +263,17 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL || \"https://clqzctntkwzahdfjeqlx.supabase.co\" }}/rest/v1/rpc/staff_check",
+        "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/staff_check",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SECRET_KEY || \"YOUR_SERVICE_ROLE_KEY\" }}"
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNjMxMDksImV4cCI6MjEwNTYzOTEwOX0.FE20KE6UeqQfDEWsargczPt8tsX1qWHDY6DQnCXJQzA"
             },
             {
               "name": "Authorization",
-              "value": "={{ $json.headers.authorization || \"Bearer \" + ($env.SUPABASE_SECRET_KEY || \"YOUR_SERVICE_ROLE_KEY\") }}"
+              "value": "={{ .headers.authorization }}"
             },
             {
               "name": "Content-Type",
