@@ -82,14 +82,13 @@ export default function BlastBoard() {
         formData.append("file", mediaFile);
         const uploadRes = await uploadYCloudMedia(formData);
         if (uploadRes.success && uploadRes.media_id) {
-          // YCloud uses the uploaded media_id for the link
-          uploadedUrl = `https://api.ycloud.com/v2/whatsapp/media/${uploadRes.media_id}`;
+          // Use the media ID directly — WhatsApp expects { id: "..." } for uploaded media
           components.push({
             type: "header",
             parameters: [
               {
                 type: "image",
-                image: { link: uploadedUrl }
+                image: { id: uploadRes.media_id }
               }
             ]
           });
