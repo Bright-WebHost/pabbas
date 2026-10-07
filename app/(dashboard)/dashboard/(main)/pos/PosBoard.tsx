@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, XCircle, ArrowLeft, ListOrdered } from "lucide-react";
 import { createPosOrder, updatePosOrder } from "./actions";
 import { useOrderManager } from "../../OrderManagerProvider";
+import { fetchTables, RestaurantTable } from "../tables/actions";
 
 type VariantOption = {
   label: string;
@@ -69,6 +70,7 @@ export default function PosBoard() {
   const [deliveryLandmark, setDeliveryLandmark] = useState("");
   const [deliveryPincode, setDeliveryPincode] = useState("");
 
+  const [restaurantTables, setRestaurantTables] = useState<RestaurantTable[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   
   // Variant Modal State
@@ -102,6 +104,11 @@ export default function PosBoard() {
 
       if (menuData) {
         setMenuItems(menuData as MenuItem[]);
+      }
+
+      const tablesRes = await fetchTables();
+      if (tablesRes.success && tablesRes.tables) {
+        setRestaurantTables(tablesRes.tables);
       }
 
       // Check for edit mode
@@ -518,14 +525,19 @@ export default function PosBoard() {
           {orderType === "dine-in" && (
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <label className="text-[11px] font-black text-[#6B7A90] uppercase tracking-widest mb-1.5 block">Table Number</label>
-                <input
-                  type="text"
+                <label className="text-[11px] font-black text-[#6B7A90] uppercase tracking-widest mb-1.5 block">Select Table</label>
+                <select
                   value={tableNumber}
                   onChange={(e) => setTableNumber(e.target.value)}
-                  placeholder="e.g. 5"
-                  className="w-full px-3.5 py-2.5 rounded-[10px] border border-[#EAF0F6] bg-[#F8FAFB] text-[13px] font-black text-[#0A1017] focus:border-[#0D6EFD] focus:bg-white focus:ring-4 focus:ring-[#0D6EFD]/10 outline-none transition-all placeholder:text-[#A1B2C6]"
-                />
+                  className="w-full px-3.5 py-2.5 rounded-[10px] border border-[#EAF0F6] bg-[#F8FAFB] text-[13px] font-black text-[#0A1017] focus:border-[#0D6EFD] focus:bg-white focus:ring-4 focus:ring-[#0D6EFD]/10 outline-none transition-all"
+                >
+                  <option value="" disabled>Select an available table</option>
+                  {restaurantTables.map(t => (
+                    <option key={t.id} value={t.table_number} disabled={t.is_active && t.table_number !== tableNumber}>
+                      {t.table_number} {t.is_active && t.table_number !== tableNumber ? "(Occupied)" : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           )}

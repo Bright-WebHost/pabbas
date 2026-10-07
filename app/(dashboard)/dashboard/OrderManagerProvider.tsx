@@ -52,16 +52,23 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   const playBeep = useCallback(() => {
     try {
       if (!audioCtxRef.current) return;
-      const osc = audioCtxRef.current.createOscillator();
-      const gain = audioCtxRef.current.createGain();
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.connect(gain);
-      gain.connect(audioCtxRef.current.destination);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, audioCtxRef.current.currentTime);
-      gain.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
+      gain.connect(ctx.destination);
+      
+      // Make it sound like a loud alarm: Square wave, higher volume
+      osc.type = "square";
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.setValueAtTime(1000, ctx.currentTime + 0.3); // Two-tone siren
+      
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      
       osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 1);
-      osc.stop(audioCtxRef.current.currentTime + 1);
+      
+      // Keep it ringing for 1.2 seconds, then abruptly stop
+      osc.stop(ctx.currentTime + 1.2);
     } catch (err) {
       console.warn("Sound play failed", err);
     }
