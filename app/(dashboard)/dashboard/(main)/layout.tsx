@@ -37,10 +37,14 @@ export default async function DashboardLayout({
   return (
     <OrderManagerProvider initialOrders={initialOrders}>
       <div className="flex min-h-screen bg-[#F8FAFB] text-[#0A1017]">
-        <Sidebar />
+        <div className="print:hidden">
+          <Sidebar />
+        </div>
         <div className="flex-1 flex flex-col min-w-0 pb-[64px] md:pb-0">
-          <Header />
-          <main className="flex-1 px-4 md:px-6 pb-6 overflow-x-hidden">
+          <div className="print:hidden">
+            <Header />
+          </div>
+          <main className="flex-1 px-4 md:px-6 pb-6 overflow-x-hidden print:p-0 print:overflow-visible print:bg-white print:m-0">
             {children}
           </main>
         </div>

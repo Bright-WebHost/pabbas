@@ -273,7 +273,13 @@ export default function TablesBoard() {
       )}
 
       {/* Print QR Code Template - Only visible during print */}
-      <div className="hidden print:flex flex-col items-center justify-center h-screen w-full bg-white">
+      <div className="hidden print:flex flex-col items-center justify-center fixed inset-0 z-[99999] w-full h-full bg-white m-0 p-0">
+        <style dangerouslySetInnerHTML={{__html: `
+          @media print {
+            @page { margin: 0; }
+            body { margin: 0; -webkit-print-color-adjust: exact; }
+          }
+        `}} />
         {printTable && (
           <div className="w-[10cm] h-[15cm] border-[3px] border-[#0A1017] rounded-3xl flex flex-col items-center justify-between p-8 text-center bg-white shadow-2xl relative overflow-hidden">
             
