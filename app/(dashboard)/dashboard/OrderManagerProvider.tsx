@@ -32,7 +32,11 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   const [queuedNewOrders, setQueuedNewOrders] = useState<DashboardOrder[]>([]);
   const [isLoading, setIsLoading] = useState(initialOrders.length === 0);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setLastUpdated(new Date());
+  }, []);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     if (typeof window !== "undefined") {
