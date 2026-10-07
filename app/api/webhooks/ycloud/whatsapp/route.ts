@@ -179,7 +179,8 @@ export async function POST(request: Request) {
       return new NextResponse('Internal Server Error', { status: 500 });
     }
 
-    // Forwarding to n8n
+    // Forwarding to n8n (Awaiting it so Vercel doesn't kill the outbound request)
+    // CRITICAL: n8n Webhook MUST be set to Respond: Immediately, otherwise YCloud will timeout!
     try {
       const n8nResponse = await fetch(n8nUrl, {
         method: 'POST',
@@ -194,16 +195,11 @@ export async function POST(request: Request) {
 
       if (!n8nResponse.ok) {
         console.error(`YCloud Webhook Error: Forwarding to n8n failed with status ${n8nResponse.status}`);
-        // Return 200 to YCloud anyway so it doesn't retry endlessly if n8n is down, 
-        // or we could return 500 if we want YCloud to retry.
-        // Assuming we return 200 after successful processing our side, but returning 500 might be safer for reliability.
-        // The instructions say "Return HTTP 200 quickly after successful validation/forwarding." 
       } else {
         console.log('YCloud Webhook: Successfully forwarded inbound message to n8n');
       }
     } catch (error) {
       console.error('YCloud Webhook Error: Exception while forwarding to n8n', error instanceof Error ? error.message : 'Unknown error');
-      // Do not expose details
     }
 
     // 17. Return HTTP 200 quickly

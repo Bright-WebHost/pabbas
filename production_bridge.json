@@ -17,7 +17,9 @@
         "httpMethod": "POST",
         "path": "pabbas-whatsapp-inbound",
         "authentication": "headerAuth",
-        "options": {}
+        "options": {
+          "responseMode": "onReceived"
+        }
       },
       "id": "68820459-66da-470b-a9b7-ca0e9b96345a",
       "name": "Verified YCloud Inbound Webhook",
