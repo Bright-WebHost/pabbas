@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition, useRef } from "react";
 import { fetchTables, addTable, deleteTable, clearTable, RestaurantTable } from "./actions";
 import { QRCodeSVG } from "qrcode.react";
+import { useOrderManager } from "../../OrderManagerProvider";
 
 export default function TablesBoard() {
   const [tables, setTables] = useState<RestaurantTable[]>([]);
@@ -15,9 +16,11 @@ export default function TablesBoard() {
   const [tableHistory, setTableHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  const { lastUpdated } = useOrderManager();
+
   useEffect(() => {
     loadTables();
-  }, []);
+  }, [lastUpdated]);
 
   async function loadTables() {
     setLoading(true);
