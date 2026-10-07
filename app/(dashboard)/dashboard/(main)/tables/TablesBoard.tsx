@@ -18,12 +18,15 @@ export default function TablesBoard() {
 
   const { lastUpdated } = useOrderManager();
 
+  const isInitialLoad = useRef(true);
+
   useEffect(() => {
-    loadTables();
+    loadTables(isInitialLoad.current);
+    isInitialLoad.current = false;
   }, [lastUpdated]);
 
-  async function loadTables() {
-    setLoading(true);
+  async function loadTables(showLoader = false) {
+    if (showLoader) setLoading(true);
     const result = await fetchTables();
     if (result.success && result.tables) {
       setTables(result.tables);
