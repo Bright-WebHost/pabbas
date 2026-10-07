@@ -83,6 +83,7 @@ export default function PosBoard() {
   const [orderResult, setOrderResult] = useState<{ success: boolean; order_number?: string; error?: string } | null>(null);
 
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [appendOrderId, setAppendOrderId] = useState<string | null>(null);
   const [showActiveOrders, setShowActiveOrders] = useState(false);
   const { orders } = useOrderManager();
 
@@ -111,15 +112,20 @@ export default function PosBoard() {
         setRestaurantTables(tablesRes.tables);
       }
 
-      // Check for edit mode
+      // Check for edit or append mode
       const params = new URLSearchParams(window.location.search);
       const editId = params.get("edit");
-      if (editId) {
-        setEditOrderId(editId);
+      const appendId = params.get("append");
+      const activeId = editId || appendId;
+
+      if (activeId) {
+        if (editId) setEditOrderId(editId);
+        if (appendId) setAppendOrderId(appendId);
+
         const { data } = await supabase
           .from("orders")
           .select("*")
-          .eq("id", editId)
+          .eq("id", activeId)
           .single();
         
         const orderData = data as any;
@@ -132,7 +138,7 @@ export default function PosBoard() {
           setDeliveryLandmark(orderData.landmark || "");
           setDeliveryPincode(orderData.pincode || "");
           
-          if (orderData.items_json && Array.isArray(orderData.items_json)) {
+          if (editId && orderData.items_json && Array.isArray(orderData.items_json)) {
             setCart(orderData.items_json.map((item: any) => ({
               cartId: `${item.menu_item_id}-${item.variant_name || 'default'}`,
               menu_item_id: item.menu_item_id,
@@ -143,6 +149,7 @@ export default function PosBoard() {
             })));
           }
         }
+      }
       }
       setLoading(false);
     }
@@ -234,6 +241,39 @@ export default function PosBoard() {
 
   const handleConfirmOrder = () => {
     startTransition(async () => {
+      if (appendOrderId) {
+        try {
+          const res = await fetch("/api/orders/append", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              order_id: appendOrderId,
+              table_number: tableNumber,
+              new_items: cart.map(c => ({
+                menu_item_id: c.menu_item_id,
+                item_name: c.item_name,
+                quantity: c.quantity,
+                unit_price: c.unit_price,
+                variant_name: c.variant_name
+              }))
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            setOrderResult({ success: true, order_number: "Round Added" });
+            setCart([]);
+            setTimeout(() => {
+              if (typeof window !== "undefined") window.location.href = "/dashboard/tables";
+            }, 1500);
+          } else {
+            setOrderResult({ success: false, error: result.error });
+          }
+        } catch (error) {
+          setOrderResult({ success: false, error: "Failed to add round." });
+        }
+        return;
+      }
+
       const itemsSummary = cart.map((c) => `${c.item_name} x ${c.quantity}`).join(', ');
       
       const payload = {
