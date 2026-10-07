@@ -113,10 +113,10 @@ export function GlobalNewOrderPopup() {
     try {
       if (newOrder.status === 'new') {
         await updateOrderStatus(newOrder, "preparing");
-      } else if (isUpdate) {
+      } else if (isUpdate && newOrder.items_json) {
         // Clear is_new_addition flag in the database so it doesn't pop up again on refresh
-        const clearedItems = newOrder.items_json.map((i: any) => ({ ...i, is_new_addition: false, old_quantity: i.quantity }));
-        const supabase = (await import("@/lib/supabase/client")).createClient();
+        const clearedItems = (newOrder.items_json as any[]).map((i: any) => ({ ...i, is_new_addition: false, old_quantity: i.quantity }));
+        const supabase = (await import("@/lib/supabase/client")).createClient() as any;
         await supabase.from("orders").update({ items_json: clearedItems }).eq("id", newOrder.id);
       }
     } catch (e) {

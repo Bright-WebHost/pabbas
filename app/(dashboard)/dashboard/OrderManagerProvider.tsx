@@ -8,7 +8,7 @@ import { notifyStatusWebhook } from "./(main)/orders/actions";
 interface OrderManagerContextType {
   orders: DashboardOrder[];
   queuedNewOrders: DashboardOrder[];
-  acknowledgeOrder: (orderId: string) => void;
+  acknowledgeOrder: (orderId: string, isUpdate?: boolean) => void;
   updateOrderStatus: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => Promise<void>;
   isLoading: boolean;
   error: string | null;
