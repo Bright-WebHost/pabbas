@@ -134,15 +134,17 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
       // Detect unacknowledged new orders (excluding POS orders, as staff created them)
       const unackNew = latestOrders.filter(o => {
-        if (acknowledgedIds.current.has(o.id) || o.source === 'pos') return false;
-        
-        // It's unacknowledged if it's entirely new
-        if (o.status === 'new') return true;
+        if (o.source === 'pos') return false;
         
         // It's also unacknowledged if it's an existing order (e.g. preparing) BUT has new additions
         if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) {
           return true;
         }
+
+        if (acknowledgedIds.current.has(o.id)) return false;
+        
+        // It's unacknowledged if it's entirely new
+        if (o.status === 'new') return true;
         
         return false;
       });
@@ -168,9 +170,12 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   useEffect(() => {
     if (initialOrders.length > 0) {
       const unackNew = initialOrders.filter(o => {
-        if (acknowledgedIds.current.has(o.id) || o.source === 'pos') return false;
-        if (o.status === 'new') return true;
+        if (o.source === 'pos') return false;
+
         if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) return true;
+
+        if (acknowledgedIds.current.has(o.id)) return false;
+        if (o.status === 'new') return true;
         return false;
       });
       if (unackNew.length > 0) {
@@ -211,8 +216,10 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     };
   }, [refreshOrders, stopSound]);
 
-  const acknowledgeOrder = useCallback((orderId: string) => {
-    acknowledgedIds.current.add(orderId);
+  const acknowledgeOrder = useCallback((orderId: string, isUpdate?: boolean) => {
+    if (!isUpdate) {
+      acknowledgedIds.current.add(orderId);
+    }
     setQueuedNewOrders(prev => prev.filter(o => o.id !== orderId));
   }, []);
 

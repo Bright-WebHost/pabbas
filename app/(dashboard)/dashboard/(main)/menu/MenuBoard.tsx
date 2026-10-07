@@ -14,6 +14,7 @@ type MenuItem = {
   description: string | null;
   image_url: string | null;
   variants: any; // jsonb
+  is_pinned?: boolean;
 };
 
 export default function MenuBoard() {
@@ -184,13 +185,31 @@ export default function MenuBoard() {
     }
   };
 
+  const handleTogglePin = async (item: MenuItem) => {
+    const { error: err } = await supabase
+      .from("menu_items")
+      .update({ is_pinned: !item.is_pinned })
+      .eq("id", item.id);
+    if (!err) {
+      setItems(items.map(i => (i.id === item.id ? { ...i, is_pinned: !item.is_pinned } : i)));
+    } else {
+      alert("Failed to pin item: " + err.message);
+    }
+  };
+
+  // Group items by category. Pinned items go into a special "Pinned" category
   const grouped = items.reduce((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
+    const cat = item.is_pinned ? "Pinned ⭐" : item.category;
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(item);
     return acc;
   }, {} as Record<string, MenuItem[]>);
 
-  const categories = Object.keys(grouped).sort();
+  const categories = Object.keys(grouped).sort((a, b) => {
+    if (a === "Pinned ⭐") return -1;
+    if (b === "Pinned ⭐") return 1;
+    return a.localeCompare(b);
+  });
 
   return (
     <div className="flex flex-col gap-6 p-1 sm:p-2 pb-20 md:pb-6 max-w-[1200px] mx-auto w-full">
@@ -258,6 +277,15 @@ export default function MenuBoard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button
+                      onClick={() => handleTogglePin(item)}
+                      title={item.is_pinned ? "Unpin item" : "Pin item to top"}
+                      className={`rounded-xl p-2.5 transition-all border ${
+                        item.is_pinned ? "bg-amber-100 text-amber-600 border-amber-200" : "text-[#8799AF] hover:bg-[#F3F6F9] hover:text-[#0A1017] border-transparent hover:border-[#EAF0F6]"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={item.is_pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+                    </button>
                     <button
                       onClick={() => handleToggle(item)}
                       title={item.available ? "Hide item" : "Show item"}

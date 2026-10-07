@@ -16,6 +16,7 @@ export interface MenuItem {
   vegetarian?: boolean;
   badge?: string;
   featured?: boolean;
+  is_pinned?: boolean;
   options?: MenuOption[];
 }
 

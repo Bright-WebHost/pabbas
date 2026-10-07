@@ -53,6 +53,7 @@ function rowToProductionMenuItem(row: {
   available?: boolean | null
   variants?: unknown
   item_number?: number | null
+  is_pinned?: boolean | null
 }): MenuItem {
   const safePrice = typeof row.price === 'number' ? row.price : Number(row.price ?? 0)
 
@@ -66,6 +67,7 @@ function rowToProductionMenuItem(row: {
     vegetarian: undefined,
     badge: undefined,
     featured: undefined,
+    is_pinned: row.is_pinned ?? false,
     options: Array.isArray(row.variants) ? row.variants.map((variant: any) => ({
       label: typeof variant?.name === 'string' ? variant.name : 'Variant',
       values: typeof variant?.options === 'object' && variant?.options
@@ -98,7 +100,8 @@ export async function fetchProductionMenuItems(client: SupabaseServerClient): Pr
       available,
       description,
       image_url,
-      variants
+      variants,
+      is_pinned
     `)
     .eq('available', true)
     .order('item_number', { ascending: true })

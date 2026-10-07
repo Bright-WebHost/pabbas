@@ -94,6 +94,10 @@ export default function Home() {
       const matchCat = category === "All" || displayCategory(item.category) === category;
       const matchDiet = dietFilter === "All" || (dietFilter === "Veg" ? item.vegetarian : !item.vegetarian);
       return matchSearch && matchCat && matchDiet;
+    }).sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      return 0; // maintain original order otherwise
     });
   }, [category, search, menuItems, dietFilter]);
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
@@ -408,6 +412,7 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
         <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[3px] ${item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
           <span className={`w-2 h-2 rounded-full ${item.vegetarian ? 'bg-green-600' : 'bg-red-700'}`}></span>
         </span>
+        {item.is_pinned && <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-amber-200 flex items-center gap-1"><Star size={10} fill="currentColor" /> Pinned</span>}
         {item.badge && <span className="bg-[#fff0f1] text-[#ef4f5f] px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-[#ffc9ce]">{item.badge}</span>}
       </div>
       <h3 className="font-extrabold text-gray-900 text-[18px] leading-tight mb-2 tracking-tight">{item.name}</h3>
