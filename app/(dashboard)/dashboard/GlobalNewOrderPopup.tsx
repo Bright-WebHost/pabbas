@@ -133,7 +133,9 @@ export function GlobalNewOrderPopup() {
             <h2 className="text-[32px] leading-none font-extrabold tracking-[-1px] text-[var(--ink)] flex items-center gap-3">
               {newOrder.order_number}
               {newOrder.table_number && (
-                <span className="px-3 py-1 bg-[#0A1017] text-white rounded font-black text-[16px] tracking-wide uppercase mt-1">Table {newOrder.table_number}</span>
+                <span className="px-3 py-1 bg-[#0A1017] text-white rounded font-black text-[16px] tracking-wide uppercase mt-1">
+                  {newOrder.table_number.toLowerCase().includes('table') ? newOrder.table_number : `Table ${newOrder.table_number}`}
+                </span>
               )}
             </h2>
           </div>

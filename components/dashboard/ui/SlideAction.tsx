@@ -23,14 +23,12 @@ export function SlideAction({
   const x = useMotionValue(0);
 
   useEffect(() => {
-    if (containerRef.current) {
-      setContainerWidth(containerRef.current.offsetWidth);
-    }
-    const handleResize = () => {
-      if (containerRef.current) setContainerWidth(containerRef.current.offsetWidth);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      setContainerWidth(entries[0].contentRect.width);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const slideWidth = 56;
@@ -39,8 +37,8 @@ export function SlideAction({
   const opacity = useTransform(x, [0, maxSlide * 0.8], [1, 0]);
   const fillWidth = useTransform(x, (val) => val + slideWidth + 4);
 
-  const handleDragEnd = (event: any, info: any) => {
-    if (info.offset.x > maxSlide * 0.7) {
+  const handleDragEnd = () => {
+    if (x.get() > maxSlide * 0.7) {
       onAcknowledge();
       if (resetOnComplete) {
         setTimeout(() => x.set(0), 300);
