@@ -88,6 +88,12 @@ export async function POST(request: Request) {
 
     // 11. Accept only specific type
     const eventType = eventData.type;
+    if (eventType === 'whatsapp.message.updated') {
+      const msg = eventData.message || eventData.whatsappMessage || {};
+      console.log(`YCloud Webhook Message Status: ID ${msg.id} -> ${msg.status}. Error: ${msg.errorCode || 'none'} - ${msg.errorMessage || 'none'}`);
+      return new NextResponse('OK', { status: 200 });
+    }
+    
     if (eventType !== 'whatsapp.inbound_message.received') {
       // 12. For unsupported event types, return HTTP 200 without forwarding
       console.log(`YCloud Webhook: Ignored unsupported event type '${eventType}'`);

@@ -34,7 +34,12 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("pabbas_sound_enabled") === "true";
+    }
+    return false;
+  });
 
   const supabase = useRef(createClient());
   const acknowledgedIds = useRef<Set<string>>(new Set());
@@ -84,6 +89,9 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   const toggleSound = useCallback(() => {
     setSoundEnabled(prev => {
       const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("pabbas_sound_enabled", String(next));
+      }
       if (!next) {
         stopSound();
       } else {
