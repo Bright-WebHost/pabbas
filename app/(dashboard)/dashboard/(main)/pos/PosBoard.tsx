@@ -150,7 +150,6 @@ export default function PosBoard() {
           }
         }
       }
-      }
       setLoading(false);
     }
     init();
