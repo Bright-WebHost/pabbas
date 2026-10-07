@@ -498,11 +498,16 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
   const slideAction = getSlideAction(order);
   const countdown = formatCountdown(order, now);
   const isAgeWarning = getAgeMinutes(order) >= 15;
+  const hasNewItems = items.some(item => (item.round || 1) > 1 || item.is_new_addition);
 
   let borderColor = "border-[var(--line)]";
   if (order.status === "new") borderColor = "border-l-4 border-l-[var(--red)]";
   else if (order.status === "preparing") borderColor = "border-l-4 border-l-[#F5A623]";
   else if (order.status === "ready_for_pickup" || order.status === "out_for_delivery") borderColor = "border-l-4 border-l-[#3AB757]";
+  
+  if (hasNewItems && order.status !== 'delivered' && order.status !== 'cancelled') {
+    borderColor = "border-l-4 border-l-[#D97706] bg-[#FFF8E6] shadow-[0_2px_8px_rgba(217,119,6,0.15)]";
+  }
 
   return (
     <div
@@ -515,12 +520,17 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
           onOpen();
         }
       }}
-      className={`rounded-xl border border-r-[var(--line)] border-y-[var(--line)] bg-white p-3 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--red)] ${borderColor}`}
+      className={`rounded-xl border border-r-[var(--line)] border-y-[var(--line)] ${hasNewItems ? '' : 'bg-white'} p-3 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--red)] ${borderColor}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col">
-          <span className="text-[14px] font-extrabold tracking-[-0.2px] text-[var(--ink)]">{order.order_number}</span>
-          <span className="text-[11px] font-medium text-[var(--muted)]">{order.customer_name || "Guest"} · {order.customer_phone}</span>
+          <span className="text-[14px] font-extrabold tracking-[-0.2px] text-[var(--ink)] flex items-center flex-wrap gap-1.5">
+            {order.order_number}
+            {order.table_number && (
+              <span className="px-2 py-0.5 bg-[#0A1017] text-white rounded font-black text-[11px] tracking-wide uppercase">Table {order.table_number}</span>
+            )}
+          </span>
+          <span className="text-[11px] font-medium text-[var(--muted)] mt-1">{order.customer_name || "Guest"} · {order.customer_phone}</span>
         </div>
         <div className="flex flex-col items-end">
           <span className="text-[14px] font-extrabold text-[var(--ink)]">{money(order.total)}</span>
@@ -538,6 +548,11 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
         <span className="rounded bg-[#F8FAFB] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] border border-[#E6E9EE]">
           {normalizeOrderType(order.order_type)}
         </span>
+        {hasNewItems && order.status !== 'delivered' && order.status !== 'cancelled' && (
+          <span className="rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#D97706] border border-[#FDE68A] animate-pulse">
+            🚨 UPDATED (New Items)
+          </span>
+        )}
         {order.order_type === "delivery" && (order.address || order.landmark || order.pincode) && (
           <span className="text-[10px] font-medium text-[var(--muted)] truncate max-w-[120px]">
             📍 {destinationFor(order)}

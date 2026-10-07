@@ -64,11 +64,14 @@ function formatCountdown(order: DashboardOrder, now: number) {
 
 function buildItemList(order: DashboardOrder) {
   if (Array.isArray(order.items_json) && order.items_json.length > 0) {
-    return order.items_json.map((item: any) => ({
-      id: `${order.id}-${item.menu_item_id ?? (item.item_name || item.name)}`,
+    return order.items_json.map((item: any, idx: number) => ({
+      id: `${order.id}-${item.menu_item_id ?? (item.item_name || item.name)}-${idx}`,
       name: item.item_name || item.name,
       quantity: item.quantity,
       unit_price: item.unit_price ?? item.price,
+      is_new_addition: item.is_new_addition,
+      old_quantity: item.old_quantity,
+      round: item.round
     }));
   }
   const summary = order.items || "";
@@ -104,10 +107,13 @@ export function GlobalNewOrderPopup() {
   const items = buildItemList(newOrder);
   const PREP_TIMES = [15, 30, 45, 60];
 
+  const isUpdate = newOrder && Array.isArray(newOrder.items_json) && newOrder.items_json.some((i: any) => i.is_new_addition);
+
   const handleAccept = async () => {
     try {
-      // In a real DB, we would save prepTime to an `estimated_prep_time_mins` column here
-      await updateOrderStatus(newOrder, "preparing");
+      if (newOrder.status === 'new') {
+        await updateOrderStatus(newOrder, "preparing");
+      }
     } catch (e) {
       console.error(e);
     }
@@ -122,10 +128,13 @@ export function GlobalNewOrderPopup() {
         <div className="flex items-start justify-between border-b border-[var(--line)] pb-5">
           <div className="flex flex-col">
             <span className="text-[12px] font-extrabold tracking-[2px] uppercase text-[#C0392B] mb-1">
-              New Incoming Order
+              {isUpdate ? "🚨 Updated Order Items" : "New Incoming Order"}
             </span>
-            <h2 className="text-[32px] leading-none font-extrabold tracking-[-1px] text-[var(--ink)]">
+            <h2 className="text-[32px] leading-none font-extrabold tracking-[-1px] text-[var(--ink)] flex items-center gap-3">
               {newOrder.order_number}
+              {newOrder.table_number && (
+                <span className="px-3 py-1 bg-[#0A1017] text-white rounded font-black text-[16px] tracking-wide uppercase mt-1">Table {newOrder.table_number}</span>
+              )}
             </h2>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -171,10 +180,19 @@ export function GlobalNewOrderPopup() {
           <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] block mb-3">Order Items</span>
           <div className="space-y-2">
             {items.map((item: any) => (
-              <div key={item.id} className="flex justify-between items-start p-3 bg-[#F8FAFB] border border-[var(--line)] rounded-xl">
+              <div key={item.id} className={`flex justify-between items-start p-3 border rounded-xl ${item.is_new_addition ? "bg-[#FFF8E6] border-[#F2C94C]" : "bg-[#F8FAFB] border-[var(--line)]"}`}>
                 <div className="flex gap-3">
-                  <span className="font-extrabold text-[15px] text-[var(--ink)] w-[24px]">{item.quantity}×</span>
-                  <span className="font-bold text-[15px] text-[var(--ink)]">{item.name}</span>
+                  <span className={`font-extrabold text-[15px] w-[24px] ${item.is_new_addition ? "text-[#D97706]" : "text-[var(--ink)]"}`}>{item.quantity}×</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[15px] text-[var(--ink)]">
+                      {item.name} {item.round > 1 && <span className="text-[12px] text-[var(--muted)] ml-1">(Round {item.round})</span>}
+                    </span>
+                    {item.is_new_addition && (
+                      <span className="text-[11px] font-extrabold text-[#D97706] mt-1 uppercase tracking-widest bg-[#FEF3C7] px-2 py-0.5 rounded-md inline-block w-fit">
+                        {item.old_quantity > 0 ? `+${item.quantity - item.old_quantity} Added` : 'New Item'}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="font-bold text-[15px] text-[var(--ink)]">{money(item.unit_price * item.quantity)}</span>
               </div>
@@ -204,9 +222,9 @@ export function GlobalNewOrderPopup() {
           </div>
 
           <SlideAction
-            label="Slide to Accept & Cook"
+            label={isUpdate ? "Acknowledge Update" : "Slide to Accept & Cook"}
             baseColor="#F8FAFB"
-            accentColor="#C0392B"
+            accentColor={isUpdate ? "#D97706" : "#C0392B"}
             onAcknowledge={handleAccept}
           />
         </div>

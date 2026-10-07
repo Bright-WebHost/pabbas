@@ -133,7 +133,19 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       setError(null);
 
       // Detect unacknowledged new orders (excluding POS orders, as staff created them)
-      const unackNew = latestOrders.filter(o => o.status === 'new' && o.source !== 'pos' && !acknowledgedIds.current.has(o.id));
+      const unackNew = latestOrders.filter(o => {
+        if (acknowledgedIds.current.has(o.id) || o.source === 'pos') return false;
+        
+        // It's unacknowledged if it's entirely new
+        if (o.status === 'new') return true;
+        
+        // It's also unacknowledged if it's an existing order (e.g. preparing) BUT has new additions
+        if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) {
+          return true;
+        }
+        
+        return false;
+      });
       
       setQueuedNewOrders(prev => {
         const prevIds = new Set(prev.map(p => p.id));
@@ -155,7 +167,12 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   // Initial load effect to queue any existing new orders
   useEffect(() => {
     if (initialOrders.length > 0) {
-      const unackNew = initialOrders.filter(o => o.status === 'new' && o.source !== 'pos' && !acknowledgedIds.current.has(o.id));
+      const unackNew = initialOrders.filter(o => {
+        if (acknowledgedIds.current.has(o.id) || o.source === 'pos') return false;
+        if (o.status === 'new') return true;
+        if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) return true;
+        return false;
+      });
       if (unackNew.length > 0) {
         setQueuedNewOrders(unackNew);
       }
@@ -171,6 +188,9 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     channel.on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
       if (active) void refreshOrders();
     });
+    channel.on("broadcast", { event: "orders_updated" }, () => {
+      if (active) void refreshOrders();
+    });
 
     channel.subscribe((status) => {
       if (active) {
@@ -178,10 +198,10 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       }
     });
 
-    // Fallback polling (less aggressive, every 15s)
+    // Fallback polling (more aggressive, every 5s to ensure new orders/updates are caught fast)
     const poller = window.setInterval(() => {
       if (active) void refreshOrders();
-    }, 15000);
+    }, 5000);
 
     return () => {
       active = false;
