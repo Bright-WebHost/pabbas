@@ -1,0 +1,21 @@
+{
+    "id":  "12855",
+    "finished":  true,
+    "mode":  "webhook",
+    "retryOf":  null,
+    "retrySuccessId":  null,
+    "status":  "success",
+    "createdAt":  "2026-10-07T05:13:26.138Z",
+    "startedAt":  "2026-10-07T05:13:26.145Z",
+    "stoppedAt":  "2026-10-07T05:13:26.169Z",
+    "deletedAt":  null,
+    "workflowId":  "k7mayj1bhUGCmz8x",
+    "waitTill":  null,
+    "storedAt":  "db",
+    "tracingContext":  null,
+    "deduplicationKey":  null,
+    "jsonSizeBytes":  14647,
+    "binaryDataSizeBytes":  0,
+    "workflowVersionId":  "5623017e-b830-4671-bf57-692d7a905e4f",
+    "usedPrivateCredentials":  false
+}

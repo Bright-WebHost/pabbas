@@ -1,22 +1,22 @@
 {
-    "id":  "12855",
+    "id":  "12878",
     "finished":  true,
     "mode":  "webhook",
     "retryOf":  null,
     "retrySuccessId":  null,
     "status":  "success",
-    "createdAt":  "2026-10-07T05:13:26.138Z",
-    "startedAt":  "2026-10-07T05:13:26.145Z",
-    "stoppedAt":  "2026-10-07T05:13:26.169Z",
+    "createdAt":  "2026-10-07T05:44:37.370Z",
+    "startedAt":  "2026-10-07T05:44:37.376Z",
+    "stoppedAt":  "2026-10-07T05:44:37.984Z",
     "deletedAt":  null,
     "workflowId":  "k7mayj1bhUGCmz8x",
     "waitTill":  null,
     "storedAt":  "db",
     "tracingContext":  null,
     "deduplicationKey":  null,
-    "jsonSizeBytes":  14647,
+    "jsonSizeBytes":  20951,
     "binaryDataSizeBytes":  0,
-    "workflowVersionId":  "5623017e-b830-4671-bf57-692d7a905e4f",
+    "workflowVersionId":  "b8b02d25-60e6-4a50-9a0b-ad235d702b0c",
     "usedPrivateCredentials":  false,
     "data":  {
                  "version":  1,
@@ -27,7 +27,7 @@
                                     "runData":  {
                                                     "Blast Webhook":  [
                                                                           {
-                                                                              "startTime":  1791350006161,
+                                                                              "startTime":  1791351877386,
                                                                               "executionIndex":  0,
                                                                               "source":  [
 
@@ -35,14 +35,14 @@
                                                                               "hints":  [
 
                                                                                         ],
-                                                                              "executionTime":  0,
+                                                                              "executionTime":  1,
                                                                               "executionStatus":  "success",
                                                                               "data":  {
                                                                                            "main":  [
                                                                                                         [
                                                                                                             {
                                                                                                                 "json":  {
-                                                                                                                             "headers":  "@{connection=upgrade; host=staff.brightmedia.tech; x-real-ip=106.219.127.17; x-forwarded-for=106.219.127.17; x-forwarded-proto=https; content-length=1171; content-type=application/json; authorization=Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjVmM2NlMDIyLWQ5ODYtNGNiYi1hZDY3LWVkOWExNWVkNTdmYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NscXpjdG50a3d6YWhkZmplcWx4LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIwNmFiZjliYy1jMGEzLTQwZmEtODhmMy1mNGQ3MWQ3MGMzZTEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzkxMzUzMzMxLCJpYXQiOjE3OTEzNDk3MzEsImVtYWlsIjoiYWRtaW5AcGFiYmFzLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzkxMDAxMDcxfV0sInNlc3Npb25faWQiOiI3MDE3MzQ0ZC00Zjk4LTQ5ZTctYTQ5Zi1kNDYwNjU1OThlNDkiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.acyyS8t18hkNEUH0XPaot7h6VSWeIdFOWJmC9AeuDnS-Zh8mZfMBGhTC8vmKxkDbUfk4a90V-NbpOTWs3loERQ; accept=*/*; accept-language=*; sec-fetch-mode=cors; user-agent=node; accept-encoding=br, gzip, deflate}",
+                                                                                                                             "headers":  "@{connection=upgrade; host=staff.brightmedia.tech; x-real-ip=34.238.131.141; x-forwarded-for=34.238.131.141; x-forwarded-proto=https; content-length=1185; content-type=application/json; authorization=Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjVmM2NlMDIyLWQ5ODYtNGNiYi1hZDY3LWVkOWExNWVkNTdmYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NscXpjdG50a3d6YWhkZmplcWx4LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIwNmFiZjliYy1jMGEzLTQwZmEtODhmMy1mNGQ3MWQ3MGMzZTEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzkxMzUyMDc2LCJpYXQiOjE3OTEzNDg0NzYsImVtYWlsIjoiYWRtaW5AcGFiYmFzLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzkwOTE0MjEzfV0sInNlc3Npb25faWQiOiI3ZTA1Zjc5ZS00ZDQ3LTRiYWMtOTZiZS01MDk3MGNlNzYxOTQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.oL6bNJ9oHoteufUMv4zH2DLRSGhPx3u00ML_X6QnjVVt7la9WR0DHbY4HsTePJfl9EvCYjZntdADtREr4-_6lw; x-vercel-id=bom1::zztmb-1791351875623-aeaa83492792; x-invocation-id=bom1::zztmb-1791351875623-aeaa83492792; accept=*/*; accept-language=*; sec-fetch-mode=cors; user-agent=node; accept-encoding=br, gzip, deflate}",
                                                                                                                              "params":  "",
                                                                                                                              "query":  "",
                                                                                                                              "body":  "@{filter=all; template_name=weekend_promo_dynamic; language=en; components=System.Object[]; ycloud_api_key=d5502caecd15e608b38bb515f76d5f35; phones=System.Object[]; headers=}",
@@ -60,7 +60,7 @@
                                                                       ],
                                                     "Verify Staff":  [
                                                                          {
-                                                                             "startTime":  1791350006161,
+                                                                             "startTime":  1791351877387,
                                                                              "executionIndex":  1,
                                                                              "source":  [
                                                                                             {
@@ -72,14 +72,17 @@
                                                                              "hints":  [
 
                                                                                        ],
-                                                                             "executionTime":  6,
+                                                                             "executionTime":  291,
                                                                              "executionStatus":  "success",
                                                                              "data":  {
                                                                                           "main":  [
                                                                                                        [
                                                                                                            {
                                                                                                                "json":  {
-                                                                                                                            "error":  "invalid syntax"
+                                                                                                                            "body":  "@{email=admin@pabbas.com; staff=True}",
+                                                                                                                            "headers":  "@{date=Wed, 07 Oct 2026 05:44:37 GMT; content-type=application/json; charset=utf-8; content-length=44; connection=close; content-range=0-0/*; cf-ray=a46a9851cd76a16d-MAN; cf-cache-status=DYNAMIC; server=cloudflare; strict-transport-security=max-age=31536000; includeSubDomains; preload; x-content-type-options=nosniff; content-profile=public; sb-gateway-version=1; sb-jwt-alg=ES256; sb-jwt-iss=https://clqzctntkwzahdfjeqlx.supabase.co/auth/v1; sb-jwt-sub=06abf9bc-c0a3-40fa-88f3-f4d71d70c3e1; sb-project-ref=clqzctntkwzahdfjeqlx; sb-request-id=01a114e4-6f25-7e1e-925c-e80d2454827b; x-envoy-attempt-count=1; x-envoy-upstream-service-time=2; set-cookie=System.Object[]; alt-svc=h3=\":443\"; ma=86400}",
+                                                                                                                            "statusCode":  200,
+                                                                                                                            "statusMessage":  "OK"
                                                                                                                         },
                                                                                                                "pairedItem":  {
                                                                                                                                   "item":  0
@@ -92,7 +95,7 @@
                                                                      ],
                                                     "Is Staff?":  [
                                                                       {
-                                                                          "startTime":  1791350006167,
+                                                                          "startTime":  1791351877678,
                                                                           "executionIndex":  2,
                                                                           "source":  [
                                                                                          {
@@ -104,33 +107,499 @@
                                                                           "hints":  [
 
                                                                                     ],
-                                                                          "executionTime":  2,
+                                                                          "executionTime":  3,
                                                                           "executionStatus":  "success",
                                                                           "data":  {
                                                                                        "main":  [
                                                                                                     [
-
-                                                                                                    ],
-                                                                                                    [
                                                                                                         {
                                                                                                             "json":  {
-                                                                                                                         "error":  "invalid syntax"
+                                                                                                                         "body":  "@{email=admin@pabbas.com; staff=True}",
+                                                                                                                         "headers":  "@{date=Wed, 07 Oct 2026 05:44:37 GMT; content-type=application/json; charset=utf-8; content-length=44; connection=close; content-range=0-0/*; cf-ray=a46a9851cd76a16d-MAN; cf-cache-status=DYNAMIC; server=cloudflare; strict-transport-security=max-age=31536000; includeSubDomains; preload; x-content-type-options=nosniff; content-profile=public; sb-gateway-version=1; sb-jwt-alg=ES256; sb-jwt-iss=https://clqzctntkwzahdfjeqlx.supabase.co/auth/v1; sb-jwt-sub=06abf9bc-c0a3-40fa-88f3-f4d71d70c3e1; sb-project-ref=clqzctntkwzahdfjeqlx; sb-request-id=01a114e4-6f25-7e1e-925c-e80d2454827b; x-envoy-attempt-count=1; x-envoy-upstream-service-time=2; set-cookie=System.Object[]; alt-svc=h3=\":443\"; ma=86400}",
+                                                                                                                         "statusCode":  200,
+                                                                                                                         "statusMessage":  "OK"
                                                                                                                      },
                                                                                                             "pairedItem":  {
                                                                                                                                "item":  0
                                                                                                                            }
                                                                                                         }
+                                                                                                    ],
+                                                                                                    [
+
                                                                                                     ]
                                                                                                 ]
                                                                                    }
                                                                       }
-                                                                  ]
+                                                                  ],
+                                                    "Extract Params":  [
+                                                                           {
+                                                                               "startTime":  1791351877681,
+                                                                               "executionIndex":  3,
+                                                                               "source":  [
+                                                                                              {
+                                                                                                  "previousNode":  "Is Staff?",
+                                                                                                  "previousNodeOutput":  0,
+                                                                                                  "previousNodeRun":  0
+                                                                                              }
+                                                                                          ],
+                                                                               "hints":  [
+
+                                                                                         ],
+                                                                               "executionTime":  8,
+                                                                               "executionStatus":  "success",
+                                                                               "data":  {
+                                                                                            "main":  [
+                                                                                                         [
+                                                                                                             {
+                                                                                                                 "json":  {
+                                                                                                                              "run_id":  "blast_1791351877688",
+                                                                                                                              "filter":  "all",
+                                                                                                                              "template_name":  "",
+                                                                                                                              "language":  "en",
+                                                                                                                              "header_image":  "",
+                                                                                                                              "ycloud_api_key":  "",
+                                                                                                                              "phones":  ""
+                                                                                                                          },
+                                                                                                                 "pairedItem":  {
+                                                                                                                                    "item":  0
+                                                                                                                                }
+                                                                                                             }
+                                                                                                         ]
+                                                                                                     ]
+                                                                                        }
+                                                                           }
+                                                                       ],
+                                                    "Get Customers":  [
+                                                                          {
+                                                                              "startTime":  1791351877689,
+                                                                              "executionIndex":  4,
+                                                                              "source":  [
+                                                                                             {
+                                                                                                 "previousNode":  "Extract Params",
+                                                                                                 "previousNodeOutput":  0,
+                                                                                                 "previousNodeRun":  0
+                                                                                             }
+                                                                                         ],
+                                                                              "hints":  [
+
+                                                                                        ],
+                                                                              "executionTime":  284,
+                                                                              "executionStatus":  "success",
+                                                                              "data":  {
+                                                                                           "main":  [
+                                                                                                        [
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "15551234567",
+                                                                                                                             "name":  "Test User 5",
+                                                                                                                             "total_orders":  4,
+                                                                                                                             "last_order_date":  "2026-09-25"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "917676219138",
+                                                                                                                             "name":  "Muktha",
+                                                                                                                             "total_orders":  1,
+                                                                                                                             "last_order_date":  "2026-09-28"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "",
+                                                                                                                             "name":  "Walk-in",
+                                                                                                                             "total_orders":  5,
+                                                                                                                             "last_order_date":  "2026-10-06"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "917348825823",
+                                                                                                                             "name":  "Z",
+                                                                                                                             "total_orders":  1,
+                                                                                                                             "last_order_date":  "2026-10-06"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "919876543210",
+                                                                                                                             "name":  "TestUser",
+                                                                                                                             "total_orders":  1,
+                                                                                                                             "last_order_date":  "2026-10-01"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "917795240605",
+                                                                                                                             "name":  "Ahmad",
+                                                                                                                             "total_orders":  6,
+                                                                                                                             "last_order_date":  "2026-10-07"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "919180108354",
+                                                                                                                             "name":  "Bright Media",
+                                                                                                                             "total_orders":  3,
+                                                                                                                             "last_order_date":  "2026-10-01"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "918431585310",
+                                                                                                                             "name":  "Junaid",
+                                                                                                                             "total_orders":  1,
+                                                                                                                             "last_order_date":  "2026-10-01"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "919035960307",
+                                                                                                                             "name":  "Ma",
+                                                                                                                             "total_orders":  68,
+                                                                                                                             "last_order_date":  "2026-10-07"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "json":  {
+                                                                                                                             "phone":  "918747806127",
+                                                                                                                             "name":  "lathish",
+                                                                                                                             "total_orders":  1,
+                                                                                                                             "last_order_date":  "2026-10-02"
+                                                                                                                         },
+                                                                                                                "pairedItem":  {
+                                                                                                                                   "item":  0
+                                                                                                                               }
+                                                                                                            }
+                                                                                                        ]
+                                                                                                    ]
+                                                                                       }
+                                                                          }
+                                                                      ],
+                                                    "Filter \u0026 Clean Phones":  [
+                                                                                       {
+                                                                                           "startTime":  1791351877973,
+                                                                                           "executionIndex":  5,
+                                                                                           "source":  [
+                                                                                                          {
+                                                                                                              "previousNode":  "Get Customers",
+                                                                                                              "previousNodeOutput":  0,
+                                                                                                              "previousNodeRun":  0
+                                                                                                          }
+                                                                                                      ],
+                                                                                           "hints":  [
+
+                                                                                                     ],
+                                                                                           "executionTime":  8,
+                                                                                           "executionStatus":  "success",
+                                                                                           "data":  {
+                                                                                                        "main":  [
+                                                                                                                     [
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "15551234567",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "917676219138",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "917348825823",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "919876543210",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "917795240605",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "919180108354",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "918431585310",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "919035960307",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         },
+                                                                                                                         {
+                                                                                                                             "json":  {
+                                                                                                                                          "phone":  "918747806127",
+                                                                                                                                          "template_name":  "",
+                                                                                                                                          "language":  "en",
+                                                                                                                                          "header_image":  "",
+                                                                                                                                          "ycloud_api_key":  ""
+                                                                                                                                      }
+                                                                                                                         }
+                                                                                                                     ]
+                                                                                                                 ]
+                                                                                                    }
+                                                                                       }
+                                                                                   ],
+                                                    "Loop Customers":  [
+                                                                           {
+                                                                               "startTime":  1791351877982,
+                                                                               "executionIndex":  6,
+                                                                               "source":  [
+                                                                                              {
+                                                                                                  "previousNode":  "Filter \u0026 Clean Phones",
+                                                                                                  "previousNodeOutput":  0,
+                                                                                                  "previousNodeRun":  0
+                                                                                              }
+                                                                                          ],
+                                                                               "hints":  [
+
+                                                                                         ],
+                                                                               "executionTime":  0,
+                                                                               "executionStatus":  "success",
+                                                                               "data":  {
+                                                                                            "main":  [
+                                                                                                         [
+
+                                                                                                         ],
+                                                                                                         [
+                                                                                                             {
+                                                                                                                 "json":  {
+                                                                                                                              "phone":  "15551234567",
+                                                                                                                              "template_name":  "",
+                                                                                                                              "language":  "en",
+                                                                                                                              "header_image":  "",
+                                                                                                                              "ycloud_api_key":  ""
+                                                                                                                          },
+                                                                                                                 "pairedItem":  {
+                                                                                                                                    "item":  0
+                                                                                                                                }
+                                                                                                             }
+                                                                                                         ]
+                                                                                                     ]
+                                                                                        }
+                                                                           }
+                                                                       ],
+                                                    "Done":  [
+                                                                 {
+                                                                     "startTime":  1791351877982,
+                                                                     "executionIndex":  7,
+                                                                     "source":  [
+                                                                                    {
+                                                                                        "previousNode":  "Loop Customers",
+                                                                                        "previousNodeOutput":  1,
+                                                                                        "previousNodeRun":  0
+                                                                                    }
+                                                                                ],
+                                                                     "hints":  [
+
+                                                                               ],
+                                                                     "executionTime":  2,
+                                                                     "executionStatus":  "success",
+                                                                     "data":  {
+                                                                                  "main":  [
+                                                                                               [
+                                                                                                   {
+                                                                                                       "json":  {
+                                                                                                                    "phone":  "15551234567",
+                                                                                                                    "template_name":  "",
+                                                                                                                    "language":  "en",
+                                                                                                                    "header_image":  "",
+                                                                                                                    "ycloud_api_key":  ""
+                                                                                                                },
+                                                                                                       "pairedItem":  {
+                                                                                                                          "item":  0
+                                                                                                                      }
+                                                                                                   }
+                                                                                               ]
+                                                                                           ]
+                                                                              }
+                                                                 }
+                                                             ]
                                                 },
-                                    "lastNodeExecuted":  "Is Staff?"
+                                    "lastNodeExecuted":  "Done"
                                 },
                  "executionData":  {
                                        "contextData":  {
+                                                           "node:Loop Customers":  {
+                                                                                       "currentRunIndex":  0,
+                                                                                       "maxRunIndex":  9,
+                                                                                       "sourceData":  {
+                                                                                                          "previousNode":  "Filter \u0026 Clean Phones",
+                                                                                                          "previousNodeOutput":  0,
+                                                                                                          "previousNodeRun":  0
+                                                                                                      },
+                                                                                       "items":  [
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "917676219138",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  1
+                                                                                                                        }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "917348825823",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  2
+                                                                                                                        }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "919876543210",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  3
+                                                                                                                        }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "917795240605",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  4
+                                                                                                                        }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "919180108354",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  5
+                                                                                                                        }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "918431585310",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  6
+                                                                                                                        }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "919035960307",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  7
+                                                                                                                        }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "json":  {
+                                                                                                                      "phone":  "918747806127",
+                                                                                                                      "template_name":  "",
+                                                                                                                      "language":  "en",
+                                                                                                                      "header_image":  "",
+                                                                                                                      "ycloud_api_key":  ""
+                                                                                                                  },
+                                                                                                         "pairedItem":  {
+                                                                                                                            "item":  8
+                                                                                                                        }
+                                                                                                     }
+                                                                                                 ],
+                                                                                       "processedItems":  [
 
+                                                                                                          ],
+                                                                                       "noItemsLeft":  false,
+                                                                                       "done":  false
+                                                                                   }
                                                        },
                                        "nodeExecutionStack":  [
 
@@ -146,7 +615,7 @@
                                                                   },
                                        "runtimeData":  {
                                                            "version":  1,
-                                                           "establishedAt":  1791350006138,
+                                                           "establishedAt":  1791351877370,
                                                            "source":  "webhook",
                                                            "triggerNode":  {
                                                                                "name":  "Blast Webhook",
@@ -159,7 +628,7 @@
                                                                          }
                                                        }
                                    },
-                 "resumeToken":  "dbed2d47b5919d849489d44a2fd8ee994c4075eb33e14008186f427f8e66de48"
+                 "resumeToken":  "eb5b9cdde848f71eb7baf1e2f2034f5c0a2774f9f9f0e7c51c5bdffc306b97b0"
              },
     "workflowData":  {
                          "id":  "k7mayj1bhUGCmz8x",
@@ -323,7 +792,7 @@
                                                               "sendBody":  true,
                                                               "contentType":  "json",
                                                               "specifyBody":  "json",
-                                                              "jsonBody":  "={{ JSON.stringify({\n  to: $json.phone,\n  type: \u0027template\u0027,\n  template: {\n    name: $json.template_name,\n    language: { code: $json.language },\n    components: $json.header_image ? [\n      {\n        type: \u0027header\u0027,\n        parameters: [ { type: \u0027image\u0027, image: { link: $json.header_image } } ]\n      }\n    ] : []\n  }\n}) }}",
+                                                              "jsonBody":  "={{ JSON.stringify({\n  to: $json.phone,\n  type: \u0027template\u0027,\n  template: {\n    name: $json.template_name,\n    language: { code: $json.language },\n    components: $json.components ? $json.components : ($json.header_image ? [{ type: \u0027header\u0027, parameters: [ { type: \u0027image\u0027, image: { link: $json.header_image } } ] }] : [])\n  }\n}) }}",
                                                               "options":  {
                                                                               "timeout":  15000
                                                                           },
@@ -513,7 +982,7 @@
                                                                                                           },
                                                                                                           {
                                                                                                               "name":  "Authorization",
-                                                                                                              "value":  "={{ .headers.authorization }}"
+                                                                                                              "value":  "={{ $json.headers.authorization }}"
                                                                                                           },
                                                                                                           {
                                                                                                               "name":  "Content-Type",

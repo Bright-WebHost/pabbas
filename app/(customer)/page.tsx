@@ -132,10 +132,22 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         setTables(data.tables || []);
-        if (data.tables && data.tables.length > 0) {
-          setSelectedTableId(data.tables[0].id);
-          setTable(data.tables[0].table_number);
-        }
+        
+        setTable((currentTable) => {
+          if (!currentTable || currentTable === "No table / Takeaway") {
+            if (data.tables && data.tables.length > 0) {
+              setSelectedTableId(data.tables[0].id);
+              return data.tables[0].table_number;
+            }
+          } else if (data.tables) {
+            // Find the ID for the currently selected table number
+            const matchingTable = data.tables.find((t: any) => t.table_number === currentTable);
+            if (matchingTable) {
+              setSelectedTableId(matchingTable.id);
+            }
+          }
+          return currentTable;
+        });
       }
     } catch (err) {
       console.error(err);

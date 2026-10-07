@@ -35,8 +35,6 @@ export async function POST(request: Request) {
       const session = await getSessionCookie()
       if (session && session.customerId) {
         sessionCustomerId = session.customerId
-      } else if (body.order_type !== 'dine-in') {
-        return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
       }
     }
     const {
