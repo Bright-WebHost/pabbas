@@ -44,7 +44,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     const unlock = () => {
       if (audioRef.current) {
         audioRef.current.play().then(() => {
-          audioRef.current.pause();
+          audioRef.current?.pause();
           document.removeEventListener('click', unlock);
           document.removeEventListener('keydown', unlock);
         }).catch(() => {});
