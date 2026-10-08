@@ -62,6 +62,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Failed to accept order. It may have already been accepted or modified." }, { status: 409 });
     }
 
+    // 5.5 Increment deliveries_count on the rider
+    const { data: rider, error: fetchRiderError } = await adminClient
+      .from("riders")
+      .select("deliveries_count")
+      .eq("id", order.rider_id)
+      .single();
+
+    if (!fetchRiderError && rider) {
+      await adminClient
+        .from("riders")
+        .update({ deliveries_count: (rider.deliveries_count || 0) + 1 })
+        .eq("id", order.rider_id);
+    }
+
     // 6. Trigger customer notification
     const customMessage = `Good news! Your order ${order.order_number} is on its way. 🛵\n\nYour delivery partner, ${order.rider_name} (📞 ${order.rider_phone}), will be arriving soon.\n\nPlease keep ₹${order.total} in cash ready for the delivery.\n\nThank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
 
