@@ -123,7 +123,7 @@ export default function PosBoard() {
         }
         if (tablesRes.success && tablesRes.tables) {
           cachedTables = tablesRes.tables;
-          setRestaurantTables(cachedTables);
+          setRestaurantTables(tablesRes.tables);
         }
       }
 
