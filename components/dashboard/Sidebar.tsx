@@ -14,7 +14,7 @@ export default function Sidebar({ role = "admin" }: { role?: string }) {
   const canSee = (link: string) => {
     if (role === 'admin') return true;
     if (role === 'kitchen') {
-      return ['orders', 'stats'].includes(link);
+      return ['orders'].includes(link);
     }
     if (role === 'waiter' || role === 'counter') {
       return ['orders', 'pos', 'tables'].includes(link);

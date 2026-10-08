@@ -1,5 +1,19 @@
 import OrdersBoard from "./OrdersBoard";
+import { createClient } from "@/lib/supabase/server";
 
-export default function OrdersPage() {
-  return <OrdersBoard />;
+export default async function DashboardOrdersPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  let role = "admin";
+  if (user && user.email) {
+    const { data: staffData } = await supabase
+      .from("staff_members")
+      .select("role")
+      .eq("email", user.email)
+      .single();
+    if (staffData) role = (staffData as any).role;
+  }
+
+  return <OrdersBoard role={role} />;
 }

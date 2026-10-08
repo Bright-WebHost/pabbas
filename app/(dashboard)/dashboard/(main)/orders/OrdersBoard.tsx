@@ -146,7 +146,12 @@ function buildItemList(order: DashboardOrder) {
   }] : [];
 }
 
-function canTransitionStatus(current: OrderStatus, next: OrderStatus) {
+function canTransitionStatus(current: OrderStatus, next: OrderStatus, role: string = "admin") {
+  if (role === "kitchen") {
+    if (current === "new" && next === "preparing") return true;
+    if (current === "preparing" && (next === "ready_for_pickup" || next === "out_for_delivery")) return true;
+    return false;
+  }
   if (current === next) return true;
   return (STATUS_TRANSITIONS[current] ?? []).includes(next);
 }
@@ -651,7 +656,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
 }
 
 
-export default function OrdersBoard() {
+export default function OrdersBoard({ role = "admin" }: { role?: string }) {
   const { orders, error, updateOrderStatus, isLoading } = useOrderManager();
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
@@ -666,7 +671,7 @@ export default function OrdersBoard() {
   }, []);
 
   const handleStatusChange = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => {
-    if (!canTransitionStatus(order.status, nextStatus)) {
+    if (!canTransitionStatus(order.status, nextStatus, role)) {
       setStatusMessage(`Invalid update: ${statusLabels[order.status]} → ${statusLabels[nextStatus]}.`);
       return;
     }
@@ -730,7 +735,7 @@ export default function OrdersBoard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <StatCard label="Revenue" value={money(totalRevenue)} tone="red" />
+        {role !== "kitchen" && <StatCard label="Revenue" value={money(totalRevenue)} tone="red" />}
         <StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" />
         <StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="amber" />
         <StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="purple" />
@@ -746,7 +751,7 @@ export default function OrdersBoard() {
       {error && <div className="rounded-xl border border-[#F5C2C6] bg-[#FDE8E8] px-4 py-3 text-sm font-semibold text-[#C0392B] shadow-[0_4px_12px_rgba(226,55,68,0.1)]">{error}</div>}
 
       <div className="flex xl:grid xl:grid-cols-3 gap-4 overflow-x-auto pb-6 snap-x snap-mandatory">
-        {BOARD_COLUMNS.map((column) => {
+        {BOARD_COLUMNS.filter(col => role === "kitchen" ? (col.key === "preparing" || col.key === "ready") : true).map((column) => {
           const columnOrders = visibleOrders.filter((order) => getBoardColumn(order) === column.key);
           return (
             <div key={column.key} className={`min-w-[85vw] md:min-w-[320px] xl:min-w-0 snap-center rounded-[20px] ${column.key === "preparing" ? "bg-[#EAF3FF]" : column.key === "ready" ? "bg-[#F2EEFF]" : "bg-[#EAF8EF]"} p-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]`}>
