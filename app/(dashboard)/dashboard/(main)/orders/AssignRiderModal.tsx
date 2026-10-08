@@ -9,16 +9,27 @@ interface AssignRiderModalProps {
   onCancel: () => void;
 }
 
+// Global cache to prevent slow repeated fetches
+let cachedRiders: Rider[] | null = null;
+let ridersPromise: Promise<any> | null = null;
+
 export function AssignRiderModal({ orderNumber, onAssign, onCancel }: AssignRiderModalProps) {
-  const [riders, setRiders] = useState<Rider[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [riders, setRiders] = useState<Rider[]>(cachedRiders || []);
+  const [loading, setLoading] = useState(!cachedRiders);
   const [assigningId, setAssigningId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (cachedRiders) return;
+    
     async function load() {
-      const result = await fetchRiders();
+      if (!ridersPromise) {
+        ridersPromise = fetchRiders();
+      }
+      const result = await ridersPromise;
       if (result.success && result.riders) {
-        setRiders(result.riders.filter((r) => r.is_active));
+        const activeRiders = result.riders.filter((r: Rider) => r.is_active);
+        cachedRiders = activeRiders;
+        setRiders(activeRiders);
       }
       setLoading(false);
     }

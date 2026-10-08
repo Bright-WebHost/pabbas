@@ -3,25 +3,12 @@
 import { useOrderManager } from "@/app/(dashboard)/dashboard/OrderManagerProvider";
 
 export default function Header() {
-  const { isRealtimeConnected, lastUpdated, toggleSound, soundEnabled } = useOrderManager();
+  const { isRealtimeConnected, lastUpdated } = useOrderManager();
   
   return (
     <header className="sticky top-0 z-20 -mx-5 mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-[#EAF0F6] bg-white/90 backdrop-blur-md px-6 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
       <h1 className="m-0 text-[26px] font-extrabold tracking-[-0.6px] text-[#0A1017]">Orders</h1>
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={toggleSound}
-          className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 border transition-colors ${
-            soundEnabled 
-              ? "bg-[#EAF2FD] border-[#C9DEFA] text-[#0A58CA]" 
-              : "bg-[#FFF0F1] border-[#F5C2C6] text-[#C0392B]"
-          }`}
-          title={soundEnabled ? "Mute New Order Sounds" : "Enable New Order Sounds"}
-        >
-          <span className="text-[12px] font-bold tracking-tight">
-            {soundEnabled ? "🔊 Sound On" : "🔇 Sound Off"}
-          </span>
-        </button>
         {isRealtimeConnected ? (
           <div className="flex items-center gap-2 rounded-full bg-[#E5F5EC] px-3.5 py-1.5 border border-[#C6ECD6] shadow-[0_0_12px_rgba(25,135,84,0.15)]">
             <span className="relative flex h-2.5 w-2.5">

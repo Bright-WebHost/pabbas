@@ -40,9 +40,9 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("pabbas_sound_enabled") === "true";
+      return localStorage.getItem("pabbas_sound_enabled") !== "false";
     }
-    return false;
+    return true;
   });
 
   const supabase = useRef(createClient());
@@ -265,7 +265,8 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       const { error: updateError } = await ordersTable.update(updates).eq("id", order.id);
       if (updateError) throw updateError;
 
-      await refreshOrders();
+      // Trigger refresh but don't await it to keep UI responsive
+      refreshOrders().catch(console.error);
 
       // Trigger Webhook
       try {
@@ -329,7 +330,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       toggleSound,
       soundEnabled
     }}>
-            <audio ref={audioRef} src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" loop preload="auto" style={{ display: 'none' }} />
+            <audio ref={audioRef} src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" loop preload="auto" style={{ display: 'none' }} />
       {children}
     </OrderManagerContext.Provider>
   );

@@ -55,9 +55,14 @@ function getCategoryColor(category: string) {
   return DEFAULT_COLOR;
 }
 
+// Global cache for POS data to speed up navigation
+let cachedMenuItems: MenuItem[] | null = null;
+let cachedTables: RestaurantTable[] | null = null;
+let posDataPromise: Promise<any> | null = null;
+
 export default function PosBoard() {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(cachedMenuItems || []);
+  const [loading, setLoading] = useState(!cachedMenuItems);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [orderType, setOrderType] = useState<"takeaway" | "delivery" | "dine-in">("takeaway");
@@ -95,28 +100,32 @@ export default function PosBoard() {
 
   useEffect(() => {
     async function init() {
-      setLoading(true);
-      // Fetch menu
-      const { data: menuData } = await supabase
-        .from("menu_items")
-        .select("*")
-        .order("category")
-        .order("item_number");
-
-      if (menuData) {
-        setMenuItems(menuData as MenuItem[]);
-      }
-
-      const tablesRes = await fetchTables();
-      if (tablesRes.success && tablesRes.tables) {
-        setRestaurantTables(tablesRes.tables);
-      }
-
       // Check for edit or append mode
       const params = new URLSearchParams(window.location.search);
       const editId = params.get("edit");
       const appendId = params.get("append");
       const activeId = editId || appendId;
+
+      if (!cachedMenuItems || !cachedTables) {
+        setLoading(true);
+        if (!posDataPromise) {
+          posDataPromise = Promise.all([
+            supabase.from("menu_items").select("*").order("category").order("item_number"),
+            fetchTables()
+          ]);
+        }
+        
+        const [menuRes, tablesRes] = await posDataPromise;
+        
+        if (menuRes.data) {
+          cachedMenuItems = menuRes.data as MenuItem[];
+          setMenuItems(cachedMenuItems);
+        }
+        if (tablesRes.success && tablesRes.tables) {
+          cachedTables = tablesRes.tables;
+          setRestaurantTables(cachedTables);
+        }
+      }
 
       if (activeId) {
         if (editId) setEditOrderId(editId);
