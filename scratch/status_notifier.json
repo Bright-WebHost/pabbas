@@ -1,0 +1,1684 @@
+{
+  "id": "24IaEnLI3RCYU6da",
+  "name": "Pabbas | Status Notifier",
+  "description": null,
+  "active": true,
+  "activeVersionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+  "createdAt": "2026-09-23T06:04:34.138Z",
+  "updatedAt": "2026-10-03T09:54:08.900Z",
+  "isArchived": false,
+  "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+  "versionCounter": 122,
+  "sourceWorkflowId": null,
+  "triggerCount": 2,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pabbas-status",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "2963a580-1226-4ed3-ad8d-f98ccb5c7064",
+      "name": "Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        208
+      ],
+      "webhookId": "pabbas-status",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Xcg9YUaVyqTFWiDm",
+          "name": "x-pabbas-whatsapp-secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $('Status Webhook').first().json.body || {};\nfor (const item of $input.all()) {\n  item.json = {\n    ...item.json,\n    order_number: webhookData.order_number,\n    status: webhookData.status,\n    cancel_reason: webhookData.cancel_reason || null,\n    target: webhookData.target || 'customer',\n    rider_phone: webhookData.rider_phone || null,\n    rider_name: webhookData.rider_name || null,\n    whatsapp_message_text: webhookData.whatsapp_message_text || null,\n    interactive_button: webhookData.interactive_button || null,\n  };\n}\nreturn $input.all();"
+      },
+      "id": "26066344-85f5-4050-add3-8c4a08a5efc9",
+      "name": "Extract Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.error }}",
+              "operation": "false"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "41782426-9bd2-4e59-a4a0-6b4909a5d6d4",
+      "name": "Valid Status?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        592,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/orders",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "order_number",
+              "value": "=eq.{{ $json.order_number }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5dcb9758-3b31-404f-80bb-4b157387e3e8",
+      "name": "Update Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        912,
+        -208
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const extractData = $('Extract Data').first().json || {};\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = extractData.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  // Restore the target and rider info from Extract Data because Update Status destroyed it\n  order.target = extractData.target || 'customer';\n  order.rider_phone = extractData.rider_phone || null;\n  order.cancel_reason = extractData.cancel_reason || order.cancel_reason || null;\n  order.interactive_button = extractData.interactive_button || null;\n  order.status = extractData.status || order.status;\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n  item.json.interactive_button = order.interactive_button;\n  item.json.order_number = order.order_number;\n}\nreturn $input.all();"
+      },
+      "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
+      "name": "Build Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.skip }}",
+              "operation": "false"
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "ba959761-4572-4248-80b8-736275bb81e6",
+      "name": "Should Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        944,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ycloud.com/v2/whatsapp/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "d5502caecd15e608b38bb515f76d5f35"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: String($json.phone).replace(/[^0-9]/g, ''),\n  type: $json.interactive_button ? 'interactive' : 'text',\n  ...($json.interactive_button ? {\n    interactive: {\n      type: 'button',\n      body: { text: $json.message },\n      action: {\n        buttons: [\n          {\n            type: 'reply',\n            reply: {\n              id: 'accept_' + $json.order_number,\n              title: $json.interactive_button\n            }\n          }\n        ]\n      }\n    }\n  } : {\n    text: { body: $json.message }\n  })\n}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "1e0d03f3-1cf5-4a19-bff6-776c48de73b8",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        32
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Build Message').first().json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: $('Build Message').first().json.message }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "8294b215-20d4-45b2-a58c-bbac8a6fae4b",
+      "name": "Log Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1488,
+        -48
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, order_number: $('Extract Data').first().json.order_number, status: $('Extract Data').first().json.status }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "8ba8e9ac-4269-46f1-aa2a-deae22a556ed",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1520,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "e2d141c3-bf06-4e9a-aaeb-97e285724906",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/staff_check",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.body.staff_token}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 10000
+        },
+        "authentication": "none",
+        "nodeCredentialType": "httpCustomAuth"
+      },
+      "id": "acce89ad-93bb-417d-88d4-38897fba9075",
+      "name": "Verify Staff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "pabbas-status-is-staff-check",
+              "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "84a8d1e6-c970-4be5-a56c-1f724cc3ceda",
+      "name": "Is Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "cc3db720-c807-42b5-8d82-8be20261366f",
+      "name": "Respond Unauthorised",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pabbas-order-created",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "04388908-b331-4354-a4e9-0db51a3bda77",
+      "name": "Order Created Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        384
+      ],
+      "webhookId": "pabbas-order-created",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Xcg9YUaVyqTFWiDm",
+          "name": "x-pabbas-whatsapp-secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst body = item.json.body || item.json;\n\nconst order_number = body.order_number || '';\nconst customer_phone = body.customer_phone || '';\nconst customer_name = body.customer_name || 'Valued Customer';\nconst order_type = body.order_type || 'delivery';\nconst items = body.items || [];\nconst total = body.total || 0;\n\nreturn [{\n  json: {\n    order_number,\n    customer_phone,\n    customer_name,\n    order_type,\n    items,\n    total\n  }\n}];"
+      },
+      "id": "521285bc-cc5d-435e-adfe-513f2d14ce92",
+      "name": "Extract Order Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst o = item.json;\n\nlet itemLines = '';\nif (Array.isArray(o.items) && o.items.length > 0) {\n  itemLines = o.items\n    .map(i => `• ${i.item_name} x${i.quantity}`)\n    .join('\\n');\n} else {\n  itemLines = '• (see order details)';\n}\n\nconst typeLabel = o.order_type === 'dine-in' ? 'Dine-in' :\n                  o.order_type === 'takeaway' ? 'Takeaway' : 'Delivery';\n\nconst msg = `Hi ${o.customer_name}! 👋\n\nWe've received your Pabbas ${typeLabel} order #${o.order_number}.\n\nYour order:\n${itemLines}\n\nTotal: ₹${o.total}\n\nWe'll keep you updated here on WhatsApp. Thank you!`;\n\nreturn [{\n  json: {\n    phone: o.customer_phone,\n    message: msg,\n    skip: !o.customer_phone\n  }\n}];"
+      },
+      "id": "c3df6a19-b6f1-4430-ae4e-a555a2c8a349",
+      "name": "Build Order Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "pabbas-order-should-send",
+              "leftValue": "={{ $json.skip !== true && !!$json.phone && !!$json.message }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "99ebb88c-8066-4459-8ad9-2d4e139429e6",
+      "name": "Should Send Order Msg?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        432,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ycloud.com/v2/whatsapp/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "d5502caecd15e608b38bb515f76d5f35"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: $json.phone,\n  type: 'text',\n  text: {\n    body: $json.message\n  }\n}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "8b95c4fe-59d4-400a-9f45-c811d53bd9b1",
+      "name": "Send Order WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        704,
+        304
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SECRET_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $('Build Order Message').first().json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: $('Build Order Message').first().json.message }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "25f29a22-9d7c-4ec9-8866-93d77ba4f163",
+      "name": "Log Order Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        304
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "RImgl1ED9KhO0wG4",
+          "name": "Supabase Service Role"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, notified: true }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "5f39811f-90f4-4141-b954-4327668e3c36",
+      "name": "Respond Order Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1232,
+        384
+      ]
+    }
+  ],
+  "connections": {
+    "Status Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Staff": {
+      "main": [
+        [
+          {
+            "node": "Is Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Staff?": {
+      "main": [
+        [
+          {
+            "node": "Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Valid Status?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Status?": {
+      "main": [
+        [
+          {
+            "node": "Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status": {
+      "main": [
+        [
+          {
+            "node": "Build Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Message": {
+      "main": [
+        [
+          {
+            "node": "Should Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Message": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Created Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Order Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Order Data": {
+      "main": [
+        [
+          {
+            "node": "Build Order Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Order Message": {
+      "main": [
+        [
+          {
+            "node": "Should Send Order Msg?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Send Order Msg?": {
+      "main": [
+        [
+          {
+            "node": "Send Order WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Order Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Order WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Log Order Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Order Message": {
+      "main": [
+        [
+          {
+            "node": "Respond Order Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Log Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {
+    "Status Webhook": [
+      {
+        "json": {
+          "headers": {
+            "connection": "upgrade",
+            "host": "staff.brightmedia.tech",
+            "x-real-ip": "106.219.124.96",
+            "x-forwarded-for": "106.219.124.96",
+            "x-forwarded-proto": "https",
+            "content-length": "50",
+            "content-type": "application/json",
+            "authorization": "Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjVmM2NlMDIyLWQ5ODYtNGNiYi1hZDY3LWVkOWExNWVkNTdmYiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NscXpjdG50a3d6YWhkZmplcWx4LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJmZDYyZWQ4ZC0zMDc0LTRjYjMtOTQ4NS04OTIxYzg0NDRjZjQiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzkwNDI0MzIzLCJpYXQiOjE3OTA0MjA3MjMsImVtYWlsIjoidGVzdHN0YWZmQHBhYmJhcy5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlfSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc5MDQyMDcyM31dLCJzZXNzaW9uX2lkIjoiM2RhMjM4OTYtNDdjYS00MmQyLTllMjgtNWJlY2JlMjRkYzdkIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.k5eX0541eTeDRCtS8ertf2Bkq1f5WAI6h8Lt_3tiLZf_VF6FakUxsXlUwjy2xCGuEm_9M-2vA_ggHYYDzT4kqw",
+            "x-pabbas-whatsapp-secret": "pabbas_wh_sec_9f8d7c6b5a4e3d2c1b0a9f8e7d6c5b4a",
+            "accept": "*/*",
+            "user-agent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+            "accept-encoding": "gzip,deflate"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "order_number": "PBN-P-1011",
+            "status": "preparing"
+          },
+          "webhookUrl": "https://staff.brightmedia.tech/webhook/pabbas-status",
+          "executionMode": "production"
+        },
+        "binary": {
+          "data": {
+            "data": "eyJvcmRlcl9udW1iZXIiOiJQQk4tUC0xMDExIiwic3RhdHVzIjoicHJlcGFyaW5nIn0=",
+            "mimeType": "application/json"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [],
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "24IaEnLI3RCYU6da",
+      "projectId": "nA9h8O54aEZhDQ9B",
+      "project": {
+        "id": "nA9h8O54aEZhDQ9B",
+        "name": "Maithri Maithri <smaithri039@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
+        "createdAt": "2026-09-09T06:43:52.178Z",
+        "updatedAt": "2026-09-09T06:45:10.777Z"
+      },
+      "createdAt": "2026-09-23T06:04:34.139Z",
+      "updatedAt": "2026-09-23T06:04:34.139Z"
+    }
+  ],
+  "activeVersion": {
+    "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+    "workflowId": "24IaEnLI3RCYU6da",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "pabbas-status",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {
+            "rawBody": true,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "2963a580-1226-4ed3-ad8d-f98ccb5c7064",
+        "name": "Status Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -16,
+          208
+        ],
+        "webhookId": "pabbas-status",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Xcg9YUaVyqTFWiDm",
+            "name": "x-pabbas-whatsapp-secret"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const webhookData = $('Status Webhook').first().json.body || {};\nfor (const item of $input.all()) {\n  item.json = {\n    ...item.json,\n    order_number: webhookData.order_number,\n    status: webhookData.status,\n    cancel_reason: webhookData.cancel_reason || null,\n    target: webhookData.target || 'customer',\n    rider_phone: webhookData.rider_phone || null,\n    rider_name: webhookData.rider_name || null,\n    whatsapp_message_text: webhookData.whatsapp_message_text || null,\n    interactive_button: webhookData.interactive_button || null,\n  };\n}\nreturn $input.all();"
+        },
+        "id": "26066344-85f5-4050-add3-8c4a08a5efc9",
+        "name": "Extract Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          432,
+          16
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{ $json.error }}",
+                "operation": "false"
+              }
+            ],
+            "combinator": "and",
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            }
+          },
+          "options": {}
+        },
+        "id": "41782426-9bd2-4e59-a4a0-6b4909a5d6d4",
+        "name": "Valid Status?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          592,
+          -96
+        ]
+      },
+      {
+        "parameters": {
+          "method": "PATCH",
+          "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/orders",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "order_number",
+                "value": "=eq.{{ $json.order_number }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=representation"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "id": "5dcb9758-3b31-404f-80bb-4b157387e3e8",
+        "name": "Update Status",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          912,
+          -208
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const extractData = $('Extract Data').first().json || {};\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = extractData.whatsapp_message_text || '';\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n\n  // Restore the target and rider info from Extract Data because Update Status destroyed it\n  order.target = extractData.target || 'customer';\n  order.rider_phone = extractData.rider_phone || null;\n  order.cancel_reason = extractData.cancel_reason || order.cancel_reason || null;\n  order.interactive_button = extractData.interactive_button || null;\n  order.status = extractData.status || order.status;\n\n  if (!msg) {\n    switch(order.status) {\n      case 'preparing':\n        msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n        break;\n      case 'ready_for_pickup':\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n        break;\n      case 'out_for_delivery':\n        msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n        break;\n      case 'delivered':\n        msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n        break;\n      case 'cancelled':\n        const cancelReason = order.cancel_reason ? `\\nReason: ${order.cancel_reason}` : '';\n        msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n        break;\n      default:\n        skip = true;\n    }\n  }\n  \n  if (order.target === 'rider') {\n      item.json.phone = order.rider_phone;\n      if (order.status === 'rider_assigned') skip = false;\n  } else {\n      item.json.phone = order.customer_phone;\n  }\n\n  item.json.message = msg;\n  item.json.skip = skip;\n  item.json.interactive_button = order.interactive_button;\n  item.json.order_number = order.order_number;\n}\nreturn $input.all();"
+        },
+        "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
+        "name": "Build Message",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1136,
+          -208
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{ $json.skip }}",
+                "operation": "false"
+              }
+            ],
+            "combinator": "and",
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            }
+          },
+          "options": {}
+        },
+        "id": "ba959761-4572-4248-80b8-736275bb81e6",
+        "name": "Should Notify?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          944,
+          64
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.ycloud.com/v2/whatsapp/messages",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-API-Key",
+                "value": "d5502caecd15e608b38bb515f76d5f35"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: String($json.phone).replace(/[^0-9]/g, ''),\n  type: $json.interactive_button ? 'interactive' : 'text',\n  ...($json.interactive_button ? {\n    interactive: {\n      type: 'button',\n      body: { text: $json.message },\n      action: {\n        buttons: [\n          {\n            type: 'reply',\n            reply: {\n              id: 'accept_' + $json.order_number,\n              title: $json.interactive_button\n            }\n          }\n        ]\n      }\n    }\n  } : {\n    text: { body: $json.message }\n  })\n}) }}",
+          "options": {
+            "timeout": 15000
+          }
+        },
+        "id": "1e0d03f3-1cf5-4a19-bff6-776c48de73b8",
+        "name": "Send WhatsApp",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1280,
+          32
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ phone: $('Build Message').first().json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: $('Build Message').first().json.message }) }}",
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "id": "8294b215-20d4-45b2-a58c-bbac8a6fae4b",
+        "name": "Log Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1488,
+          -48
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: true, order_number: $('Extract Data').first().json.order_number, status: $('Extract Data').first().json.status }) }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "8ba8e9ac-4269-46f1-aa2a-deae22a556ed",
+        "name": "Respond Success",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          1520,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: false, error: $json.reason }) }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "e2d141c3-bf06-4e9a-aaeb-97e285724906",
+        "name": "Respond Error",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          640,
+          160
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/rpc/staff_check",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNscXpjdG50a3d6YWhkZmplcWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDA2MzEwOSwiZXhwIjoyMTA1NjM5MTA5fQ.s3acH4jyS7o7JrvHA-qAN2bVmrGDg_7w-ybVxm9CI2M"
+              },
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{$json.body.staff_token}}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({}) }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true
+              }
+            },
+            "timeout": 10000
+          },
+          "authentication": "none",
+          "nodeCredentialType": "httpCustomAuth"
+        },
+        "id": "acce89ad-93bb-417d-88d4-38897fba9075",
+        "name": "Verify Staff",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          0,
+          0
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "pabbas-status-is-staff-check",
+                "leftValue": "={{ $json.statusCode === 200 && !!$json.body && $json.body.staff === true }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "84a8d1e6-c970-4be5-a56c-1f724cc3ceda",
+        "name": "Is Staff?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          224,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: false, error: \"Not authorised. Please log in to the dashboard again.\" }) }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "cc3db720-c807-42b5-8d82-8be20261366f",
+        "name": "Respond Unauthorised",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          208,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "pabbas-order-created",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "04388908-b331-4354-a4e9-0db51a3bda77",
+        "name": "Order Created Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -384,
+          384
+        ],
+        "webhookId": "pabbas-order-created",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Xcg9YUaVyqTFWiDm",
+            "name": "x-pabbas-whatsapp-secret"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst body = item.json.body || item.json;\n\nconst order_number = body.order_number || '';\nconst customer_phone = body.customer_phone || '';\nconst customer_name = body.customer_name || 'Valued Customer';\nconst order_type = body.order_type || 'delivery';\nconst items = body.items || [];\nconst total = body.total || 0;\n\nreturn [{\n  json: {\n    order_number,\n    customer_phone,\n    customer_name,\n    order_type,\n    items,\n    total\n  }\n}];"
+        },
+        "id": "521285bc-cc5d-435e-adfe-513f2d14ce92",
+        "name": "Extract Order Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -112,
+          384
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst o = item.json;\n\nlet itemLines = '';\nif (Array.isArray(o.items) && o.items.length > 0) {\n  itemLines = o.items\n    .map(i => `• ${i.item_name} x${i.quantity}`)\n    .join('\\n');\n} else {\n  itemLines = '• (see order details)';\n}\n\nconst typeLabel = o.order_type === 'dine-in' ? 'Dine-in' :\n                  o.order_type === 'takeaway' ? 'Takeaway' : 'Delivery';\n\nconst msg = `Hi ${o.customer_name}! 👋\n\nWe've received your Pabbas ${typeLabel} order #${o.order_number}.\n\nYour order:\n${itemLines}\n\nTotal: ₹${o.total}\n\nWe'll keep you updated here on WhatsApp. Thank you!`;\n\nreturn [{\n  json: {\n    phone: o.customer_phone,\n    message: msg,\n    skip: !o.customer_phone\n  }\n}];"
+        },
+        "id": "c3df6a19-b6f1-4430-ae4e-a555a2c8a349",
+        "name": "Build Order Message",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          160,
+          384
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "pabbas-order-should-send",
+                "leftValue": "={{ $json.skip !== true && !!$json.phone && !!$json.message }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "99ebb88c-8066-4459-8ad9-2d4e139429e6",
+        "name": "Should Send Order Msg?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          432,
+          384
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.ycloud.com/v2/whatsapp/messages",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-API-Key",
+                "value": "d5502caecd15e608b38bb515f76d5f35"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({\n  from: '+919180348124',\n  to: $json.phone,\n  type: 'text',\n  text: {\n    body: $json.message\n  }\n}) }}",
+          "options": {
+            "timeout": 15000
+          }
+        },
+        "id": "8b95c4fe-59d4-400a-9f45-c811d53bd9b1",
+        "name": "Send Order WhatsApp",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          704,
+          304
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://clqzctntkwzahdfjeqlx.supabase.co/rest/v1/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "httpCustomAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "apikey",
+                "value": "={{ $env.SUPABASE_SECRET_KEY }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ phone: $('Build Order Message').first().json.phone, direction: 'outbound', sender: 'system', message_type: 'text', content: $('Build Order Message').first().json.message }) }}",
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "id": "25f29a22-9d7c-4ec9-8866-93d77ba4f163",
+        "name": "Log Order Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          976,
+          304
+        ],
+        "alwaysOutputData": true,
+        "credentials": {
+          "httpCustomAuth": {
+            "id": "RImgl1ED9KhO0wG4",
+            "name": "Supabase Service Role"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ success: true, notified: true }) }}",
+          "options": {
+            "responseCode": 200
+          }
+        },
+        "id": "5f39811f-90f4-4141-b954-4327668e3c36",
+        "name": "Respond Order Success",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          1232,
+          384
+        ]
+      }
+    ],
+    "connections": {
+      "Status Webhook": {
+        "main": [
+          [
+            {
+              "node": "Verify Staff",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verify Staff": {
+        "main": [
+          [
+            {
+              "node": "Is Staff?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is Staff?": {
+        "main": [
+          [
+            {
+              "node": "Extract Data",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Unauthorised",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Data": {
+        "main": [
+          [
+            {
+              "node": "Valid Status?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Valid Status?": {
+        "main": [
+          [
+            {
+              "node": "Update Status",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update Status": {
+        "main": [
+          [
+            {
+              "node": "Build Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Message": {
+        "main": [
+          [
+            {
+              "node": "Should Notify?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Should Notify?": {
+        "main": [
+          [
+            {
+              "node": "Send WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Message": {
+        "main": [
+          [
+            {
+              "node": "Respond Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Order Created Webhook": {
+        "main": [
+          [
+            {
+              "node": "Extract Order Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Order Data": {
+        "main": [
+          [
+            {
+              "node": "Build Order Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Order Message": {
+        "main": [
+          [
+            {
+              "node": "Should Send Order Msg?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Should Send Order Msg?": {
+        "main": [
+          [
+            {
+              "node": "Send Order WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Order Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Order WhatsApp": {
+        "main": [
+          [
+            {
+              "node": "Log Order Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Order Message": {
+        "main": [
+          [
+            {
+              "node": "Respond Order Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send WhatsApp": {
+        "main": [
+          [
+            {
+              "node": "Log Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Maithri Maithri",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-03T09:54:08.901Z",
+    "updatedAt": "2026-10-03T09:54:08.901Z",
+    "workflowPublishHistory": [
+      {
+        "id": 368,
+        "workflowId": "24IaEnLI3RCYU6da",
+        "versionId": "aefcf6e0-4a3e-4cc7-8478-69e4303068c2",
+        "event": "activated",
+        "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
+        "createdAt": "2026-10-03T09:54:09.097Z"
+      }
+    ]
+  }
+}

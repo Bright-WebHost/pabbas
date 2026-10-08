@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   // Verify staff authorization using authenticated client on server
   const { data: staffData } = await supabase
     .from("staff_members")
-    .select("email")
+    .select("email, role")
     .eq("email", user.email)
     .single();
 
@@ -38,7 +38,7 @@ export default async function DashboardLayout({
     <OrderManagerProvider initialOrders={initialOrders}>
       <div className="flex min-h-screen bg-[#F8FAFB] text-[#0A1017]">
         <div className="print:hidden">
-          <Sidebar />
+          <Sidebar role={staffData.role || "admin"} />
         </div>
         <div className="flex-1 flex flex-col min-w-0 pb-[64px] md:pb-0">
           <div className="print:hidden">

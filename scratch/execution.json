@@ -1,0 +1,21 @@
+{
+  "id": "12124",
+  "finished": false,
+  "mode": "trigger",
+  "retryOf": null,
+  "retrySuccessId": null,
+  "status": "error",
+  "createdAt": "2026-10-05T06:00:39.007Z",
+  "startedAt": "2026-10-05T06:00:39.013Z",
+  "stoppedAt": "2026-10-05T06:00:39.033Z",
+  "deletedAt": null,
+  "workflowId": "FMeFu5eQfywZMEuo",
+  "waitTill": null,
+  "storedAt": "db",
+  "tracingContext": null,
+  "deduplicationKey": "FMeFu5eQfywZMEuo:0c34053f-9507-48bd-bffe-c2064e3cff58:2026-10-05T06:00:39.000Z",
+  "jsonSizeBytes": 16709,
+  "binaryDataSizeBytes": 0,
+  "workflowVersionId": "8a9e97c1-9cfd-438d-93d2-223d9594d125",
+  "usedPrivateCredentials": false
+}

@@ -1,0 +1,21 @@
+{
+  "id": "13423",
+  "finished": true,
+  "mode": "webhook",
+  "retryOf": null,
+  "retrySuccessId": null,
+  "status": "success",
+  "createdAt": "2026-10-08T06:14:50.637Z",
+  "startedAt": "2026-10-08T06:14:50.653Z",
+  "stoppedAt": "2026-10-08T06:14:58.499Z",
+  "deletedAt": null,
+  "workflowId": "BfhcbxFiXa4Vga51",
+  "waitTill": null,
+  "storedAt": "db",
+  "tracingContext": null,
+  "deduplicationKey": null,
+  "jsonSizeBytes": 89723,
+  "binaryDataSizeBytes": 0,
+  "workflowVersionId": "4d610d19-0b6e-42b1-805e-e49236d31a84",
+  "usedPrivateCredentials": false
+}
