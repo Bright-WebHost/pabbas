@@ -5,23 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOrderManager } from "@/app/(dashboard)/dashboard/OrderManagerProvider";
 
-export default function Sidebar({ role = "admin" }: { role?: string }) {
+export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
   const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
-
-  const canSee = (link: string) => {
-    if (role === 'admin') return true;
-    if (role === 'kitchen') {
-      return ['orders'].includes(link);
-    }
-    if (role === 'waiter' || role === 'counter') {
-      return ['orders', 'pos', 'tables'].includes(link);
-    }
-    return true;
-  };
-
 
   return (
     <>
@@ -33,20 +21,20 @@ export default function Sidebar({ role = "admin" }: { role?: string }) {
           </div>
           <div className="flex flex-col">
             <span className="text-[18px] font-extrabold tracking-[-0.5px] leading-none text-white">Pabbas</span>
-            <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase">Staff Hub � {role}</span>
+            <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase">Staff Hub</span>
           </div>
         </div>
 
         <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1 pb-4 scrollbar-hide">
-          {canSee("orders") && <SidebarLink href="/dashboard" label="Orders" icon="🧾" active={pathname === "/dashboard"} />}
-          {canSee("pos") && <SidebarLink href="/dashboard/pos" label="POS" icon="💻" active={pathname === "/dashboard/pos"} />}
-          {canSee("tables") && <SidebarLink href="/dashboard/tables" label="Tables" icon="🍽️" active={pathname === "/dashboard/tables"} />}
-          {role === "admin" && <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} />}
-          {role === "admin" && <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} />}
-          {role === "admin" && <SidebarLink href="/dashboard/riders" label="Riders" icon="🛵" active={pathname === "/dashboard/riders"} />}
-          {canSee("stats") && <SidebarLink href="/dashboard/stats" label="Analytics" icon="📊" active={pathname === "/dashboard/stats"} />}
-          {role === "admin" && <SidebarLink href="/dashboard/contacts" label="Contacts" icon="👥" active={pathname === "/dashboard/contacts"} />}
-          {role === "admin" && <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} />}
+          <SidebarLink href="/dashboard" label="Orders" icon="🧾" active={pathname === "/dashboard"} />
+          <SidebarLink href="/dashboard/pos" label="POS" icon="💻" active={pathname === "/dashboard/pos"} />
+          <SidebarLink href="/dashboard/tables" label="Tables" icon="🍽️" active={pathname === "/dashboard/tables"} />
+          <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} />
+          <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} />
+          <SidebarLink href="/dashboard/riders" label="Riders" icon="🛵" active={pathname === "/dashboard/riders"} />
+          <SidebarLink href="/dashboard/stats" label="Analytics" icon="📊" active={pathname === "/dashboard/stats"} />
+          <SidebarLink href="/dashboard/contacts" label="Contacts" icon="👥" active={pathname === "/dashboard/contacts"} />
+          <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} />
         </nav>
 
         <div className="mt-auto flex flex-col gap-1.5 border-t border-[#1C2633] pt-4">
@@ -65,12 +53,12 @@ export default function Sidebar({ role = "admin" }: { role?: string }) {
 
       {/* Mobile Bottom Bar */}
       <aside className="md:hidden print:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0A1017] border-t border-[#1C2633] z-50 flex items-center justify-around px-2 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
-        {canSee("orders") && <MobileTab href="/dashboard" icon="🧾" active={pathname === "/dashboard"} />}
-        {canSee("pos") && <MobileTab href="/dashboard/pos" icon="💻" active={pathname === "/dashboard/pos"} />}
-        {canSee("tables") && <MobileTab href="/dashboard/tables" icon="🍽️" active={pathname === "/dashboard/tables"} />}
-        {role === "admin" && <MobileTab href="/dashboard/menu" icon="📋" active={pathname === "/dashboard/menu"} />}
-        {role === "admin" && <MobileTab href="/dashboard/riders" icon="🛵" active={pathname === "/dashboard/riders"} />}
-        {canSee("stats") && <MobileTab href="/dashboard/stats" icon="📊" active={pathname === "/dashboard/stats"} />}
+        <MobileTab href="/dashboard" icon="🧾" active={pathname === "/dashboard"} />
+        <MobileTab href="/dashboard/pos" icon="💻" active={pathname === "/dashboard/pos"} />
+        <MobileTab href="/dashboard/tables" icon="🍽️" active={pathname === "/dashboard/tables"} />
+        <MobileTab href="/dashboard/menu" icon="📋" active={pathname === "/dashboard/menu"} />
+        <MobileTab href="/dashboard/riders" icon="🛵" active={pathname === "/dashboard/riders"} />
+        <MobileTab href="/dashboard/stats" icon="📊" active={pathname === "/dashboard/stats"} />
         <button onClick={toggleSound} className="flex flex-col items-center justify-center w-12 h-12 text-[#8799AF]">
           <span className="text-[20px]">{soundEnabled ? "🔕" : "🔔"}</span>
         </button>
