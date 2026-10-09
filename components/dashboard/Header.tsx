@@ -1,13 +1,20 @@
 "use client";
 
 import { useOrderManager } from "@/app/(dashboard)/dashboard/OrderManagerProvider";
+import { useStaff } from "@/components/providers/StaffProvider";
 
 export default function Header() {
   const { isRealtimeConnected, lastUpdated } = useOrderManager();
+  const { staff } = useStaff();
+  
+  const title = staff.role === 'admin' ? 'Admin Dashboard' : 
+                staff.role === 'kitchen' ? 'Kitchen Dashboard' :
+                staff.role === 'counter' ? 'Counter Dashboard' :
+                staff.role === 'waiter' ? 'Waiter Dashboard' : 'Dashboard';
   
   return (
     <header className="sticky top-0 z-20 -mx-5 mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-[#EAF0F6] bg-white/90 backdrop-blur-md px-6 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
-      <h1 className="m-0 text-[26px] font-extrabold tracking-[-0.6px] text-[#0A1017]">Orders</h1>
+      <h1 className="m-0 text-[26px] font-extrabold tracking-[-0.6px] text-[#0A1017]">{title}</h1>
       <div className="flex flex-wrap items-center gap-3">
         {isRealtimeConnected ? (
           <div className="flex items-center gap-2 rounded-full bg-[#E5F5EC] px-3.5 py-1.5 border border-[#C6ECD6] shadow-[0_0_12px_rgba(25,135,84,0.15)]">

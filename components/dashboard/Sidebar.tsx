@@ -23,7 +23,12 @@ export default function Sidebar() {
           </div>
           <div className="flex flex-col">
             <span className="text-[18px] font-extrabold tracking-[-0.5px] leading-none text-white">Pabbas</span>
-            <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase">Staff Hub</span>
+            <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase">
+              {staff.role === 'admin' ? 'Admin Dashboard' : 
+               staff.role === 'kitchen' ? 'Kitchen Dashboard' :
+               staff.role === 'counter' ? 'Counter Dashboard' :
+               staff.role === 'waiter' ? 'Waiter Dashboard' : 'Staff Dashboard'}
+            </span>
           </div>
         </div>
 
