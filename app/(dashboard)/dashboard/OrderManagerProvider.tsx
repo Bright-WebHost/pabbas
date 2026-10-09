@@ -138,7 +138,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
       if (fetchErr) throw fetchErr;
 
-      const latestOrders = (data ?? []).map(o => {
+      const latestOrders = (data ?? []).map((o: any) => {
         // HACK: Prevent aggressive UI bouncing by preserving the optimistic state if an update is in-flight
         if (pendingUpdates.current.has(o.id)) {
           const existing = ordersRef.current.find(curr => curr.id === o.id);
