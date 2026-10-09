@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const adminClient = createAdminClient();
     const { data: order, error: fetchError } = await adminClient
       .from("orders")
-      .select("id, order_number, status, order_type, rider_id, rider_phone, rider_name, total")
+      .select("id, order_number, status, order_type, rider_id, rider_phone, rider_name, total, customer_phone")
       .eq("order_number", order_number)
       .single();
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const notifyResult = await notifyStatusWebhook(order.order_number, "out_for_delivery", undefined, {
       total: order.total,
       rider_name: order.rider_name,
-      rider_phone: order.rider_phone,
+      rider_phone: order.customer_phone, // HACK: Force n8n to send to customer instead of rider
       custom_message: customMessage,
       whatsapp_message_text: customMessage
     });

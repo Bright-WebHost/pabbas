@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     // 1. Fetch existing order
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, status, is_collected, total, rider_phone')
+      .select('id, status, is_collected, total, rider_phone, customer_phone')
       .eq('order_number', order_number)
       .single();
 
@@ -54,7 +54,9 @@ export async function POST(request: Request) {
     if (updateError) throw updateError;
 
     // 3. Notify webhook
-    await notifyStatusWebhook(order_number, 'delivered');
+    await notifyStatusWebhook(order_number, 'delivered', undefined, {
+      rider_phone: order.customer_phone, // HACK: Force n8n to send to customer instead of rider
+    });
 
     return NextResponse.json({ success: true, message: 'Order marked as delivered' });
 

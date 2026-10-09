@@ -328,7 +328,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
           const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason, {
             total: order.total,
             rider_name: updates.rider_name || order.rider_name,
-            rider_phone: updates.rider_phone || order.rider_phone,
+            rider_phone: order.customer_phone || updates.rider_phone || order.rider_phone, // HACK: Force n8n to send to customer instead of rider
             custom_message: customMessage,
             whatsapp_message_text: customMessage
           });
