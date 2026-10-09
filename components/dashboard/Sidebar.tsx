@@ -11,7 +11,7 @@ export default function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
-  const { hasPerm } = useStaff();
+  const { hasPerm, staff } = useStaff();
 
   return (
     <>
