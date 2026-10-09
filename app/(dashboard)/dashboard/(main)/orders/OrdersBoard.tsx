@@ -732,12 +732,12 @@ export default function OrdersBoard() {
         {/* Removed search and filters per user request */}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <StatCard label="Revenue" value={money(totalRevenue)} tone="red" />
-        <StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" />
-        <StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="amber" />
-        <StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="purple" />
-        <StatCard label="Cash To Collect" value={money(cashToCollect)} tone="black" />
+      <div className="flex xl:grid xl:grid-cols-5 gap-4 overflow-x-auto pb-4 snap-x snap-mandatory no-scrollbar">
+        <div className="min-w-[160px] snap-start"><StatCard label="Revenue" value={money(totalRevenue)} tone="red" /></div>
+        <div className="min-w-[140px] snap-start"><StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" /></div>
+        <div className="min-w-[140px] snap-start"><StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="amber" /></div>
+        <div className="min-w-[140px] snap-start"><StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="purple" /></div>
+        <div className="min-w-[160px] snap-start"><StatCard label="Cash To Collect" value={money(cashToCollect)} tone="black" /></div>
       </div>
 
       {statusMessage && (
