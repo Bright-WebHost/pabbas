@@ -106,6 +106,12 @@ export async function POST(request: Request) {
     
     const ycloudApiKey = process.env.YCLOUD_API_KEY || "d5502caecd15e608b38bb515f76d5f35";
     
+    let cleanPhone = (order.rider_phone || '').replace(/[^0-9]/g, '');
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone;
+    }
+    const toPhone = '+' + cleanPhone;
+    
     try {
       const ycloudRes = await fetch("https://api.ycloud.com/v2/whatsapp/messages", {
         method: "POST",
@@ -115,7 +121,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           from: "+919180348124",
-          to: order.rider_phone.startsWith("+") ? order.rider_phone : `+91${order.rider_phone}`,
+          to: toPhone,
           type: "interactive",
           interactive: {
             type: "button",
