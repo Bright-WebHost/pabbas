@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useRef } from "react";
 import { useOrderManager } from "../../OrderManagerProvider";
 import { formatDistanceToNow } from "date-fns";
 import { useStaff } from "@/components/providers/StaffProvider";
+import SlideButton from "@/components/ui/SlideButton";
 
 export default function KitchenBoard() {
-  const { orders, updateOrderStatus, isLoading, error } = useOrderManager();
+  const { orders, isLoading, error } = useOrderManager();
   const { hasPerm } = useStaff();
+  const seenOrderIds = useRef(new Set<string>());
 
   // Kitchen only sees "preparing" orders
   const preparingOrders = useMemo(() => {
@@ -15,6 +17,25 @@ export default function KitchenBoard() {
       .filter((o) => o.status === "preparing")
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [orders]);
+
+  useEffect(() => {
+    let hasNew = false;
+    preparingOrders.forEach(order => {
+      if (!seenOrderIds.current.has(order.id)) {
+        hasNew = true;
+        seenOrderIds.current.add(order.id);
+      }
+    });
+
+    if (hasNew) {
+      try {
+        const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+        audio.play().catch(console.warn);
+      } catch (err) {
+        console.warn("Audio play failed", err);
+      }
+    }
+  }, [preparingOrders]);
 
   if (isLoading) {
     return (
@@ -43,59 +64,85 @@ export default function KitchenBoard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex flex-col gap-4">
         {preparingOrders.map((order) => {
           const timeAgo = formatDistanceToNow(new Date(order.created_at), { addSuffix: true });
-          // Red highlight if older than 15 minutes
-          const isUrgent = new Date().getTime() - new Date(order.created_at).getTime() > 15 * 60 * 1000;
+          const ageMs = new Date().getTime() - new Date(order.created_at).getTime();
+          const isUrgent = ageMs > 15 * 60 * 1000;
+          const isNew = ageMs < 60 * 1000; // Less than 1 minute old is "new"
+
+          // New items get a subtle green background, urgent gets red, else white
+          let bgClass = "bg-white";
+          let borderClass = "border-gray-200";
+
+          if (isUrgent) {
+            bgClass = "bg-red-50";
+            borderClass = "border-red-400";
+          } else if (isNew) {
+            bgClass = "bg-emerald-50";
+            borderClass = "border-emerald-400 border-2";
+          }
 
           return (
             <div 
               key={order.id} 
-              className={`flex flex-col bg-white border ${isUrgent ? 'border-red-500 shadow-md shadow-red-50' : 'border-gray-200 shadow-sm'} rounded-xl overflow-hidden transition-all hover:shadow-md`}
+              className={`flex flex-col md:flex-row border ${bgClass} ${borderClass} rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md`}
             >
-              <div className={`p-4 border-b ${isUrgent ? 'bg-red-50' : 'bg-gray-50'}`}>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xl font-black tracking-tight text-gray-900">
-                    {order.order_number}
-                  </span>
-                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${order.order_type === 'pos' ? 'bg-purple-100 text-purple-700' : order.order_type === 'takeaway' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+              {/* Order Info Sidebar */}
+              <div className={`p-4 md:w-64 border-b md:border-b-0 md:border-r border-gray-200 flex flex-col justify-between ${isUrgent ? 'bg-red-100' : isNew ? 'bg-emerald-100' : 'bg-gray-50'}`}>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-2xl font-black tracking-tight text-gray-900">
+                      {order.order_number}
+                    </span>
+                    {isNew && <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">New</span>}
+                  </div>
+                  
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full inline-block mb-3 ${order.order_type === 'pos' ? 'bg-purple-100 text-purple-700' : order.order_type === 'takeaway' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
                     {order.order_type.toUpperCase()}
                   </span>
-                </div>
-                <div className="mt-1 flex items-center justify-between text-sm text-gray-500">
-                  <span className="font-semibold">{timeAgo}</span>
+
+                  <div className="text-sm text-gray-600 font-medium mb-1">Time: {timeAgo}</div>
+                  
                   {order.table_number && (
-                    <span className="text-gray-900 font-bold bg-gray-200 px-2 rounded-md">Table {order.table_number}</span>
+                    <div className="mt-2 text-lg text-gray-900 font-black bg-white/60 px-3 py-1 rounded-md inline-block border border-gray-300">
+                      Table {order.table_number}
+                    </div>
                   )}
                 </div>
               </div>
 
+              {/* Order Items */}
               <div className="p-4 flex-1">
                 <ul className="space-y-3">
-                  {(order.items_json || []).map((item, idx) => (
-                    <li key={idx} className="flex gap-3 text-gray-900 items-start">
-                      <span className="font-bold min-w-[24px] h-6 flex items-center justify-center bg-gray-100 rounded text-sm text-gray-600">
-                        {item.quantity}x
+                  {(order.items_json || []).map((item: any, idx: number) => (
+                    <li key={idx} className="flex gap-4 text-gray-900 items-center">
+                      <span className="font-bold min-w-[32px] h-8 flex items-center justify-center bg-gray-100 border border-gray-200 rounded-md text-lg text-gray-700 shadow-sm">
+                        {item.quantity}
                       </span>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-[15px] leading-tight">{item.item_name}</span>
-                        {/* {item.size && <span className="text-xs text-gray-500 mt-0.5">{item.size}</span>}
-                        {item.notes && <span className="text-xs text-red-500 mt-0.5 italic">Note: {item.notes}</span>} */}
-                      </div>
+                      <span className="font-bold text-xl leading-tight">{item.item_name}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
+              {/* Action Button */}
               {hasPerm("mark_ready") && (
-                <div className="p-3 bg-gray-50 border-t border-gray-100">
-                  <button
-                    onClick={() => updateOrderStatus(order, "ready_for_pickup")}
-                    className="w-full py-3 bg-[#E23744] hover:bg-[#B0202B] text-white font-bold rounded-lg shadow-sm transition-colors uppercase tracking-wide text-sm flex justify-center items-center gap-2"
-                  >
-                    Mark as Ready
-                  </button>
+                <div className="p-4 bg-white/50 border-t md:border-t-0 md:border-l border-gray-200 md:w-64 flex items-center justify-center">
+                  <div className="w-full">
+                    <SlideButton 
+                      text="Slide to mark Ready" 
+                      successText="Ready!"
+                      onSuccess={async () => {
+                        try {
+                          const { updateOrderInDb } = await import("@/lib/orders/actions");
+                          await updateOrderInDb(order.id, { status: "ready_for_pickup" });
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }} 
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -103,10 +150,10 @@ export default function KitchenBoard() {
         })}
 
         {preparingOrders.length === 0 && (
-          <div className="col-span-full py-20 flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 border-dashed rounded-2xl">
-            <div className="w-16 h-16 mb-4 opacity-20">🍳</div>
-            <p className="text-lg font-medium text-gray-500">No active orders</p>
-            <p className="text-sm">Kitchen is caught up!</p>
+          <div className="w-full py-24 flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-200 border-dashed rounded-2xl">
+            <div className="w-16 h-16 mb-4 opacity-20 text-4xl flex items-center justify-center">🍳</div>
+            <p className="text-xl font-medium text-gray-500">No active orders</p>
+            <p className="text-md">Kitchen is caught up!</p>
           </div>
         )}
       </div>

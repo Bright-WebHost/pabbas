@@ -116,11 +116,11 @@ export function GlobalNewOrderPopup() {
       } else if (isUpdate && newOrder.items_json) {
         // Clear is_new_addition flag in the database so it doesn't pop up again on refresh
         const clearedItems = (newOrder.items_json as any[]).map((i: any) => ({ ...i, is_new_addition: false, old_quantity: i.quantity }));
-        const supabase = (await import("@/lib/supabase/client")).createClient() as any;
-        await supabase.from("orders").update({ items_json: clearedItems }).eq("id", newOrder.id);
+        const { updateOrderInDb } = await import("@/lib/orders/actions");
+        await updateOrderInDb(newOrder.id, { items_json: clearedItems });
       }
     } catch (e) {
-      console.error(e);
+      console.error("HandleAccept Error:", typeof e === "object" ? JSON.stringify(e, Object.getOwnPropertyNames(e), 2) : e);
     }
     acknowledgeOrder(newOrder.id, isUpdate);
   };

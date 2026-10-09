@@ -58,7 +58,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
           audioRef.current?.pause();
           document.removeEventListener('click', unlock);
           document.removeEventListener('keydown', unlock);
-        }).catch(() => {});
+        }).catch(() => { });
       }
     };
     document.addEventListener('click', unlock);
@@ -72,7 +72,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
   useEffect(() => {
     if (typeof window !== "undefined" && !audioRef.current) {
-      
+
     }
   }, []);
 
@@ -108,7 +108,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
             audioRef.current!.currentTime = 0;
             // If there's already queued orders, play it for real
             if (queuedNewOrders.length > 0) {
-              audioRef.current?.play().catch(() => {});
+              audioRef.current?.play().catch(() => { });
             }
           }).catch(e => console.warn("Audio unlock failed", e));
         }
@@ -144,7 +144,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       // Detect unacknowledged new orders (excluding POS orders, as staff created them)
       const unackNew = latestOrders.filter(o => {
         if (o.source === 'pos') return false;
-        
+
         // It's also unacknowledged if it's an existing order (e.g. preparing) BUT has new additions
         if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) {
           if (hasPerm("mark_ready") && !hasPerm("view_orders_full") && o.status !== 'preparing') return false;
@@ -152,16 +152,15 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
         }
 
         if (acknowledgedIds.current.has(o.id)) return false;
-        
+
         const isKitchenOnly = hasPerm("mark_ready") && !hasPerm("view_orders_full");
         const isAdminOrCounter = hasPerm("view_orders_full");
 
         if (isAdminOrCounter && o.status === 'new') return true;
-        if (isKitchenOnly && o.status === 'preparing') return true;
-        
+
         return false;
       });
-      
+
       setQueuedNewOrders(prev => {
         const prevIds = new Set(prev.map(p => p.id));
         const toAdd = unackNew.filter(n => !prevIds.has(n.id));
@@ -191,12 +190,11 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
         }
 
         if (acknowledgedIds.current.has(o.id)) return false;
-        
+
         const isKitchenOnly = hasPerm("mark_ready") && !hasPerm("view_orders_full");
         const isAdminOrCounter = hasPerm("view_orders_full");
 
         if (isAdminOrCounter && o.status === 'new') return true;
-        if (isKitchenOnly && o.status === 'preparing') return true;
         return false;
       });
       if (unackNew.length > 0) {
@@ -249,7 +247,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     const previousStatus = order.status;
     const nextOrderState = { ...order, status: nextStatus, rider_id: rider?.id, rider_name: rider?.name, rider_phone: rider?.phone };
     setOrders(current => current.map(item => item.id === order.id ? nextOrderState : item));
-    
+
     // Also remove from queue if it was in it
     acknowledgeOrder(order.id);
 
@@ -275,9 +273,9 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     }
 
     try {
-      const ordersTable: any = supabase.current.from("orders");
-      const { error: updateError } = await ordersTable.update(updates).eq("id", order.id);
-      if (updateError) throw updateError;
+      const { updateOrderInDb } = await import("@/lib/orders/actions");
+      const result = await updateOrderInDb(order.id, updates);
+      if (!result.success) throw new Error(result.error || "Failed to update order");
 
       // Trigger refresh but don't await it to keep UI responsive
       refreshOrders().catch(console.error);
@@ -306,7 +304,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
         if (updates.rider_name && !order.rider_name) {
           // PHASE A: Send notification to the rider via existing n8n webhook
           const riderMessage = `🚚 *New Delivery*\n\nYou have a new delivery from Pabbas.\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${[order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided"}\n\n*Amount to Collect: ₹${order.total}*\n\nPlease accept the order to start the delivery.`;
-          
+
           const riderNotifyResult = await notifyStatusWebhook(order.order_number, "rider_assigned", undefined, {
             target: "rider",
             rider_phone: updates.rider_phone,
@@ -326,16 +324,18 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
           customMessage = `Good news! Your order ${order.order_number} is on its way. 🛵\n\nYour delivery partner, ${order.rider_name} (📞 ${order.rider_phone}), will be arriving soon.\n\nPlease keep ₹${order.total} in cash ready for the delivery.\n\nThank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
         }
 
-        const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason, {
-          total: order.total,
-          rider_name: updates.rider_name,
-          rider_phone: updates.rider_phone,
-          custom_message: customMessage,
-          whatsapp_message_text: customMessage
-        });
-        
-        if (!notifyResult.success) {
-          console.error("Failed to notify customer:", notifyResult.error);
+        if (nextStatus !== order.status) {
+          const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason, {
+            total: order.total,
+            rider_name: updates.rider_name || order.rider_name,
+            rider_phone: updates.rider_phone || order.rider_phone,
+            custom_message: customMessage,
+            whatsapp_message_text: customMessage
+          });
+
+          if (!notifyResult.success) {
+            console.error("Failed to notify customer:", notifyResult.error);
+          }
         }
       } catch (notifyErr) {
         console.error("Webhook integration error:", notifyErr);
@@ -361,7 +361,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       toggleSound,
       soundEnabled
     }}>
-            <audio ref={audioRef} src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" loop preload="auto" style={{ display: 'none' }} />
+      <audio ref={audioRef} src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" loop preload="auto" style={{ display: 'none' }} />
       {children}
     </OrderManagerContext.Provider>
   );

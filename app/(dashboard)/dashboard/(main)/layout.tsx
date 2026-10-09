@@ -5,6 +5,7 @@ import { StaffProvider } from "@/components/providers/StaffProvider";
 import { redirect } from "next/navigation";
 import { OrderManagerProvider } from "../OrderManagerProvider";
 import { GlobalNewOrderPopup } from "../GlobalNewOrderPopup";
+import GlobalAssignRiderPopup from "../GlobalAssignRiderPopup";
 import { getDashboardOrders } from "@/lib/orders/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -42,6 +43,7 @@ export default async function DashboardLayout({
         </div>
       </div>
       <GlobalNewOrderPopup />
+      <GlobalAssignRiderPopup />
     </OrderManagerProvider>
     </StaffProvider>
   );

@@ -6,11 +6,11 @@ import { formatDistanceToNow } from "date-fns";
 import { fetchRiders, Rider } from "./actions";
 
 export default function DispatcherBoard() {
-  const { orders, refreshOrders } = useOrderManager();
+  const { orders, refreshOrders, updateOrderStatus } = useOrderManager();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigningId, setAssigningId] = useState<string | null>(null);
-  
+
   useEffect(() => {
     loadRiders();
   }, []);
@@ -35,24 +35,15 @@ export default function DispatcherBoard() {
     try {
       const rider = riders.find(r => r.id === riderId);
       if (!rider) return;
-      
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      
-      const payload: any = {
-        rider_id: rider.id,
-        rider_name: rider.name,
-        rider_phone: rider.whatsapp_number,
-        status: "out_for_delivery",
-        updated_at: new Date().toISOString()
-      };
 
-      // Update order to set rider_id and out_for_delivery
-      const { error } = await (supabase as any).from("orders").update(payload).eq("id", orderId);
-        
-      if (error) throw error;
-      
-      await refreshOrders();
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        await updateOrderStatus(order, order.status, undefined, {
+          id: rider.id,
+          name: rider.name,
+          phone: rider.whatsapp_number
+        });
+      }
     } catch (e: any) {
       alert("Failed to assign rider: " + e.message);
     } finally {
@@ -75,8 +66,8 @@ export default function DispatcherBoard() {
           const isReady = order.status === "ready_for_pickup";
 
           return (
-            <div 
-              key={order.id} 
+            <div
+              key={order.id}
               className={`flex flex-col bg-white border ${isReady ? 'border-yellow-400 shadow-md shadow-yellow-50' : 'border-blue-300 shadow-md shadow-blue-50'} rounded-xl overflow-hidden transition-all`}
             >
               <div className={`p-4 border-b flex items-center justify-between ${isReady ? 'bg-yellow-50' : 'bg-blue-50'}`}>
@@ -87,7 +78,7 @@ export default function DispatcherBoard() {
                   {isReady ? 'READY' : 'OUT FOR DELIVERY'}
                 </span>
               </div>
-              
+
               <div className="p-4 flex-1 space-y-3 bg-white">
                 <div className="text-sm">
                   <p className="font-bold text-gray-900">{order.customer_name || 'Customer'}</p>
@@ -99,7 +90,7 @@ export default function DispatcherBoard() {
                     {order.landmark && <p className="text-gray-500 mt-1 italic">Near: {order.landmark}</p>}
                   </div>
                 )}
-                
+
                 <div className="text-xs text-gray-400 font-medium">Last updated {timeAgo}</div>
               </div>
 
@@ -124,7 +115,7 @@ export default function DispatcherBoard() {
                   )}
                 </div>
               )}
-              
+
               {!isReady && order.rider_name && (
                 <div className="p-3 bg-blue-50 border-t border-blue-100 flex justify-between items-center">
                   <div className="flex flex-col">
@@ -136,7 +127,7 @@ export default function DispatcherBoard() {
             </div>
           );
         })}
-        
+
         {dispatchableOrders.length === 0 && (
           <div className="col-span-full py-16 flex flex-col items-center justify-center text-gray-400 bg-white border border-gray-100 border-dashed rounded-2xl">
             <div className="w-12 h-12 mb-3 opacity-20 text-4xl text-center flex items-center justify-center">🛵</div>

@@ -5,9 +5,9 @@ import { notifyStatusWebhook } from "@/lib/server/notify";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { order_id, rider_id } = body;
+    const { order_number, rider_phone, payment_status } = body;
 
-    if (!order_id || !rider_id) {
+    if (!order_number || !rider_phone) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -16,41 +16,45 @@ export async function POST(request: Request) {
     // 1. Fetch existing order
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, status, is_collected, total')
-      .eq('id', order_id)
-      .eq('rider_id', rider_id)
+      .select('id, status, is_collected, total, rider_phone')
+      .eq('order_number', order_number)
       .single();
 
     if (orderError || !order) {
-      return NextResponse.json({ success: false, error: 'Order not found or not assigned to you' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+    }
+
+    const dbPhone = (order.rider_phone || '').replace(/[^0-9]/g, '');
+    const incomingPhone = (rider_phone || '').replace(/[^0-9]/g, '');
+    
+    if (dbPhone !== incomingPhone) {
+      return NextResponse.json({ success: false, error: 'Order not assigned to you' }, { status: 403 });
     }
 
     if (order.status === 'delivered') {
       return NextResponse.json({ success: true, message: 'Already delivered' });
     }
 
-    // PHASE 4: Prevent stealing
-    // Check if cash needs to be collected first
-    if (!order.is_collected && order.total > 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Counter must collect cash first' 
-      }, { status: 403 });
+    const updatePayload: any = {
+      status: 'delivered',
+      updated_at: new Date().toISOString()
+    };
+
+    if (payment_status === 'collected') {
+      updatePayload.is_collected = true;
+      updatePayload.collected_amount = order.total;
     }
 
     // 2. Mark as delivered
     const { error: updateError } = await adminClient
       .from('orders')
-      .update({
-        status: 'delivered',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', order_id);
+      .update(updatePayload)
+      .eq('id', order.id);
 
     if (updateError) throw updateError;
 
     // 3. Notify webhook
-    await notifyStatusWebhook(order_id, 'delivered');
+    await notifyStatusWebhook(order_number, 'delivered');
 
     return NextResponse.json({ success: true, message: 'Order marked as delivered' });
 
