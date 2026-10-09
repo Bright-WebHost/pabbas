@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
+import { useStaff } from "@/components/providers/StaffProvider";
 import { useOrderManager } from "../../OrderManagerProvider";
 import { AssignRiderModal } from "./AssignRiderModal";
 import { SlideAction } from "@/components/dashboard/ui/SlideAction";
