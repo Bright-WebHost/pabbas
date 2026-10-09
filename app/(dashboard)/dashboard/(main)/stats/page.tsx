@@ -1,6 +1,9 @@
+import { requirePage } from "@/lib/auth/staff";
 import AnalyticsBoard from "./AnalyticsBoard";
 
-export default function StatsPage() {
+export default async function StatsPage() {
+  await requirePage("/dashboard/stats");
+
   return (
     <div className="w-full">
       <AnalyticsBoard />

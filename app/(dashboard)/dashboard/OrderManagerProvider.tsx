@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
-import { notifyStatusWebhook } from "./(main)/orders/actions";
+import { notifyStatusWebhook } from "@/lib/server/notify";
 
 interface OrderManagerContextType {
   orders: DashboardOrder[];

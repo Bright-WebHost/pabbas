@@ -1,9 +1,13 @@
 "use server";
 
+import { authorize } from "@/lib/auth/staff";
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function importContacts(text: string) {
+  await authorize("contacts");
+
   try {
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();

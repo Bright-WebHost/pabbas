@@ -1,7 +1,9 @@
 "use server";
 
+import { authorize } from "@/lib/auth/staff";
+
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyStatusWebhook } from "../orders/actions";
+import { notifyStatusWebhook } from "@/lib/server/notify";
 
 type PosOrderPayload = {
   customer_name: string;
@@ -23,6 +25,8 @@ type PosOrderPayload = {
 };
 
 export async function createPosOrder(payload: PosOrderPayload) {
+  await authorize("pos");
+
   try {
     const adminClient = createAdminClient();
 
@@ -71,6 +75,8 @@ export async function createPosOrder(payload: PosOrderPayload) {
 }
 
 export async function updatePosOrder(orderId: string, payload: PosOrderPayload) {
+  await authorize("pos");
+
   try {
     const adminClient = createAdminClient();
 

@@ -1,32 +1,23 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
-import { createClient } from "@/lib/supabase/server";
+import { getStaffSession } from "@/lib/auth/staff";
+import { StaffProvider } from "@/components/providers/StaffProvider";
 import { redirect } from "next/navigation";
 import { OrderManagerProvider } from "../OrderManagerProvider";
 import { GlobalNewOrderPopup } from "../GlobalNewOrderPopup";
 import { getDashboardOrders } from "@/lib/orders/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const staff = await getStaffSession();
 
-  if (!user || !user.email) {
-    redirect("/dashboard/login");
-  }
-
-  // Verify staff authorization using authenticated client on server
-  const { data: staffData } = await supabase
-    .from("staff_members")
-    .select("email")
-    .eq("email", user.email)
-    .single();
-
-  if (!staffData) {
-    // Authenticated but not authorized as staff
+  if (!staff) {
+    // If not authenticated or unauthorized
+    const supabase = await createClient();
     await supabase.auth.signOut();
     redirect("/dashboard/login?error=unauthorized");
   }
@@ -35,7 +26,8 @@ export default async function DashboardLayout({
   const { orders: initialOrders } = await getDashboardOrders();
 
   return (
-    <OrderManagerProvider initialOrders={initialOrders}>
+    <StaffProvider staff={staff}>
+      <OrderManagerProvider initialOrders={initialOrders}>
       <div className="flex min-h-screen bg-[#F8FAFB] text-[#0A1017]">
         <div className="print:hidden">
           <Sidebar />
@@ -51,5 +43,6 @@ export default async function DashboardLayout({
       </div>
       <GlobalNewOrderPopup />
     </OrderManagerProvider>
+    </StaffProvider>
   );
 }

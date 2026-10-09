@@ -1,9 +1,13 @@
 "use server";
 
+import { authorize } from "@/lib/auth/staff";
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function getYCloudTemplates() {
+  await authorize("blast");
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -30,6 +34,8 @@ export async function getYCloudTemplates() {
 }
 
 export async function uploadYCloudMedia(formData: FormData) {
+  await authorize("blast");
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -59,6 +65,8 @@ export async function uploadYCloudMedia(formData: FormData) {
 }
 
 export async function sendBlast(filter: string, templateName: string, components: any[], phones: string[] = []) {
+  await authorize("blast");
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

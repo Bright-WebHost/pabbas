@@ -1,5 +1,7 @@
 "use server";
 
+import { authorize } from "@/lib/auth/staff";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type Rider = {
@@ -15,6 +17,8 @@ export type Rider = {
 };
 
 export async function fetchRiders() {
+  await authorize("view_riders");
+
   try {
     const adminClient = createAdminClient();
     const { data, error } = await adminClient
@@ -31,6 +35,8 @@ export async function fetchRiders() {
 }
 
 export async function addRider(name: string, whatsapp_number: string) {
+  await authorize("manage_riders");
+
   try {
     const rawNumber = whatsapp_number.replace(/\D/g, ''); // Remove non-digits
     
@@ -60,6 +66,8 @@ export async function addRider(name: string, whatsapp_number: string) {
 }
 
 export async function toggleRiderStatus(id: string, is_active: boolean) {
+  await authorize("manage_riders");
+
   try {
     const adminClient = createAdminClient();
     const { error } = await adminClient
@@ -76,6 +84,8 @@ export async function toggleRiderStatus(id: string, is_active: boolean) {
 }
 
 export async function settlePendingCash(id: string) {
+  await authorize("manage_riders");
+
   try {
     const adminClient = createAdminClient();
     const { error } = await adminClient

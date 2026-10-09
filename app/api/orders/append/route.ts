@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { notifyStatusWebhook } from '@/app/(dashboard)/dashboard/(main)/orders/actions';
+import { notifyStatusWebhook } from "@/lib/server/notify";
 
 export async function POST(request: Request) {
   try {

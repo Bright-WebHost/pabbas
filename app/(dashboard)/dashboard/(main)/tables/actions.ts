@@ -1,5 +1,7 @@
 "use server";
 
+import { authorize } from "@/lib/auth/staff";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type RestaurantTable = {
@@ -20,6 +22,8 @@ export type RestaurantTable = {
 };
 
 export async function fetchTables() {
+  await authorize("tables");
+
   try {
     const adminClient = createAdminClient();
     
@@ -75,6 +79,8 @@ export async function fetchTables() {
 }
 
 export async function addTable(tableNumber: string) {
+  await authorize("tables");
+
   try {
     const adminClient = createAdminClient();
     // Use the raw table number for now, we'll generate the full URL dynamically on the client
@@ -97,6 +103,8 @@ export async function addTable(tableNumber: string) {
 }
 
 export async function deleteTable(id: string) {
+  await authorize("tables");
+
   try {
     const adminClient = createAdminClient();
     const { error } = await adminClient.from("restaurant_tables").delete().eq("id", id);
@@ -109,6 +117,8 @@ export async function deleteTable(id: string) {
 }
 
 export async function clearTable(id: string) {
+  await authorize("tables");
+
   try {
     const adminClient = createAdminClient();
     
@@ -160,7 +170,7 @@ export async function clearTable(id: string) {
         .single();
         
       if (order?.order_number) {
-        const { notifyStatusWebhook } = await import('@/app/(dashboard)/dashboard/(main)/orders/actions');
+        const { notifyStatusWebhook } = await import("@/lib/server/notify");
         await notifyStatusWebhook(order.order_number, 'delivered');
       }
     }
@@ -172,6 +182,8 @@ export async function clearTable(id: string) {
   }
 }
 export async function fetchTableHistory(tableNumber: string) {
+  await authorize("tables");
+
   try {
     const adminClient = createAdminClient();
     
@@ -194,6 +206,8 @@ export async function fetchTableHistory(tableNumber: string) {
 
 
 export async function moveTable(orderId: string, oldTableNumber: string, newTableNumber: string) {
+  await authorize("tables");
+
   try {
     const adminClient = createAdminClient();
     
@@ -228,6 +242,8 @@ export async function moveTable(orderId: string, oldTableNumber: string, newTabl
 }
 
 export async function mergeTables(sourceOrderId: string, targetOrderId: string, sourceTableNumber: string) {
+  await authorize("tables");
+
   try {
     const adminClient = createAdminClient();
     
@@ -283,7 +299,7 @@ export async function mergeTables(sourceOrderId: string, targetOrderId: string, 
     
     // Notify webhook for target order
     if (newStatus === 'preparing' && targetOrder.status !== 'preparing') {
-      const { notifyStatusWebhook } = await import('@/app/(dashboard)/dashboard/(main)/orders/actions');
+      const { notifyStatusWebhook } = await import("@/lib/server/notify");
       await notifyStatusWebhook(targetOrder.order_number, 'preparing', undefined, { is_update: true });
     }
     

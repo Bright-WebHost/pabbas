@@ -1,9 +1,13 @@
 "use server";
 
+import { authorize } from "@/lib/auth/staff";
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function sendAgentReply(phone: string, message: string) {
+  await authorize("chat");
+
   try {
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -55,6 +59,8 @@ export async function sendAgentReply(phone: string, message: string) {
 }
 
 export async function toggleAiSession(phone: string, enabled: boolean) {
+  await authorize("chat");
+
   try {
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();

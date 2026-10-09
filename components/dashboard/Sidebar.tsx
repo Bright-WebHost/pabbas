@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOrderManager } from "@/app/(dashboard)/dashboard/OrderManagerProvider";
+import { useStaff } from "@/components/providers/StaffProvider";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
   const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
+  const { hasPerm } = useStaff();
 
   return (
     <>
@@ -26,15 +28,36 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1 pb-4 scrollbar-hide">
-          <SidebarLink href="/dashboard" label="Orders" icon="🧾" active={pathname === "/dashboard"} />
-          <SidebarLink href="/dashboard/pos" label="POS" icon="💻" active={pathname === "/dashboard/pos"} />
-          <SidebarLink href="/dashboard/tables" label="Tables" icon="🍽️" active={pathname === "/dashboard/tables"} />
-          <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} />
-          <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} />
-          <SidebarLink href="/dashboard/riders" label="Riders" icon="🛵" active={pathname === "/dashboard/riders"} />
-          <SidebarLink href="/dashboard/stats" label="Analytics" icon="📊" active={pathname === "/dashboard/stats"} />
-          <SidebarLink href="/dashboard/contacts" label="Contacts" icon="👥" active={pathname === "/dashboard/contacts"} />
-          <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} />
+          {(hasPerm("view_orders_full") || hasPerm("view_orders_basic")) && (
+            <SidebarLink href="/dashboard" label="Orders" icon="🧾" active={pathname === "/dashboard"} />
+          )}
+          {hasPerm("kitchen_screen") && (
+            <SidebarLink href="/dashboard/kitchen" label="Kitchen" icon="🍳" active={pathname === "/dashboard/kitchen"} />
+          )}
+          {hasPerm("pos") && (
+            <SidebarLink href="/dashboard/pos" label="POS" icon="💻" active={pathname === "/dashboard/pos"} />
+          )}
+          {hasPerm("tables") && (
+            <SidebarLink href="/dashboard/tables" label="Tables" icon="🍽️" active={pathname === "/dashboard/tables"} />
+          )}
+          {hasPerm("chat") && (
+            <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} />
+          )}
+          {hasPerm("manage_menu") && (
+            <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} />
+          )}
+          {hasPerm("view_riders") && (
+            <SidebarLink href="/dashboard/riders" label="Riders" icon="🛵" active={pathname === "/dashboard/riders"} />
+          )}
+          {hasPerm("analytics") && (
+            <SidebarLink href="/dashboard/stats" label="Analytics" icon="📊" active={pathname === "/dashboard/stats"} />
+          )}
+          {hasPerm("contacts") && (
+            <SidebarLink href="/dashboard/contacts" label="Contacts" icon="👥" active={pathname === "/dashboard/contacts"} />
+          )}
+          {hasPerm("blast") && (
+            <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} />
+          )}
         </nav>
 
         <div className="mt-auto flex flex-col gap-1.5 border-t border-[#1C2633] pt-4">
@@ -53,12 +76,27 @@ export default function Sidebar() {
 
       {/* Mobile Bottom Bar */}
       <aside className="md:hidden print:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0A1017] border-t border-[#1C2633] z-50 flex items-center justify-around px-2 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
-        <MobileTab href="/dashboard" icon="🧾" active={pathname === "/dashboard"} />
-        <MobileTab href="/dashboard/pos" icon="💻" active={pathname === "/dashboard/pos"} />
-        <MobileTab href="/dashboard/tables" icon="🍽️" active={pathname === "/dashboard/tables"} />
-        <MobileTab href="/dashboard/menu" icon="📋" active={pathname === "/dashboard/menu"} />
-        <MobileTab href="/dashboard/riders" icon="🛵" active={pathname === "/dashboard/riders"} />
-        <MobileTab href="/dashboard/stats" icon="📊" active={pathname === "/dashboard/stats"} />
+        {(hasPerm("view_orders_full") || hasPerm("view_orders_basic")) && (
+          <MobileTab href="/dashboard" icon="🧾" active={pathname === "/dashboard"} />
+        )}
+        {hasPerm("kitchen_screen") && (
+          <MobileTab href="/dashboard/kitchen" icon="🍳" active={pathname === "/dashboard/kitchen"} />
+        )}
+        {hasPerm("pos") && (
+          <MobileTab href="/dashboard/pos" icon="💻" active={pathname === "/dashboard/pos"} />
+        )}
+        {hasPerm("tables") && (
+          <MobileTab href="/dashboard/tables" icon="🍽️" active={pathname === "/dashboard/tables"} />
+        )}
+        {hasPerm("manage_menu") && (
+          <MobileTab href="/dashboard/menu" icon="📋" active={pathname === "/dashboard/menu"} />
+        )}
+        {hasPerm("view_riders") && (
+          <MobileTab href="/dashboard/riders" icon="🛵" active={pathname === "/dashboard/riders"} />
+        )}
+        {hasPerm("analytics") && (
+          <MobileTab href="/dashboard/stats" icon="📊" active={pathname === "/dashboard/stats"} />
+        )}
         <button onClick={toggleSound} className="flex flex-col items-center justify-center w-12 h-12 text-[#8799AF]">
           <span className="text-[20px]">{soundEnabled ? "🔕" : "🔔"}</span>
         </button>
