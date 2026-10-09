@@ -50,6 +50,8 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   const supabase = useRef(createClient());
   const acknowledgedIds = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pendingUpdates = useRef<Set<string>>(new Set());
+  const ordersRef = useRef<DashboardOrder[]>(initialOrders);
 
   useEffect(() => {
     const unlock = () => {
@@ -136,8 +138,16 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
       if (fetchErr) throw fetchErr;
 
-      const latestOrders = (data ?? []) as DashboardOrder[];
+      const latestOrders = (data ?? []).map(o => {
+        // HACK: Prevent aggressive UI bouncing by preserving the optimistic state if an update is in-flight
+        if (pendingUpdates.current.has(o.id)) {
+          const existing = ordersRef.current.find(curr => curr.id === o.id);
+          if (existing) return existing;
+        }
+        return o;
+      }) as DashboardOrder[];
       setOrders(latestOrders);
+      ordersRef.current = latestOrders;
       setLastUpdated(new Date());
       setError(null);
 
@@ -244,9 +254,14 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
   const updateOrderStatus = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => {
     // Optimistic update
+    pendingUpdates.current.add(order.id);
     const previousStatus = order.status;
     const nextOrderState = { ...order, status: nextStatus, rider_id: rider?.id, rider_name: rider?.name, rider_phone: rider?.phone };
-    setOrders(current => current.map(item => item.id === order.id ? nextOrderState : item));
+    setOrders(current => {
+      const updated = current.map(item => item.id === order.id ? nextOrderState : item);
+      ordersRef.current = updated;
+      return updated;
+    });
 
     // Also remove from queue if it was in it
     acknowledgeOrder(order.id);
@@ -342,8 +357,15 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       }
     } catch (err) {
       // Revert optimistic
-      setOrders(current => current.map(item => item.id === order.id ? { ...item, status: previousStatus } : item));
+      setOrders(current => {
+        const reverted = current.map(item => item.id === order.id ? { ...item, status: previousStatus } : item);
+        ordersRef.current = reverted as DashboardOrder[];
+        return reverted as DashboardOrder[];
+      });
       throw err;
+    } finally {
+      // Remove from pending updates so subsequent polls can take over
+      pendingUpdates.current.delete(order.id);
     }
   }, [acknowledgeOrder, refreshOrders]);
 

@@ -199,17 +199,17 @@ function getAgeLabel(order: DashboardOrder) {
   return `${hours}h ${leftoverMinutes}m`;
 }
 
-function getSlideAction(order: DashboardOrder): { label: string; nextStatus: OrderStatus; accent: string } | null {
-  if (order.status === "new") {
+function getSlideAction(order: DashboardOrder, hasPerm: (p: any) => boolean): { label: string; nextStatus: OrderStatus; accent: string } | null {
+  if (order.status === "new" && hasPerm("accept_delivery")) {
     return { label: "Slide to accept & cook", nextStatus: "preparing", accent: "#C0392B" };
   }
 
-  if (order.status === "preparing") {
+  if (order.status === "preparing" && hasPerm("mark_ready")) {
     const nextStatus: OrderStatus = order.order_type === "delivery" ? "out_for_delivery" : "ready_for_pickup";
     return { label: "Slide to ready / out", nextStatus, accent: "#1A5FA8" };
   }
 
-  if (order.status === "ready_for_pickup" || order.status === "out_for_delivery") {
+  if ((order.status === "ready_for_pickup" || order.status === "out_for_delivery") && hasPerm("mark_delivered")) {
     return { label: "Slide to delivered", nextStatus: "delivered", accent: "#5B3FBF" };
   }
 
@@ -219,9 +219,10 @@ function getSlideAction(order: DashboardOrder): { label: string; nextStatus: Ord
 
 
 function OrderDetails({ order, onClose, now, onStatusChange }: { order: DashboardOrder; onClose: () => void; now: number; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void }) {
+  const { hasPerm } = useStaff();
   const items = buildItemList(order);
   const countdown = formatCountdown(order, now);
-  const slideAction = getSlideAction(order);
+  const slideAction = getSlideAction(order, hasPerm);
   const [isCollecting, setIsCollecting] = useState(false);
 
   const handleCollectCash = async (e: React.MouseEvent) => {
@@ -403,7 +404,7 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
               Print
             </button>
 
-            {order.status !== "cancelled" && order.status !== "delivered" && (
+            {hasPerm("cancel_order") && order.status !== "cancelled" && order.status !== "delivered" && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -420,7 +421,7 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
               </button>
             )}
 
-            {order.status === "cancelled" && (
+            {hasPerm("reopen_cancelled") && order.status === "cancelled" && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -444,7 +445,7 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
 
 
 
-            {order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
+            {hasPerm("collect_cash") && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
               <button
                 type="button"
                 disabled={isCollecting}
@@ -494,9 +495,10 @@ function printOrder(order: DashboardOrder) {
 }
 
 function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrder; onOpen: () => void; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void; now: number }) {
+  const { hasPerm } = useStaff();
   const items = buildItemList(order);
   const itemCount = items.reduce((total, item) => total + item.quantity, 0);
-  const slideAction = getSlideAction(order);
+  const slideAction = getSlideAction(order, hasPerm);
   const countdown = formatCountdown(order, now);
   const isAgeWarning = getAgeMinutes(order) >= 15;
   const hasNewItems = items.some(item => (item.round || 1) > 1 || item.is_new_addition);
@@ -590,7 +592,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
       <div className="mt-2.5 flex items-center justify-between text-[11px] font-medium text-[var(--muted)]">
         <span>{itemCount} item{itemCount !== 1 && "s"} · {getAgeLabel(order)} old</span>
         <div className="flex gap-2">
-          {order.status !== "cancelled" && order.status !== "delivered" && (
+          {hasPerm("cancel_order") && order.status !== "cancelled" && order.status !== "delivered" && (
             <button
               type="button"
               onClick={(event) => {
@@ -603,7 +605,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
               Cancel
             </button>
           )}
-          {order.status === "cancelled" && (
+          {hasPerm("reopen_cancelled") && order.status === "cancelled" && (
             <button
               type="button"
               onClick={(event) => {
