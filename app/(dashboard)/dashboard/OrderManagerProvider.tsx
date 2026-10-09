@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
-import { notifyStatusWebhook } from "@/lib/server/notify";
+import { notifyStatusWebhook, notifyOrderCreatedWebhook } from "@/lib/server/notify";
+import { useStaff } from "@/components/providers/StaffProvider";
 
 interface OrderManagerContextType {
   orders: DashboardOrder[];
@@ -33,6 +34,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
   const [isLoading, setIsLoading] = useState(initialOrders.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const { hasPerm } = useStaff();
 
   useEffect(() => {
     setLastUpdated(new Date());
@@ -145,13 +147,17 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
         
         // It's also unacknowledged if it's an existing order (e.g. preparing) BUT has new additions
         if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) {
+          if (hasPerm("mark_ready") && !hasPerm("view_orders_full") && o.status !== 'preparing') return false;
           return true;
         }
 
         if (acknowledgedIds.current.has(o.id)) return false;
         
-        // It's unacknowledged if it's entirely new
-        if (o.status === 'new') return true;
+        const isKitchenOnly = hasPerm("mark_ready") && !hasPerm("view_orders_full");
+        const isAdminOrCounter = hasPerm("view_orders_full");
+
+        if (isAdminOrCounter && o.status === 'new') return true;
+        if (isKitchenOnly && o.status === 'preparing') return true;
         
         return false;
       });
@@ -179,10 +185,18 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       const unackNew = initialOrders.filter(o => {
         if (o.source === 'pos') return false;
 
-        if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) return true;
+        if (Array.isArray(o.items_json) && o.items_json.some((i: any) => i.is_new_addition)) {
+          if (hasPerm("mark_ready") && !hasPerm("view_orders_full") && o.status !== 'preparing') return false;
+          return true;
+        }
 
         if (acknowledgedIds.current.has(o.id)) return false;
-        if (o.status === 'new') return true;
+        
+        const isKitchenOnly = hasPerm("mark_ready") && !hasPerm("view_orders_full");
+        const isAdminOrCounter = hasPerm("view_orders_full");
+
+        if (isAdminOrCounter && o.status === 'new') return true;
+        if (isKitchenOnly && o.status === 'preparing') return true;
         return false;
       });
       if (unackNew.length > 0) {
@@ -270,6 +284,23 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
 
       // Trigger Webhook
       try {
+        if (previousStatus === 'new' && nextStatus === 'preparing' && order.source !== 'pos') {
+          // Send order confirmation message ONLY when admin accepts
+          const itemsArr = Array.isArray(order.items_json) ? order.items_json : [];
+          notifyOrderCreatedWebhook({
+            order_number: order.order_number,
+            customer_phone: order.customer_phone,
+            customer_name: order.customer_name,
+            order_type: order.order_type,
+            items: itemsArr.map((item: any) => ({
+              item_name: item.item_name,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            })),
+            total: Number(order.total)
+          }).catch(console.error);
+        }
+
         let customMessage = undefined;
 
         if (updates.rider_name && !order.rider_name) {
