@@ -49,7 +49,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, FeaturePermission[]> = {
     "tables", "view_riders"
   ],
   waiter: [
-    "view_orders_basic", "pos", "tables"
+    "pos", "tables"
   ],
   kitchen: [
     "kitchen_screen", "mark_ready"
@@ -66,7 +66,7 @@ export const ROLE_PAGES: Record<StaffRole, PageRoute[]> = {
     "/dashboard/orders", "/dashboard/pos", "/dashboard/tables", "/dashboard/kitchen"
   ],
   waiter: [
-    "/dashboard/pos", "/dashboard/tables", "/dashboard/orders"
+    "/dashboard/pos", "/dashboard/tables"
   ],
   kitchen: [
     "/dashboard/kitchen"
