@@ -11,25 +11,44 @@ export default function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
-  const { hasPerm, staff } = useStaff();
+  const { hasPerm, staff, mobileMenuOpen, setMobileMenuOpen } = useStaff();
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex print:hidden w-[230px] bg-[#0A1017] text-white p-4 sticky top-0 h-screen flex-col border-r border-[#1C2633] shrink-0 z-40">
-        <div className="flex items-center gap-3 py-3 mb-6 px-2">
-          <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#E23744] to-[#B0202B] text-white font-[Fraunces] text-xl font-bold grid place-items-center shadow-[0_4px_12px_rgba(226,55,68,0.3)]">
-            P
+      {/* Mobile Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-50 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Main Sidebar (Desktop Sticky + Mobile Drawer) */}
+      <aside className={`print:hidden w-[260px] md:w-[230px] bg-[#0A1017] text-white p-4 flex-col border-r border-[#1C2633] shrink-0 z-50
+        fixed inset-y-0 left-0 md:sticky top-0 h-screen transition-transform duration-300 ease-in-out flex
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <div className="flex items-center justify-between py-3 mb-6 px-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#E23744] to-[#B0202B] text-white font-[Fraunces] text-xl font-bold grid place-items-center shadow-[0_4px_12px_rgba(226,55,68,0.3)]">
+              P
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[18px] font-extrabold tracking-[-0.5px] leading-none text-white">Pabbas</span>
+              <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase">
+                {staff.role === 'admin' ? 'Admin Dashboard' : 
+                 staff.role === 'kitchen' ? 'Kitchen Dashboard' :
+                 staff.role === 'counter' ? 'Counter Dashboard' :
+                 staff.role === 'waiter' ? 'Waiter Dashboard' : 'Staff Dashboard'}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[18px] font-extrabold tracking-[-0.5px] leading-none text-white">Pabbas</span>
-            <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase">
-              {staff.role === 'admin' ? 'Admin Dashboard' : 
-               staff.role === 'kitchen' ? 'Kitchen Dashboard' :
-               staff.role === 'counter' ? 'Counter Dashboard' :
-               staff.role === 'waiter' ? 'Waiter Dashboard' : 'Staff Dashboard'}
-            </span>
-          </div>
+          <button 
+            onClick={() => setMobileMenuOpen(false)} 
+            className="md:hidden text-[#8799AF] hover:text-white p-2 -mr-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
 
         <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1 pb-4 scrollbar-hide">
@@ -66,7 +85,7 @@ export default function Sidebar() {
         </nav>
 
         <div className="mt-auto flex flex-col gap-1.5 border-t border-[#1C2633] pt-4">
-          <SidebarButton onClick={() => void refreshOrders()} icon="↻" label="Refresh Now" />
+          <SidebarButton onClick={() => { void refreshOrders(); setMobileMenuOpen(false); }} icon="↻" label="Refresh Now" />
           <SidebarButton onClick={toggleSound} icon={soundEnabled ? "🔕" : "🔔"} label={soundEnabled ? "Disable sound" : "Enable sound"} />
           <SidebarButton 
             onClick={async () => {
@@ -77,34 +96,6 @@ export default function Sidebar() {
             label="Sign out" 
           />
         </div>
-      </aside>
-
-      {/* Mobile Bottom Bar */}
-      <aside className="md:hidden print:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-[#0A1017] border-t border-[#1C2633] z-50 flex items-center justify-around px-2 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.2)]">
-        {(hasPerm("view_orders_full") || hasPerm("view_orders_basic")) && (
-          <MobileTab href="/dashboard" icon="🧾" active={pathname === "/dashboard"} />
-        )}
-        {hasPerm("kitchen_screen") && (
-          <MobileTab href="/dashboard/kitchen" icon="🍳" active={pathname === "/dashboard/kitchen"} />
-        )}
-        {hasPerm("pos") && (
-          <MobileTab href="/dashboard/pos" icon="💻" active={pathname === "/dashboard/pos"} />
-        )}
-        {hasPerm("tables") && (
-          <MobileTab href="/dashboard/tables" icon="🍽️" active={pathname === "/dashboard/tables"} />
-        )}
-        {hasPerm("manage_menu") && (
-          <MobileTab href="/dashboard/menu" icon="📋" active={pathname === "/dashboard/menu"} />
-        )}
-        {hasPerm("view_riders") && (
-          <MobileTab href="/dashboard/riders" icon="🛵" active={pathname === "/dashboard/riders"} />
-        )}
-        {hasPerm("analytics") && (
-          <MobileTab href="/dashboard/stats" icon="📊" active={pathname === "/dashboard/stats"} />
-        )}
-        <button onClick={toggleSound} className="flex flex-col items-center justify-center w-12 h-12 text-[#8799AF]">
-          <span className="text-[20px]">{soundEnabled ? "🔕" : "🔔"}</span>
-        </button>
       </aside>
     </>
   );
@@ -137,19 +128,5 @@ function SidebarButton({ onClick, label, icon }: { onClick: () => void; label: s
       <span className="text-[15px] opacity-80">{icon}</span>
       {label}
     </button>
-  );
-}
-
-function MobileTab({ href, icon, active = false }: { href: string; icon: string; active?: boolean }) {
-  return (
-    <Link
-      href={href}
-      className={`flex flex-col items-center justify-center w-12 h-12 transition-all duration-200 relative ${
-        active ? 'text-[#E23744]' : 'text-[#8799AF]'
-      }`}
-    >
-      <span className={`text-[20px] ${active ? 'scale-110' : ''} transition-transform`}>{icon}</span>
-      {active && <span className="absolute -bottom-2 w-1.5 h-1.5 rounded-full bg-[#E23744]" />}
-    </Link>
   );
 }

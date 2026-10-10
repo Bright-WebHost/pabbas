@@ -950,7 +950,7 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
         </div>
         <h1 className="text-[26px] font-extrabold mb-2 text-gray-900">Order Cancelled</h1>
         <p className="text-gray-500 mb-6 font-medium">Your order has been successfully cancelled.</p>
-        <button onClick={onContinue} className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition">Back to Home</button>
+        <a href="https://wa.me/919180348124" className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
       </div>
     </main>;
   }
@@ -972,7 +972,7 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
         
         <div className="flex flex-col gap-3">
           <button onClick={() => window.location.reload()} className="w-full bg-[#e23744] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition">Add more to this table</button>
-          <a href="whatsapp://" className="w-full bg-white text-gray-900 border-2 border-gray-900 font-bold py-[15px] rounded-[14px] active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
+          <a href="https://wa.me/919180348124" className="w-full bg-white text-gray-900 border-2 border-gray-900 font-bold py-[15px] rounded-[14px] active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
         </div>
       </div>
     </main>;
@@ -1008,9 +1008,8 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
       
       {cancelError && <p className="text-red-500 text-sm mb-4">{cancelError}</p>}
       <div className="flex flex-col gap-3">
-        <button onClick={onContinue} className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition">Back to Home</button>
-        <button disabled={cancelling} onClick={handleCancel} className="w-full bg-white text-red-500 border border-red-200 font-bold py-[15px] rounded-[14px] active:scale-[0.98] transition">{cancelling ? 'Cancelling...' : 'Cancel Order'}</button>
+        <a href="https://wa.me/919180348124" className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
       </div>
     </div>
-  </main> 
+  </main>;
 }

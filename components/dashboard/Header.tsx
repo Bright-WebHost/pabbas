@@ -5,7 +5,7 @@ import { useStaff } from "@/components/providers/StaffProvider";
 
 export default function Header() {
   const { isRealtimeConnected, lastUpdated } = useOrderManager();
-  const { staff } = useStaff();
+  const { staff, setMobileMenuOpen } = useStaff();
   
   const title = staff.role === 'admin' ? 'Admin Dashboard' : 
                 staff.role === 'kitchen' ? 'Kitchen Dashboard' :
@@ -14,7 +14,15 @@ export default function Header() {
   
   return (
     <header className="sticky top-0 z-20 -mx-5 mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-[#EAF0F6] bg-white/90 backdrop-blur-md px-6 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
-      <h1 className="m-0 text-[26px] font-extrabold tracking-[-0.6px] text-[#0A1017]">{title}</h1>
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className="md:hidden flex items-center justify-center p-2 -ml-2 rounded-lg text-[#0A1017] hover:bg-gray-100 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <h1 className="m-0 text-[26px] font-extrabold tracking-[-0.6px] text-[#0A1017]">{title}</h1>
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         {isRealtimeConnected ? (
           <div className="flex items-center gap-2 rounded-full bg-[#E5F5EC] px-3.5 py-1.5 border border-[#C6ECD6] shadow-[0_0_12px_rgba(25,135,84,0.15)]">

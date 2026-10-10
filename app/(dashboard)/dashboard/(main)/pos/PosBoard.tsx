@@ -407,7 +407,39 @@ export default function PosBoard() {
               <p className="font-bold text-[13px] mt-1">Try a different search term</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-20">
+            <>
+              {!searchQuery && selectedCategory === "All" && filteredItems.length > 0 && (
+                <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="bg-[#FEF1F2] text-[#E23744] p-1.5 rounded-lg"><CheckCircle className="w-4 h-4" /></span>
+                <h2 className="text-[16px] font-black tracking-tight text-[#0A1017]">Quick Add (Trending 🔥)</h2>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                {menuItems.filter(i => i.available).slice(0, 5).map((item) => {
+                  const colors = getCategoryColor(item.category);
+                  return (
+                    <button
+                      key={`trending-${item.id}`}
+                      onClick={() => handleProductClick(item)}
+                      className={`group flex items-center gap-3 text-left rounded-[16px] border p-3 transition-all duration-300 ${colors.bg} ${colors.border} ${colors.hover} hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] cursor-pointer`}
+                    >
+                      {item.image_url && (
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-white shrink-0 shadow-sm border border-white/50">
+                          <img src={item.image_url} alt={item.item_name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-black text-[#0A1017] leading-tight line-clamp-2">{item.item_name}</span>
+                        <span className="text-[12px] font-bold text-[#E23744] mt-0.5">₹{item.price}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-20">
               {filteredItems.map((item) => {
                 const colors = getCategoryColor(item.category);
                 return (
@@ -452,6 +484,7 @@ export default function PosBoard() {
                 </button>
               )})}
             </div>
+            </>
           )}
         </div>
       </div>

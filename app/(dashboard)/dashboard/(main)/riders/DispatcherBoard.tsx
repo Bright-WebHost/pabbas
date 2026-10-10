@@ -53,11 +53,23 @@ export default function DispatcherBoard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-[#0A1017]">Delivery Dispatch</h2>
-        <button onClick={loadRiders} className="text-sm text-blue-600 font-semibold hover:underline">
-          Refresh Riders
-        </button>
+      {/* Gamification / Stats Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm mb-6">
+        <div>
+          <h2 className="text-2xl font-black tracking-tight text-[#0A1017] mb-1">Delivery Dispatch</h2>
+          <p className="text-[#8799AF] text-sm font-semibold">
+            {dispatchableOrders.length === 0 ? "All clear! Excellent dispatching! 🎯" : `${dispatchableOrders.length} orders waiting for riders. Keep 'em moving! 🚀`}
+          </p>
+        </div>
+        <div className="flex gap-3 text-sm font-bold w-full md:w-auto">
+          <div className="flex-1 md:flex-none px-4 py-3 bg-[#F8FAFB] text-[#0A1017] rounded-xl border border-[#EAF0F6] flex flex-col items-center justify-center">
+            <span className="text-[#8799AF] text-[10px] uppercase tracking-wider mb-1">Active Riders</span>
+            <span className="text-2xl text-blue-600 font-black">{riders.length}</span>
+          </div>
+          <button onClick={loadRiders} className="px-4 py-3 bg-white text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors flex items-center justify-center font-bold shadow-sm">
+            Refresh Riders
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

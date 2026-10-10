@@ -33,7 +33,7 @@ export default async function DashboardLayout({
         <div className="print:hidden">
           <Sidebar />
         </div>
-        <div className="flex-1 flex flex-col min-w-0 pb-[64px] md:pb-0">
+        <div className="flex-1 flex flex-col min-w-0">
           <div className="print:hidden">
             <Header />
           </div>
