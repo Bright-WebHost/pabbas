@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     // 1. Fetch existing order
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, status, is_collected, total, rider_phone, customer_phone')
+      .select('id, status, is_collected, total, rider_phone, customer_phone, customer_name, items_json, order_type')
       .eq('order_number', order_number)
       .single();
 
@@ -54,8 +54,22 @@ export async function POST(request: Request) {
     if (updateError) throw updateError;
 
     // 3. Notify webhook
+    const customMessage = `Your order ${order.order_number} has been delivered! 🎉\n\nHere is your receipt. Thank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
+    const itemsArr = Array.isArray(order.items_json) ? order.items_json : [];
+
     await notifyStatusWebhook(order_number, 'delivered', undefined, {
+      total: order.total,
+      order_type: order.order_type,
+      customer_name: order.customer_name || "Guest",
+      customer_phone: order.customer_phone,
       rider_phone: order.customer_phone, // HACK: Force n8n to send to customer instead of rider
+      custom_message: customMessage,
+      whatsapp_message_text: customMessage,
+      items: itemsArr.map((item: any) => ({
+        item_name: item.item_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }))
     });
 
     return NextResponse.json({ success: true, message: 'Order marked as delivered' });

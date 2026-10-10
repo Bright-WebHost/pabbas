@@ -337,15 +337,26 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
         if (nextStatus === "out_for_delivery" && order.rider_name) {
           // Send the existing customer notification
           customMessage = `Good news! Your order ${order.order_number} is on its way. 🛵\n\nYour delivery partner, ${order.rider_name} (📞 ${order.rider_phone}), will be arriving soon.\n\nPlease keep ₹${order.total} in cash ready for the delivery.\n\nThank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
+        } else if (nextStatus === "delivered") {
+          customMessage = `Your order ${order.order_number} has been delivered! 🎉\n\nHere is your receipt. Thank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
         }
 
         if (nextStatus !== order.status) {
+          const itemsArr = Array.isArray(order.items_json) ? order.items_json : [];
           const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason, {
             total: order.total,
+            order_type: order.order_type,
+            customer_name: order.customer_name || "Guest",
+            customer_phone: order.customer_phone,
             rider_name: updates.rider_name || order.rider_name,
             rider_phone: order.customer_phone || updates.rider_phone || order.rider_phone, // HACK: Force n8n to send to customer instead of rider
             custom_message: customMessage,
-            whatsapp_message_text: customMessage
+            whatsapp_message_text: customMessage,
+            items: itemsArr.map((item: any) => ({
+              item_name: item.item_name,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            }))
           });
 
           if (!notifyResult.success) {

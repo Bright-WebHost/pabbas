@@ -25,8 +25,15 @@ export default function DispatcherBoard() {
   }
 
   const dispatchableOrders = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+
     return orders
-      .filter((o) => o.status === "ready_for_pickup" || o.status === "out_for_delivery")
+      .filter((o) => {
+        const createdAt = new Date(o.created_at).getTime();
+        return (o.status === "ready_for_pickup" || o.status === "out_for_delivery") && createdAt >= todayStartMs;
+      })
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   }, [orders]);
 

@@ -178,24 +178,35 @@ export default function KitchenBoard() {
 
       {/* History Section */}
       <div className="mt-12 space-y-4">
-        <h2 className="text-xl font-bold text-gray-800 border-b pb-2">Recent History</h2>
+        <h2 className="text-xl font-bold text-[#8799AF] border-b border-[#1C2633] pb-2">Recent History</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {orders
             .filter((o) => ["ready_for_pickup", "out_for_delivery", "delivered", "cancelled"].includes(o.status))
             .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
             .slice(0, 12)
-            .map(order => (
-              <div key={order.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex justify-between items-center opacity-80 hover:opacity-100 transition-opacity">
-                <div>
-                  <div className="font-mono font-bold text-lg">{order.order_number}</div>
-                  <div className="text-sm text-gray-500 uppercase font-semibold">{order.status.replace(/_/g, " ")}</div>
+            .map(order => {
+              const itemsList = Array.isArray(order.items_json) 
+                ? order.items_json.map((item: any) => `${item.quantity}× ${item.item_name || item.name}`).join(", ")
+                : order.items || "No items";
+
+              return (
+                <div key={order.id} className="p-4 bg-[#131C27] border border-[#1C2633] rounded-xl flex flex-col justify-between opacity-80 hover:opacity-100 transition-opacity">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="font-mono font-black text-lg text-white">{order.order_number}</div>
+                      <div className="text-xs text-[#8799AF] uppercase font-bold tracking-wider">{order.status.replace(/_/g, " ")}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-[#8799AF] font-medium">{formatDistanceToNow(new Date(order.updated_at), { addSuffix: true })}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-2 text-sm font-medium text-white/80 line-clamp-3 bg-black/20 p-2.5 rounded-lg border border-[#1C2633]">
+                    {itemsList}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium">{Array.isArray(order.items_json) ? order.items_json.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) : 0} items</div>
-                  <div className="text-xs text-gray-400">{formatDistanceToNow(new Date(order.updated_at), { addSuffix: true })}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
         </div>
       </div>
     </div>

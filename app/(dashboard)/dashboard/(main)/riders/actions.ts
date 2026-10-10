@@ -27,7 +27,30 @@ export async function fetchRiders() {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return { success: true, riders: data as Rider[] };
+    
+    const riders = data as Rider[];
+
+    // Dynamically calculate pending cash from delivered but uncollected orders
+    const { data: pendingOrders } = await adminClient
+      .from("orders")
+      .select("rider_id, total")
+      .eq("order_type", "delivery")
+      .eq("status", "delivered")
+      .eq("is_collected", false)
+      .not("rider_id", "is", null);
+
+    if (pendingOrders) {
+      riders.forEach(rider => {
+        const riderPending = pendingOrders
+          .filter(o => o.rider_id === rider.id)
+          .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+        
+        // Override the database column with the real computed value
+        rider.pending_cash = riderPending;
+      });
+    }
+
+    return { success: true, riders };
   } catch (error: any) {
     console.error("[fetchRiders] Error:", error);
     return { success: false, error: "Failed to fetch riders" };
@@ -88,12 +111,26 @@ export async function settlePendingCash(id: string) {
 
   try {
     const adminClient = createAdminClient();
-    const { error } = await adminClient
+
+    // Mark all delivered uncollected orders for this rider as collected
+    const { error: ordersError } = await adminClient
+      .from("orders")
+      .update({ is_collected: true, updated_at: new Date().toISOString() })
+      .eq("rider_id", id)
+      .eq("order_type", "delivery")
+      .eq("status", "delivered")
+      .eq("is_collected", false);
+
+    if (ordersError) throw ordersError;
+
+    // Reset rider pending cash column just in case
+    const { error: riderError } = await adminClient
       .from("riders")
       .update({ pending_cash: 0 })
       .eq("id", id);
 
-    if (error) throw error;
+    if (riderError) throw riderError;
+
     return { success: true };
   } catch (error: any) {
     console.error("[settlePendingCash] Error:", error);
