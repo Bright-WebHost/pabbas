@@ -10,15 +10,18 @@ interface StaffContextType {
   hasPerm: (permission: FeaturePermission) => boolean;
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
+  desktopMenuCollapsed: boolean;
+  setDesktopMenuCollapsed: (collapsed: boolean) => void;
 }
 
 const StaffContext = createContext<StaffContextType | null>(null);
 
 export function StaffProvider({ staff, children }: { staff: StaffUser; children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopMenuCollapsed, setDesktopMenuCollapsed] = useState(false);
   const pathname = usePathname();
 
-  // Close menu on route change
+  // Close mobile menu on route change, but not desktop
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
@@ -28,7 +31,9 @@ export function StaffProvider({ staff, children }: { staff: StaffUser; children:
       staff, 
       hasPerm: (perm) => hasPermission(staff.role, perm),
       mobileMenuOpen,
-      setMobileMenuOpen
+      setMobileMenuOpen,
+      desktopMenuCollapsed,
+      setDesktopMenuCollapsed
     }}>
       {children}
     </StaffContext.Provider>
