@@ -707,17 +707,17 @@ export default function OrdersBoard() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white/50 p-4 rounded-[20px] border border-[#EAF0F6] backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/50 p-4 rounded-[20px] border border-[#EAF0F6] backdrop-blur-md">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
           <span className="text-[13px] font-bold text-[#8799AF]">Filter:</span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full no-scrollbar snap-x">
             {RANGE_OPTIONS.map((option) => (
               <button
                 key={option.key}
                 type="button"
                 aria-pressed={range === option.key}
                 onClick={() => setRange(option.key)}
-                className={`rounded-full px-4 py-1.5 text-[13px] font-bold transition-all duration-200 border ${
+                className={`snap-start shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold transition-all duration-200 border ${
                   range === option.key
                     ? "bg-[#E23744] text-white border-[#E23744] shadow-sm"
                     : "bg-white text-[#6B7A90] border-[#EAF0F6] hover:border-[#C9D4E0] hover:text-[#0A1017]"
@@ -728,16 +728,14 @@ export default function OrdersBoard() {
             ))}
           </div>
         </div>
-
-        {/* Removed search and filters per user request */}
       </div>
 
-      <div className="flex xl:grid xl:grid-cols-5 gap-4 overflow-x-auto pb-4 snap-x snap-mandatory no-scrollbar">
-        <div className="min-w-[160px] snap-start"><StatCard label="Revenue" value={money(totalRevenue)} tone="red" /></div>
-        <div className="min-w-[140px] snap-start"><StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" /></div>
-        <div className="min-w-[140px] snap-start"><StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="amber" /></div>
-        <div className="min-w-[140px] snap-start"><StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="purple" /></div>
-        <div className="min-w-[160px] snap-start"><StatCard label="Cash To Collect" value={money(cashToCollect)} tone="black" /></div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
+        <StatCard label="Revenue" value={money(totalRevenue)} tone="red" />
+        <StatCard label="Total Orders" value={String(totalOrderCount)} tone="blue" />
+        <StatCard label="Awaiting Accept" value={String(awaitingAccept)} tone="amber" />
+        <StatCard label="In The Kitchen" value={String(inTheKitchen)} tone="purple" />
+        <StatCard label="Cash To Collect" value={money(cashToCollect)} tone="black" />
       </div>
 
       {statusMessage && (
