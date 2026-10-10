@@ -37,6 +37,7 @@ export default function MenuBoard() {
   
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const supabase = createClient() as any;
 
@@ -58,6 +59,36 @@ export default function MenuBoard() {
   useEffect(() => {
     fetchMenu();
   }, []);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setFormError(null);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('menu_images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('menu_images')
+        .getPublicUrl(fileName);
+
+      setFormImageUrl(publicUrl);
+    } catch (err: any) {
+      console.error(err);
+      setFormError("Failed to upload image: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const openAddModal = () => {
     setModalMode("add");
@@ -354,8 +385,31 @@ export default function MenuBoard() {
                   <textarea rows={2} value={formDescription} onChange={e => setFormDescription(e.target.value)} className="w-full rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] px-4 py-3 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 focus:bg-white transition-all" />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <label className="text-[12px] font-extrabold uppercase tracking-widest text-[#8799AF]">Image URL</label>
-                  <input type="url" value={formImageUrl} onChange={e => setFormImageUrl(e.target.value)} className="w-full rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] px-4 py-3 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 focus:bg-white transition-all" />
+                  <label className="text-[12px] font-extrabold uppercase tracking-widest text-[#8799AF]">Image</label>
+                  <div className="flex gap-4 items-start">
+                    {formImageUrl ? (
+                      <div className="relative">
+                        <img src={formImageUrl} alt="Preview" className="h-20 w-20 rounded-xl object-cover border border-[#EAF0F6]" />
+                        <button type="button" onClick={() => setFormImageUrl("")} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="h-20 w-20 flex items-center justify-center rounded-xl border border-dashed border-[#C9D4E0] bg-[#F8FAFB] text-[#8799AF]">
+                        <span className="text-[10px] font-bold">No Image</span>
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className={`cursor-pointer inline-flex items-center justify-center rounded-xl bg-[#F3F6F9] px-4 py-2 text-sm font-bold text-[#0A1017] transition hover:bg-[#EAF0F6] ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                          {isUploading ? "Uploading..." : "Upload from Gallery"}
+                          <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                        </label>
+                        <span className="text-sm font-semibold text-[#8799AF]">OR</span>
+                      </div>
+                      <input type="url" placeholder="Paste image URL..." value={formImageUrl} onChange={e => setFormImageUrl(e.target.value)} className="w-full rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] px-4 py-3 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 focus:bg-white transition-all" />
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <label className="text-[12px] font-extrabold uppercase tracking-widest text-[#8799AF]">Variants JSON (Optional)</label>
