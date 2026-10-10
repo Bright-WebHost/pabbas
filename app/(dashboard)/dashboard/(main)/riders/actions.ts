@@ -42,8 +42,8 @@ export async function fetchRiders() {
     if (pendingOrders) {
       riders.forEach(rider => {
         const riderPending = pendingOrders
-          .filter(o => o.rider_id === rider.id)
-          .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+          .filter((o: any) => o.rider_id === rider.id)
+          .reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0);
         
         // Override the database column with the real computed value
         rider.pending_cash = riderPending;
