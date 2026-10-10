@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, XCircle, ArrowLeft, ListOrdered } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, XCircle, ArrowLeft, ListOrdered, X } from "lucide-react";
 import { createPosOrder, updatePosOrder } from "./actions";
 import { useOrderManager } from "../../OrderManagerProvider";
 import { fetchTables, RestaurantTable } from "../tables/actions";
@@ -86,6 +86,8 @@ export default function PosBoard() {
   const [showReview, setShowReview] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [orderResult, setOrderResult] = useState<{ success: boolean; order_number?: string; error?: string } | null>(null);
+
+  const [showMobileCart, setShowMobileCart] = useState(false);
 
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [appendOrderId, setAppendOrderId] = useState<string | null>(null);
@@ -439,7 +441,7 @@ export default function PosBoard() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-20">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-32 lg:pb-20">
               {filteredItems.map((item) => {
                 const colors = getCategoryColor(item.category);
                 return (
@@ -487,10 +489,28 @@ export default function PosBoard() {
             </>
           )}
         </div>
+        
+        {/* Mobile Sticky Cart Bar */}
+        {cart.length > 0 && !showMobileCart && (
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#EAF0F6] shadow-[0_-8px_30px_rgba(0,0,0,0.08)] z-40">
+            <button 
+              onClick={() => setShowMobileCart(true)}
+              className="w-full flex items-center justify-between bg-[#E23744] text-white p-4 rounded-[16px] shadow-[0_4px_16px_rgba(226,55,68,0.25)] hover:bg-[#C0392B] transition-colors"
+            >
+              <div className="flex flex-col items-start text-left">
+                <span className="text-[12px] font-bold uppercase tracking-widest opacity-80">{cart.reduce((sum, c) => sum + c.quantity, 0)} Items</span>
+                <span className="text-[18px] font-black leading-none mt-1">₹{cartTotal}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[15px] font-black tracking-wide">
+                View Order <ShoppingBag className="w-5 h-5" />
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* RIGHT: Cart Area */}
-      <div className="w-full lg:w-[380px] bg-white border-l border-[#EAF0F6] flex flex-col shrink-0 z-10 shadow-[0_0_40px_rgba(0,0,0,0.03)] overflow-hidden">
+      <div className={`${showMobileCart ? 'fixed inset-0 z-[100] flex' : 'hidden'} lg:relative lg:flex lg:w-[380px] w-full bg-white lg:border-l border-[#EAF0F6] flex-col shrink-0 lg:z-10 shadow-[0_0_40px_rgba(0,0,0,0.03)] overflow-hidden`}>
         <div className="p-5 border-b border-[#EAF0F6] bg-white flex flex-col gap-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-[20px] font-black tracking-tight text-[#0A1017] flex items-center gap-2.5">
@@ -499,9 +519,17 @@ export default function PosBoard() {
               </div>
               Current Order
             </h2>
-            <span className="bg-[#EAF0F6] text-[#0A1017] text-[12px] font-extrabold px-3 py-1 rounded-full">
-              {cart.reduce((sum, c) => sum + c.quantity, 0)} items
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="bg-[#EAF0F6] text-[#0A1017] text-[12px] font-extrabold px-3 py-1 rounded-full">
+                {cart.reduce((sum, c) => sum + c.quantity, 0)} items
+              </span>
+              <button 
+                className="lg:hidden p-1.5 rounded-lg bg-[#F8FAFB] text-[#8799AF] hover:text-[#0A1017] hover:bg-[#EAF0F6] transition-colors border border-[#EAF0F6]"
+                onClick={() => setShowMobileCart(false)}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 bg-[#F8FAFB] p-1.5 rounded-[14px] border border-[#EAF0F6]">
