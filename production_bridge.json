@@ -1134,23 +1134,32 @@
     },
     {
       "parameters": {
-        "resource": "audio",
-        "operation": "transcribe",
-        "binaryPropertyName": "audio"
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "whisper-large-v3"
+            },
+            {
+              "name": "file",
+              "parameterType": "form-data-binary",
+              "inputDataFieldName": "audio"
+            }
+          ]
+        },
+        "options": {}
       },
       "name": "Transcribe Audio",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
       "position": [
         1100,
         100
       ],
-      "credentials": {
-        "openAiApi": {
-          "id": "qoyVBVk1ojHK9xi0",
-          "name": "OpenAI account"
-        }
-      },
       "id": "0a87ac93-92f3-40c4-bb5d-77746e8b2313"
     },
     {
