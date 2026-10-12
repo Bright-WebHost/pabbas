@@ -54,8 +54,25 @@ function rowToProductionMenuItem(row: {
   variants?: unknown
   item_number?: number | null
   is_pinned?: boolean | null
+  vegetarian?: boolean | null
+  is_veg?: boolean | null
 }): MenuItem {
   const safePrice = typeof row.price === 'number' ? row.price : Number(row.price ?? 0)
+
+  // Determine if item is vegetarian:
+  // 1. Explicit boolean property if present in row (row.vegetarian or row.is_veg)
+  // 2. Keyword detection in item name, category, or description
+  // 3. Default to true (Pabbas is an iconic pure-vegetarian dairy & ice cream brand)
+  const text = `${row.item_name || ''} ${row.category || ''} ${row.description || ''}`
+  const isExplicitNonVeg =
+    row.vegetarian === false ||
+    row.is_veg === false ||
+    /\b(non-?veg|chicken|mutton|fish|meat|prawn|crab)\b/i.test(text)
+
+  const isVegetarian =
+    row.vegetarian === true ||
+    row.is_veg === true ||
+    !isExplicitNonVeg
 
   return {
     id: String(row.id),
@@ -64,7 +81,7 @@ function rowToProductionMenuItem(row: {
     description: row.description || '',
     price: Number.isFinite(safePrice) ? safePrice : 0,
     image: row.image_url || placeholderImage(row.item_name || 'item'),
-    vegetarian: undefined,
+    vegetarian: isVegetarian,
     badge: undefined,
     featured: undefined,
     is_pinned: row.is_pinned ?? false,
@@ -91,18 +108,7 @@ type SupabaseServerClient = SupabaseClient<Database>
 export async function fetchProductionMenuItems(client: SupabaseServerClient): Promise<MenuItem[] | null> {
   const { data, error } = await client
     .from('menu_items')
-    .select(`
-      id,
-      item_number,
-      item_name,
-      category,
-      price,
-      available,
-      description,
-      image_url,
-      variants,
-      is_pinned
-    `)
+    .select('*')
     .eq('available', true)
     .order('item_number', { ascending: true })
 

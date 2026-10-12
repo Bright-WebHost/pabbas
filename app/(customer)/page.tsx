@@ -92,7 +92,7 @@ export default function Home() {
     return menuItems.filter((item) => {
       const matchSearch = `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(search.toLowerCase());
       const matchCat = category === "All" || displayCategory(item.category) === category;
-      const matchDiet = dietFilter === "All" || (dietFilter === "Veg" ? item.vegetarian : !item.vegetarian);
+      const matchDiet = dietFilter === "All" || (dietFilter === "Veg" ? item.vegetarian !== false : item.vegetarian === false);
       return matchSearch && matchCat && matchDiet;
     }).sort((a, b) => {
       if (a.is_pinned && !b.is_pinned) return -1;
@@ -288,7 +288,7 @@ export default function Home() {
               </button>
             </div>
           )}
-          {!isLoadingMenu && !menuError && visibleItems.length === 0 && <div className="py-12 text-center text-gray-500">No dishes are currently available.</div>}
+          {!isLoadingMenu && !menuError && visibleItems.length === 0 && <div className="py-12 text-center text-gray-500 font-medium">No dishes found matching your selection.</div>}
         </section>
       </main>
 
@@ -421,8 +421,8 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
   return <article onClick={() => item.options ? onDetails(item) : null} className={`flex gap-4 bg-white w-full py-5 px-4 border-b border-gray-100 ${item.options ? 'cursor-pointer' : ''} hover:bg-gray-50/50 transition duration-300`}>
     <div className="flex-1 min-w-0 pr-2 pt-1">
       <div className="flex items-center gap-1.5 mb-2">
-        <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[3px] ${item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
-          <span className={`w-2 h-2 rounded-full ${item.vegetarian ? 'bg-green-600' : 'bg-red-700'}`}></span>
+        <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[3px] ${item.vegetarian !== false ? 'border-green-600' : 'border-red-700'}`}>
+          <span className={`w-2 h-2 rounded-full ${item.vegetarian !== false ? 'bg-green-600' : 'bg-red-700'}`}></span>
         </span>
         {item.is_pinned && <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-amber-200 flex items-center gap-1"><Star size={10} fill="currentColor" /> Pinned</span>}
         {item.badge && <span className="bg-[#fff0f1] text-[#ef4f5f] px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-[#ffc9ce]">{item.badge}</span>}
@@ -499,8 +499,8 @@ function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, onCha
                   <div className="flex items-start gap-3" key={line.item.id}>
               <div className="flex-1">
                 <div className="flex items-start gap-2">
-                  <span className={`shrink-0 mt-1 w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] ${line.item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${line.item.vegetarian ? 'bg-green-600' : 'bg-red-700'}`}></span>
+                  <span className={`shrink-0 mt-1 w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] ${line.item.vegetarian !== false ? 'border-green-600' : 'border-red-700'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${line.item.vegetarian !== false ? 'bg-green-600' : 'bg-red-700'}`}></span>
                   </span>
                   <strong className="text-[15px] text-gray-800 leading-tight">{line.item.name}</strong>
                 </div>
@@ -541,8 +541,8 @@ function ProductDetails({ item, onClose, onAdd }: { item: MenuItem; onClose: () 
       <img src={item.image} alt={item.name} className="w-full h-64 object-cover" />
       <div className="p-6">
         <div className="flex items-center gap-1.5 mb-2">
-          <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[2px] ${item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
-            <span className={`w-2 h-2 rounded-full ${item.vegetarian ? 'bg-green-600' : 'bg-red-700'}`}></span>
+          <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[2px] ${item.vegetarian !== false ? 'border-green-600' : 'border-red-700'}`}>
+            <span className={`w-2 h-2 rounded-full ${item.vegetarian !== false ? 'bg-green-600' : 'bg-red-700'}`}></span>
           </span>
           <p className="text-xs font-bold text-gray-500 uppercase">{item.category}</p>
         </div>
