@@ -3,29 +3,41 @@
 import React, { useState } from "react";
 import RidersBoard from "./RidersBoard";
 import DispatcherBoard from "./DispatcherBoard";
+import { Bike, Send } from "lucide-react";
 
 export default function RidersContainer() {
-  const [activeTab, setActiveTab] = useState<"dispatcher" | "riders">("dispatcher");
+  const [activeTab, setActiveTab] = useState<"riders" | "dispatcher">("riders");
 
   return (
     <div className="flex-1 w-full flex flex-col min-h-0 bg-[#F8FAFB]">
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex gap-4">
-        <button
-          onClick={() => setActiveTab("dispatcher")}
-          className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${activeTab === "dispatcher" ? "bg-blue-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-        >
-          Dispatcher Board
-        </button>
+      {/* Sub-navigation tabs */}
+      <div className="bg-white border-b border-[#E2E8F0] px-4 md:px-8 pt-3 pb-0 flex items-center gap-3">
         <button
           onClick={() => setActiveTab("riders")}
-          className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${activeTab === "riders" ? "bg-blue-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          className={`flex items-center gap-2 px-4 py-2.5 font-extrabold text-[13px] border-b-2 transition-all cursor-pointer ${
+            activeTab === "riders"
+              ? "border-[#E23744] text-[#E23744]"
+              : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+          }`}
         >
-          Manage Riders
+          <Bike size={16} />
+          <span>Riders Overview</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("dispatcher")}
+          className={`flex items-center gap-2 px-4 py-2.5 font-extrabold text-[13px] border-b-2 transition-all cursor-pointer ${
+            activeTab === "dispatcher"
+              ? "border-[#E23744] text-[#E23744]"
+              : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+          }`}
+        >
+          <Send size={15} />
+          <span>Live Dispatcher</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
-        {activeTab === "dispatcher" ? <DispatcherBoard /> : <RidersBoard />}
+      <div className="flex-1 overflow-auto">
+        {activeTab === "riders" ? <RidersBoard /> : <div className="p-4 md:p-6"><DispatcherBoard /></div>}
       </div>
     </div>
   );

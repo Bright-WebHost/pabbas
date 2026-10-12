@@ -220,6 +220,7 @@ function getSlideAction(order: DashboardOrder, hasPerm: (p: any) => boolean): { 
 
 function OrderDetails({ order, onClose, now, onStatusChange }: { order: DashboardOrder; onClose: () => void; now: number; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void }) {
   const { hasPerm } = useStaff();
+  const { refreshOrders } = useOrderManager();
   const items = buildItemList(order);
   const countdown = formatCountdown(order, now);
   const slideAction = getSlideAction(order, hasPerm);
@@ -238,6 +239,7 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
     try {
       const res = await collectCash(order.id, order.total, amount, order.rider_id || undefined);
       if (res.success) {
+        await refreshOrders();
         onClose();
       } else {
         alert("Failed to collect cash: " + res.error);
@@ -455,6 +457,12 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
                 {isCollecting ? "Processing..." : `Collect ₹${order.total}`}
               </button>
             )}
+
+            {order.order_type === "delivery" && order.status === "delivered" && order.is_collected && (
+              <div className="h-[48px] rounded-[12px] border border-[#C6ECD6] bg-[#E5F5EC] px-5 flex items-center text-[14px] font-extrabold text-[#146C43]">
+                ✓ Cash Collected (₹{order.collected_amount != null && order.collected_amount > 0 ? order.collected_amount : order.total})
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -496,6 +504,7 @@ function printOrder(order: DashboardOrder) {
 
 function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrder; onOpen: () => void; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void; now: number }) {
   const { hasPerm } = useStaff();
+  const { refreshOrders } = useOrderManager();
   const items = buildItemList(order);
   const itemCount = items.reduce((total, item) => total + item.quantity, 0);
   const slideAction = getSlideAction(order, hasPerm);
@@ -511,6 +520,27 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
   if (hasNewItems && order.status !== 'delivered' && order.status !== 'cancelled') {
     borderColor = "border-l-4 border-l-[#D97706] bg-[#FFF8E6] shadow-[0_2px_8px_rgba(217,119,6,0.15)]";
   }
+
+  const handleQuickCollectCash = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const amountStr = window.prompt(`Amount Received from Rider (Expected: ₹${order.total}):`, String(order.total));
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (isNaN(amount) || amount < 0) {
+      alert("Invalid amount");
+      return;
+    }
+    try {
+      const res = await collectCash(order.id, order.total, amount, order.rider_id || undefined);
+      if (res.success) {
+        await refreshOrders();
+      } else {
+        alert("Failed to collect cash: " + res.error);
+      }
+    } catch(err) {
+      alert("Error collecting cash");
+    }
+  };
 
   return (
     <div
@@ -574,6 +604,11 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
             Collect ₹{order.total}
           </span>
         )}
+        {order.order_type === "delivery" && order.status === "delivered" && order.is_collected && (
+          <span className="rounded border border-[#C6ECD6] bg-[#E5F5EC] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#146C43]">
+            ✓ Cash Collected
+          </span>
+        )}
       </div>
 
       <div className="mt-3" onClick={(e) => e.stopPropagation()}>
@@ -586,6 +621,15 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
             onAcknowledge={() => onStatusChange(order, slideAction.nextStatus)}
             resetOnComplete={false}
           />
+        )}
+        {!slideAction && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && hasPerm("collect_cash") && (
+          <button
+            type="button"
+            onClick={handleQuickCollectCash}
+            className="w-full h-[40px] rounded-[10px] bg-[#EAF3FF] hover:bg-[#DCE9FA] border border-[#B8D5F6] text-[#1A5FA8] font-black text-[13px] flex items-center justify-center gap-1.5 shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+          >
+            💰 Collect Cash (₹{order.total})
+          </button>
         )}
       </div>
 
@@ -635,6 +679,15 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
               className="px-3 py-1.5 rounded-[8px] bg-[#EAF3FF] text-[#1A5FA8] font-extrabold text-[12px] hover:bg-[#DCE9FA] border border-[#B8D5F6] shadow-sm transition-colors"
             >
               Edit
+            </button>
+          )}
+          {hasPerm("collect_cash") && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
+            <button
+              type="button"
+              onClick={handleQuickCollectCash}
+              className="px-3 py-1.5 rounded-[8px] bg-[#EAF3FF] text-[#1A5FA8] font-extrabold text-[12px] hover:bg-[#DCE9FA] border border-[#B8D5F6] shadow-sm transition-colors cursor-pointer"
+            >
+              Collect Cash
             </button>
           )}
           <button

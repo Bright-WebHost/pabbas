@@ -39,11 +39,9 @@ export async function POST(request: Request) {
       status: 'delivered',
       updated_at: new Date().toISOString()
     };
-
-    if (payment_status === 'collected') {
-      updatePayload.is_collected = true;
-      updatePayload.collected_amount = order.total;
-    }
+    // Note: The rider has collected cash from the customer upon delivery,
+    // but the store cashier has not collected it from the rider yet.
+    // Keep is_collected = false until the cashier explicitly collects it.
 
     // 2. Mark as delivered
     const { error: updateError } = await adminClient

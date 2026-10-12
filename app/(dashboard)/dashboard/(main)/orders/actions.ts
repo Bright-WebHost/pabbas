@@ -13,7 +13,7 @@ export async function collectCash(orderId: string, expectedAmount: number, recei
     // 1. Check if already collected to make it idempotent
     const { data: order, error: fetchError } = await adminClient
       .from("orders")
-      .select("is_collected")
+      .select("is_collected, rider_id, total")
       .eq("id", orderId)
       .single();
 
@@ -39,16 +39,18 @@ export async function collectCash(orderId: string, expectedAmount: number, recei
     if (orderError) throw orderError;
 
     // 3. Update the rider's pending cash and total cash_collected
-    if (riderId) {
+    const effectiveRiderId = riderId || order.rider_id;
+    if (effectiveRiderId) {
       const { data: rider, error: fetchRiderError } = await adminClient
         .from("riders")
         .select("pending_cash, cash_collected")
-        .eq("id", riderId)
+        .eq("id", effectiveRiderId)
         .single();
         
       if (!fetchRiderError && rider) {
-        const shortPay = expectedAmount - receivedAmount;
-        const newPending = (Number(rider.pending_cash) || 0) + Math.max(0, shortPay);
+        const orderExpected = Number(expectedAmount || order.total || 0);
+        const shortPay = Math.max(0, orderExpected - receivedAmount);
+        const newPending = (Number(rider.pending_cash) || 0) + shortPay;
         const newCollected = (Number(rider.cash_collected) || 0) + receivedAmount;
 
         await adminClient
@@ -57,7 +59,7 @@ export async function collectCash(orderId: string, expectedAmount: number, recei
             pending_cash: newPending,
             cash_collected: newCollected
           })
-          .eq("id", riderId);
+          .eq("id", effectiveRiderId);
       }
     }
 

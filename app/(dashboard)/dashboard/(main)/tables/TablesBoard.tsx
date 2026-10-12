@@ -1,28 +1,73 @@
 "use client";
 
-import { useState, useEffect, useTransition, useRef } from "react";
-import { fetchTables, addTable, deleteTable, clearTable, RestaurantTable, moveTable, mergeTables } from "./actions";
+import { useState, useEffect, useTransition, useRef, useMemo } from "react";
+import {
+  fetchTables,
+  addTable,
+  deleteTable,
+  clearTable,
+  RestaurantTable,
+  TablesOverviewMetrics,
+  moveTable,
+  mergeTables,
+} from "./actions";
 import { QRCodeSVG } from "qrcode.react";
 import { useOrderManager } from "../../OrderManagerProvider";
+import { Plus, X, ArrowRight, GitMerge, Move, History, Trash2, Printer } from "lucide-react";
 
 export default function TablesBoard() {
   const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [metrics, setMetrics] = useState<TablesOverviewMetrics>({
+    open_tables: 0,
+    total_tables: 0,
+    food_ready: 0,
+    dine_in_week: 0,
+    open_value: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [isAdding, startAdding] = useTransition();
+  const [showAddModal, setShowAddModal] = useState(false);
   const [newTable, setNewTable] = useState("");
+
   const [printTable, setPrintTable] = useState<RestaurantTable | null>(null);
-  
+
   const [historyModalTable, setHistoryModalTable] = useState<string | null>(null);
   const [tableHistory, setTableHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [moveModalOrder, setMoveModalOrder] = useState<{orderId: string, oldTableNumber: string} | null>(null);
-  const [mergeModalOrder, setMergeModalOrder] = useState<{orderId: string, sourceTableNumber: string} | null>(null);
+
+  const [moveModalOrder, setMoveModalOrder] = useState<{
+    orderId: string;
+    oldTableNumber: string;
+  } | null>(null);
+  const [mergeModalOrder, setMergeModalOrder] = useState<{
+    orderId: string;
+    sourceTableNumber: string;
+  } | null>(null);
   const [selectedTargetTable, setSelectedTargetTable] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { lastUpdated } = useOrderManager();
-
   const isInitialLoad = useRef(true);
+
+  // Live clock
+  const [currentTimeStr, setCurrentTimeStr] = useState<string>("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = lastUpdated || new Date();
+      setCurrentTimeStr(
+        now.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        }).toLowerCase()
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
 
   useEffect(() => {
     loadTables(isInitialLoad.current);
@@ -34,9 +79,28 @@ export default function TablesBoard() {
     const result = await fetchTables();
     if (result.success && result.tables) {
       setTables(result.tables);
+      if (result.metrics) setMetrics(result.metrics);
     }
     setLoading(false);
   }
+
+  // Tables needing attention float to top (active first, sorted by table number)
+  const sortedTables = useMemo(() => {
+    return [...tables].sort((a, b) => {
+      const aActive = a.is_active && a.orders ? 1 : 0;
+      const bActive = b.is_active && b.orders ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive; // occupied first
+      const aNum = parseInt(a.table_number.replace(/\D/g, ""), 10);
+      const bNum = parseInt(b.table_number.replace(/\D/g, ""), 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+      return a.table_number.localeCompare(b.table_number);
+    });
+  }, [tables]);
+
+  // Tables with bills ready / awaiting payment for the attention banner
+  const attentionTables = useMemo(() => {
+    return tables.filter((t) => t.is_active && t.orders);
+  }, [tables]);
 
   const handleAddTable = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,34 +109,52 @@ export default function TablesBoard() {
     startAdding(async () => {
       const result = await addTable(newTable);
       if (result.success && result.table) {
-        setTables([...tables, result.table]);
         setNewTable("");
+        setShowAddModal(false);
+        await loadTables(true);
       } else {
         alert(result.error || "Failed to add table");
       }
     });
   };
 
-  const handleClearTable = async (id: string) => {
-    if (!confirm("Are you sure you want to clear this table? Make sure the bill is settled!")) return;
-    
-    // Optimistic UI
-    setTables(prev => prev.map(t => t.id === id ? { ...t, is_active: false, current_order_id: null, orders: null } : t));
+  const handleClearTable = async (id: string, tableNumber: string, total: number) => {
+    if (!confirm(`Confirm settle bill & close Table ${tableNumber} (₹${total.toLocaleString("en-IN")})?`)) {
+      return;
+    }
+
+    // Optimistic UI update
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, is_active: false, current_order_id: null, orders: null }
+          : t
+      )
+    );
+
     const result = await clearTable(id);
     if (!result.success) {
       loadTables();
       alert(result.error || "Failed to clear table");
+    } else {
+      loadTables();
     }
   };
 
-  const handleDeleteTable = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this table forever?")) return;
-    
-    setTables(prev => prev.filter(t => t.id !== id));
-    const result = await deleteTable(id);
+  const handleDeleteTable = async (table: RestaurantTable) => {
+    if (table.is_active) {
+      alert("Cannot delete an occupied table.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete Table ${table.table_number}?`)) return;
+
+    setTables((prev) => prev.filter((t) => t.id !== table.id));
+    const result = await deleteTable(table.id);
     if (!result.success) {
       loadTables();
       alert(result.error || "Failed to delete table");
+    } else {
+      loadTables();
     }
   };
 
@@ -82,12 +164,15 @@ export default function TablesBoard() {
       window.print();
     }, 100);
   };
-  
-  
+
   const handleConfirmMove = async () => {
     if (!moveModalOrder || !selectedTargetTable) return;
     setIsProcessing(true);
-    const result = await moveTable(moveModalOrder.orderId, moveModalOrder.oldTableNumber, selectedTargetTable);
+    const result = await moveTable(
+      moveModalOrder.orderId,
+      moveModalOrder.oldTableNumber,
+      selectedTargetTable
+    );
     setIsProcessing(false);
     if (result.success) {
       setMoveModalOrder(null);
@@ -100,11 +185,15 @@ export default function TablesBoard() {
 
   const handleConfirmMerge = async () => {
     if (!mergeModalOrder || !selectedTargetTable) return;
-    const targetTable = tables.find(t => t.table_number === selectedTargetTable);
+    const targetTable = tables.find((t) => t.table_number === selectedTargetTable);
     if (!targetTable || !targetTable.current_order_id) return;
-    
+
     setIsProcessing(true);
-    const result = await mergeTables(mergeModalOrder.orderId, targetTable.current_order_id, mergeModalOrder.sourceTableNumber);
+    const result = await mergeTables(
+      mergeModalOrder.orderId,
+      targetTable.current_order_id,
+      mergeModalOrder.sourceTableNumber
+    );
     setIsProcessing(false);
     if (result.success) {
       setMergeModalOrder(null);
@@ -118,7 +207,7 @@ export default function TablesBoard() {
   const openHistory = async (tableNumber: string) => {
     setHistoryModalTable(tableNumber);
     setLoadingHistory(true);
-    const { fetchTableHistory } = await import('./actions');
+    const { fetchTableHistory } = await import("./actions");
     const res = await fetchTableHistory(tableNumber);
     if (res.success && res.history) {
       setTableHistory(res.history);
@@ -126,206 +215,482 @@ export default function TablesBoard() {
     setLoadingHistory(false);
   };
 
-  if (loading) {
-    return <div className="p-8 text-center text-[#8799AF] font-bold">Loading tables...</div>;
-  }
+  const formatCurrency = (val: number) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
+
+  // Time elapsed helper
+  const getElapsedMinutes = (dateStr?: string) => {
+    if (!dateStr) return null;
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.max(0, Math.floor(diffMs / 60000));
+    return `${mins}m`;
+  };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto w-full relative">
-      
-      {/* Hide dashboard when printing */}
+    <div className="w-full max-w-[1380px] mx-auto px-2 sm:px-4 py-4 md:py-6">
       <div className="print:hidden">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-black text-[#0A1017] tracking-tight flex items-center gap-2">
-            <span className="text-[#E23744]">🍽️</span> Dine-In Tables
-          </h1>
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl" role="img" aria-label="table setting">🍽️</span>
+            <h1 className="text-2xl md:text-[28px] font-black text-[#0A1017] tracking-tight">
+              Tables
+            </h1>
+          </div>
         </div>
 
-        {/* Add Table Form */}
-        <div className="bg-white rounded-2xl border border-[#EAF0F6] shadow-sm overflow-hidden mb-8 max-w-md">
-          <div className="p-5 border-b border-[#EAF0F6] bg-[#F8FAFB]">
-            <h2 className="text-[14px] font-extrabold text-[#0A1017] mb-3">Add a new table</h2>
-            <form onSubmit={handleAddTable} className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Table Number (e.g., T1)"
-                value={newTable}
-                onChange={(e) => setNewTable(e.target.value)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#EAF0F6] bg-white text-[14px] font-bold text-[#0A1017] focus:border-[#0D6EFD] outline-none transition-all placeholder:text-[#A1B2C6]"
-                disabled={isAdding}
-              />
-              <button
-                type="submit"
-                disabled={isAdding || !newTable.trim()}
-                className="px-6 py-2.5 bg-[#0D6EFD] text-white text-[14px] font-extrabold rounded-xl hover:bg-[#0B5ED7] transition-colors disabled:opacity-50"
-              >
-                {isAdding ? "Adding..." : "Add"}
-              </button>
-            </form>
+        {/* 4 Colored KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
+          {/* Card 1: TABLES OPEN (Light Lavender) */}
+          <div className="bg-[#EEF2FF] border border-[#E0E7FF] rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-[104px]">
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#4F46E5]">
+              TABLES OPEN
+            </span>
+            <span className="text-[28px] sm:text-[32px] font-black text-[#4338CA] leading-none mt-2">
+              {metrics.open_tables}/{metrics.total_tables}
+            </span>
+          </div>
+
+          {/* Card 2: FOOD READY (Light Yellow) */}
+          <div className="bg-[#FEF9C3]/50 border border-[#FEF08A] rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-[104px]">
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#854D0E]">
+              FOOD READY
+            </span>
+            <span className="text-[28px] sm:text-[32px] font-black text-[#A16207] leading-none mt-2">
+              {metrics.food_ready}
+            </span>
+          </div>
+
+          {/* Card 3: DINE-IN WEEK (Light Sky) */}
+          <div className="bg-[#F0F9FF] border border-[#E0F2FE] rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-[104px]">
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#0369A1]">
+              DINE-IN WEEK
+            </span>
+            <span className="text-[28px] sm:text-[32px] font-black text-[#0284C7] leading-none mt-2">
+              {metrics.dine_in_week}
+            </span>
+          </div>
+
+          {/* Card 4: OPEN VALUE (Light Rose) */}
+          <div className="bg-[#FFF1F2] border border-[#FFE4E6] rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-[104px]">
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#BE123C]">
+              OPEN VALUE
+            </span>
+            <span className="text-[24px] sm:text-[28px] font-black text-[#E11D48] leading-none mt-2">
+              {formatCurrency(metrics.open_value)}
+            </span>
+          </div>
+        </div>
+
+        {/* Needs Attention Yellow Banner */}
+        {attentionTables.length > 0 && (
+          <div className="bg-[#FEFCE8] border border-[#FEF08A] rounded-2xl px-4 py-3 mb-5 flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-2 mr-2">
+              <span className="h-2 w-2 rounded-full bg-[#EAB308]"></span>
+              <span className="text-[13px] font-black text-[#854D0E]">
+                Needs attention
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {attentionTables.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    const el = document.getElementById(`table-card-${t.table_number}`);
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  className="px-3 py-1 rounded-full bg-white border border-[#FDE047] text-[12px] font-black text-[#047857] hover:bg-emerald-50 transition cursor-pointer shadow-2xs"
+                >
+                  Table {t.table_number} · Bill due
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Controls row: + Add table button and informational label */}
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#E23744] text-white font-extrabold text-[13px] hover:bg-[#D02633] transition shadow-sm cursor-pointer"
+            >
+              <Plus size={16} strokeWidth={3} />
+              <span>Add table</span>
+            </button>
+            <span className="text-[13px] font-bold text-[#64748B]">
+              {tables.length} tables · tables needing you float to the top
+            </span>
           </div>
         </div>
 
         {/* Tables Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {tables.map((table) => {
-            const isActive = table.is_active && table.orders;
-            const orderLink = typeof window !== "undefined" ? `${window.location.origin}/?table=${encodeURIComponent(table.table_number)}` : "";
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+          {sortedTables.map((table) => {
+            const isOccupied = table.is_active && table.orders;
+            const order = table.orders;
+            const elapsed = isOccupied ? getElapsedMinutes(order?.created_at) : null;
+            const rounds = isOccupied && order?.items_json
+              ? Array.from(new Set(order.items_json.map((i: any) => i.round || 1))).sort()
+              : [1];
 
             return (
-              <div 
-                key={table.id} 
-                className={`relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-all ${
-                  isActive ? "border-[#0D6EFD] ring-4 ring-[#0D6EFD]/10" : "border-[#EAF0F6]"
+              <div
+                key={table.id}
+                id={`table-card-${table.table_number}`}
+                className={`rounded-2xl border bg-white shadow-sm flex flex-col justify-between transition-all overflow-hidden ${
+                  isOccupied
+                    ? "border-[#86EFAC] ring-2 ring-[#22C55E]/15"
+                    : "border-[#E2E8F0]"
                 }`}
               >
-                <div className={`p-5 ${isActive ? "bg-[#F5F9FF]" : ""}`}>
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-black text-[#0A1017]">{table.table_number}</h3>
-                    {isActive ? (
-                      <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-extrabold text-green-800 uppercase tracking-widest">
-                        Occupied
+                <div>
+                  {/* Card Header */}
+                  <div className="p-4 pb-3 flex items-start justify-between border-b border-[#F1F5F9]">
+                    <div className="flex items-center gap-2.5">
+                      {/* Circle Number Badge */}
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-[15px] shrink-0 ${
+                          isOccupied
+                            ? "bg-[#6366F1] text-white"
+                            : "bg-[#F1F5F9] text-[#64748B]"
+                        }`}
+                      >
+                        {table.table_number}
+                      </div>
+                      <div>
+                        <h3 className="text-[15px] font-black text-[#0F172A] leading-tight">
+                          Table {table.table_number}
+                        </h3>
+                        <span className="text-[11px] font-bold text-[#94A3B8]">
+                          4 seats
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    {isOccupied ? (
+                      <span className="text-[10px] font-black tracking-wider uppercase text-[#16A34A] bg-[#DCFCE7] px-2.5 py-0.5 rounded-full border border-[#BBF7D0]">
+                        AWAITING PAYMENT
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-extrabold text-gray-600 uppercase tracking-widest">
-                        Available
+                      <span className="text-[10px] font-black tracking-wider uppercase text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full border border-[#E2E8F0]">
+                        AVAILABLE
                       </span>
                     )}
                   </div>
 
-                  {isActive ? (
-                    <div className="mb-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="text-[13px] text-[#8799AF] font-medium mb-0.5">
-                            {table.orders?.customer_name} • {table.orders?.customer_phone} • {table.orders?.items_json?.reduce((max: number, item: any) => Math.max(max, item.round || 1), 1)} round(s)
-                          </div>
+                  {/* Card Body */}
+                  <div className="p-4 pt-3.5">
+                    {isOccupied && order ? (
+                      <>
+                        {/* Customer Info & Time */}
+                        <div className="flex items-center justify-between text-[12px] font-bold text-[#475569] mb-3">
+                          <span className="truncate max-w-[150px]">
+                            {order.customer_name || "Dine-in Guest"}{" "}
+                            {order.customer_phone ? `· ${order.customer_phone}` : ""}
+                          </span>
+                          {elapsed && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#E11D48] bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100 shrink-0">
+                              ⏱ {elapsed}
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[16px] font-extrabold text-[#0A1017]">
-                          ₹{table.orders?.total}
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4 pt-3 border-t border-dashed border-[#EAF0F6]">
-                        {Array.from(new Set((table.orders?.items_json || []).map((item: any) => item.round || 1))).sort().map((roundNumber: any) => {
-                          const roundItems = (table.orders?.items_json || []).filter((item: any) => (item.round || 1) === roundNumber);
-                          const roundTotal = roundItems.reduce((sum: number, item: any) => sum + (item.price || item.unit_price) * item.quantity, 0);
-                          
-                          return (
-                            <div key={roundNumber} className="text-[13px]">
-                              <div className="font-bold text-[#0A1017] mb-1">
-                                Round {roundNumber} • {table.orders?.status.replace(/_/g, ' ')} • ₹{roundTotal}
-                              </div>
-                              <div className="text-[#6B7A90] font-medium">
-                                {roundItems.map((item: any, idx: number) => (
-                                  <div key={idx}>{item.item_name} {item.variant_name ? `(${item.variant_name})` : ''} x{item.quantity}</div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      
-                                            <div className="pt-4 mt-2 flex flex-col gap-2">
-                         <button 
-                            onClick={() => handleClearTable(table.id)}
-                            className="w-full py-2 bg-green-50 border border-green-200 text-green-700 font-bold text-[13px] rounded-lg hover:bg-green-100 transition-colors flex items-center justify-center gap-2"
-                          >
-                            <span className="text-green-600">💵</span> Close & pay • ₹{table.orders?.total}
-                         </button>
-                         <div className="flex gap-2">
-                           <button 
-                             onClick={() => typeof window !== 'undefined' && (window.location.href = '/dashboard/pos?append=' + table.orders?.id + '&table=' + table.table_number)}
-                             className="flex-1 py-2 bg-white border border-[#EAF0F6] text-[#0A1017] font-bold text-[13px] rounded-lg hover:bg-gray-50 transition-colors"
-                           >
-                             + Round
-                           </button>
-                           <button 
-                             onClick={() => setMoveModalOrder({ orderId: table.orders!.id, oldTableNumber: table.table_number })}
-                             className="flex-1 py-2 bg-white border border-[#EAF0F6] text-[#0A1017] font-bold text-[13px] rounded-lg hover:bg-gray-50 transition-colors"
-                           >
-                             Move
-                           </button>
-                           <button 
-                             onClick={() => setMergeModalOrder({ orderId: table.orders!.id, sourceTableNumber: table.table_number })}
-                             className="flex-1 py-2 bg-white border border-[#EAF0F6] text-[#0A1017] font-bold text-[13px] rounded-lg hover:bg-gray-50 transition-colors"
-                           >
-                             Merge
-                           </button>
-                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-4">
-                       <p className="text-[13px] font-medium text-[#8799AF]">No active orders for this table.</p>
-                    </div>
-                  )}
 
+                        {/* Order Rounds & Line Items */}
+                        <div className="space-y-3 mb-4 text-[13px]">
+                          {rounds.map((rndNum: any) => {
+                            const rndItems = (order.items_json || []).filter(
+                              (i: any) => (i.round || 1) === rndNum
+                            );
+                            const rndTotal = rndItems.reduce(
+                              (s: number, i: any) => s + (i.price || i.unit_price || 0) * (i.quantity || 1),
+                              0
+                            );
+
+                            return (
+                              <div key={rndNum} className="border-t border-dashed border-[#E2E8F0] pt-2.5">
+                                <div className="flex justify-between items-center text-[11px] font-black text-[#64748B] uppercase tracking-wide mb-1.5">
+                                  <span>Round {rndNum} · {order.status.replace(/_/g, " ")}</span>
+                                  <span className="text-[#0F172A] font-black">₹{rndTotal}</span>
+                                </div>
+                                <div className="space-y-1">
+                                  {rndItems.map((item: any, idx: number) => (
+                                    <div
+                                      key={idx}
+                                      className="flex justify-between items-center text-[12px] text-[#334155] font-bold"
+                                    >
+                                      <span className="truncate mr-2">
+                                        {item.item_name} {item.variant_name ? `(${item.variant_name})` : ""}{" "}
+                                        <span className="text-[#94A3B8]">×{item.quantity}</span>
+                                      </span>
+                                      <span className="text-[#0F172A] shrink-0">
+                                        ₹{(item.price || item.unit_price || 0) * (item.quantity || 1)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Running Total */}
+                        <div className="flex justify-between items-baseline pt-2.5 border-t border-[#E2E8F0] mb-3">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-[#64748B]">
+                            RUNNING TOTAL
+                          </span>
+                          <span className="text-[20px] font-black text-[#0F172A]">
+                            ₹{order.total}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      /* Free State */
+                      <div className="py-14 text-center">
+                        <p className="text-[13px] font-bold text-[#94A3B8]">
+                          Free — no open tab
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="bg-[#F8FAFB] p-3 border-t border-[#EAF0F6] flex gap-2">
-                  <button
-                    onClick={() => handlePrintQr(table)}
-                    className="flex-1 py-2 text-[12px] font-extrabold text-[#0A1017] border border-[#EAF0F6] bg-white rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    🖨️ Print QR
-                  </button>
-                  <button
-                    onClick={() => openHistory(table.table_number)}
-                    className="px-3 py-2 text-[12px] font-extrabold text-[#0A1017] border border-[#EAF0F6] bg-white rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    History
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTable(table.id)}
-                    className="px-3 py-2 text-[12px] font-extrabold text-[#C0392B] border border-red-100 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                  >
-                    Delete
-                  </button>
+                {/* Card Footer Actions */}
+                <div className="p-3 pt-0 space-y-2">
+                  {isOccupied && order ? (
+                    <>
+                      {/* Close & pay button (Green) */}
+                      <button
+                        type="button"
+                        onClick={() => handleClearTable(table.id, table.table_number, order.total)}
+                        className="w-full h-10 rounded-xl bg-[#DCFCE7] hover:bg-[#BBF7D0] border border-[#86EFAC] text-[#15803D] font-black text-[13px] transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        <span>💵 Close & pay · ₹{order.total}</span>
+                      </button>
+
+                      {/* 3 Secondary buttons: + Round, Move, Merge */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              window.location.href = `/dashboard/pos?append=${order.id}&table=${encodeURIComponent(
+                                table.table_number
+                              )}`;
+                            }
+                          }}
+                          className="h-8 rounded-lg border border-[#E2E8F0] bg-white text-[12px] font-extrabold text-[#334155] hover:bg-gray-50 transition shadow-2xs"
+                        >
+                          + Round
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMoveModalOrder({
+                              orderId: order.id,
+                              oldTableNumber: table.table_number,
+                            })
+                          }
+                          className="h-8 rounded-lg border border-[#E2E8F0] bg-white text-[12px] font-extrabold text-[#334155] hover:bg-gray-50 transition shadow-2xs"
+                        >
+                          Move
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMergeModalOrder({
+                              orderId: order.id,
+                              sourceTableNumber: table.table_number,
+                            })
+                          }
+                          className="h-8 rounded-lg border border-[#E2E8F0] bg-white text-[12px] font-extrabold text-[#334155] hover:bg-gray-50 transition shadow-2xs"
+                        >
+                          Merge
+                        </button>
+                      </div>
+
+                      {/* Utility link buttons: QR, History, Delete */}
+                      <div className="flex items-center justify-between pt-1 border-t border-[#F1F5F9] text-[11px] font-extrabold text-[#64748B]">
+                        <button
+                          type="button"
+                          onClick={() => handlePrintQr(table)}
+                          className="hover:text-[#0F172A] py-1 px-1.5 transition"
+                        >
+                          QR
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openHistory(table.table_number)}
+                          className="hover:text-[#0F172A] py-1 px-1.5 transition"
+                        >
+                          History
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTable(table)}
+                          className="text-red-500 hover:text-red-700 py-1 px-1.5 transition"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Start Order Button (Coral Red) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            window.location.href = `/dashboard/pos?table=${encodeURIComponent(
+                              table.table_number
+                            )}`;
+                          }
+                        }}
+                        className="w-full h-10 rounded-xl bg-[#E23744] hover:bg-[#D02633] text-white font-black text-[13px] transition shadow-md shadow-red-500/20 cursor-pointer"
+                      >
+                        Start order
+                      </button>
+
+                      {/* Utility link buttons: QR, History, Delete */}
+                      <div className="flex items-center justify-between pt-1 border-t border-[#F1F5F9] text-[11px] font-extrabold text-[#64748B]">
+                        <button
+                          type="button"
+                          onClick={() => handlePrintQr(table)}
+                          className="hover:text-[#0F172A] py-1 px-1.5 transition"
+                        >
+                          QR
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openHistory(table.table_number)}
+                          className="hover:text-[#0F172A] py-1 px-1.5 transition"
+                        >
+                          History
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTable(table)}
+                          className="text-red-500 hover:text-red-700 py-1 px-1.5 transition"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
-        
-        {tables.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl border border-[#EAF0F6]">
-            <span className="text-4xl mb-4 block">🪑</span>
-            <h3 className="text-lg font-black text-[#0A1017] mb-2">No tables found</h3>
-            <p className="text-[#8799AF] font-medium text-[14px]">Add your first table using the form above.</p>
+
+        {/* Empty State */}
+        {tables.length === 0 && !loading && (
+          <div className="text-center py-16 bg-white rounded-2xl border border-[#E2E8F0]">
+            <span className="text-4xl mb-3 block">🪑</span>
+            <h3 className="text-lg font-black text-[#0F172A] mb-1">No tables created yet</h3>
+            <p className="text-[14px] text-[#64748B] mb-4">
+              Add your first dine-in table to start managing tabs.
+            </p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-5 py-2.5 rounded-xl bg-[#E23744] text-white font-extrabold text-[13px] hover:bg-[#D02633] transition"
+            >
+              Add Table
+            </button>
           </div>
         )}
       </div>
 
-      
-      {moveModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A1017]/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-[#EAF0F6]">
-            <div className="p-6 border-b border-[#EAF0F6] bg-[#F8FAFB]">
-              <h2 className="text-xl font-black text-[#0A1017]">Move Table {moveModalOrder.oldTableNumber}</h2>
-              <p className="text-[13px] text-[#8799AF] mt-1 font-medium">Select an empty table to move this order to.</p>
-            </div>
-            <div className="p-6">
-              <select 
-                value={selectedTargetTable} 
-                onChange={e => setSelectedTargetTable(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] text-[14px] font-bold text-[#0A1017] focus:border-[#0D6EFD] outline-none transition-all"
+      {/* Add Table Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden border border-[#E2E8F0] animate-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex justify-between items-center">
+              <h2 className="text-lg font-black text-[#0F172A]">Add a new table</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:text-[#0F172A] hover:bg-gray-100 transition"
               >
-                <option value="">Select destination table...</option>
-                {tables.filter(t => !t.is_active && t.table_number !== moveModalOrder.oldTableNumber).map(t => (
-                  <option key={t.id} value={t.table_number}>{t.table_number}</option>
-                ))}
-              </select>
-              <div className="flex gap-3 mt-6">
-                <button 
-                  onClick={() => { setMoveModalOrder(null); setSelectedTargetTable(""); }}
-                  className="flex-1 py-3 bg-[#F8FAFB] border border-[#EAF0F6] text-[#6B7A90] font-bold text-[14px] rounded-xl hover:bg-gray-100 transition-colors"
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleAddTable} className="p-5">
+              <label className="block text-[13px] font-extrabold text-[#334155] mb-2">
+                Table Identifier / Number
+              </label>
+              <input
+                type="text"
+                autoFocus
+                placeholder="e.g. 1, 2, T3, Outdoor 1"
+                value={newTable}
+                onChange={(e) => setNewTable(e.target.value)}
+                disabled={isAdding}
+                className="w-full h-11 px-4 rounded-xl border border-[#CBD5E1] bg-white text-[14px] font-bold text-[#0F172A] focus:outline-none focus:border-[#E23744] focus:ring-2 focus:ring-[#E23744]/20 transition mb-5"
+              />
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 h-11 rounded-xl border border-[#E2E8F0] bg-white font-extrabold text-[13px] text-[#475569] hover:bg-gray-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
+                  type="submit"
+                  disabled={isAdding || !newTable.trim()}
+                  className="flex-1 h-11 rounded-xl bg-[#E23744] text-white font-extrabold text-[13px] hover:bg-[#D02633] transition shadow-md shadow-red-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isAdding ? "Adding..." : "Add Table"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Move Table Modal */}
+      {moveModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-[#E2E8F0] animate-in zoom-in-95 duration-150">
+            <div className="p-6 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+              <h2 className="text-xl font-black text-[#0F172A]">
+                Move Table {moveModalOrder.oldTableNumber}
+              </h2>
+              <p className="text-[13px] text-[#64748B] mt-1 font-medium">
+                Select an empty table to transfer this active tab to.
+              </p>
+            </div>
+            <div className="p-6">
+              <select
+                value={selectedTargetTable}
+                onChange={(e) => setSelectedTargetTable(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[#CBD5E1] bg-white text-[14px] font-bold text-[#0F172A] focus:border-[#E23744] outline-none transition"
+              >
+                <option value="">Select destination table...</option>
+                {tables
+                  .filter(
+                    (t) => !t.is_active && t.table_number !== moveModalOrder.oldTableNumber
+                  )
+                  .map((t) => (
+                    <option key={t.id} value={t.table_number}>
+                      Table {t.table_number} (Available)
+                    </option>
+                  ))}
+              </select>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setMoveModalOrder(null);
+                    setSelectedTargetTable("");
+                  }}
+                  className="flex-1 py-3 bg-white border border-[#E2E8F0] text-[#64748B] font-bold text-[14px] rounded-xl hover:bg-gray-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
                   onClick={handleConfirmMove}
                   disabled={!selectedTargetTable || isProcessing}
-                  className="flex-1 py-3 bg-[#0D6EFD] text-white font-bold text-[14px] rounded-xl hover:bg-[#0B5ED7] transition-colors disabled:opacity-50"
+                  className="flex-1 py-3 bg-[#E23744] text-white font-bold text-[14px] rounded-xl hover:bg-[#D02633] transition disabled:opacity-50 cursor-pointer shadow-md shadow-red-500/20"
                 >
                   {isProcessing ? "Moving..." : "Confirm Move"}
                 </button>
@@ -335,35 +700,49 @@ export default function TablesBoard() {
         </div>
       )}
 
+      {/* Merge Table Modal */}
       {mergeModalOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A1017]/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-[#EAF0F6]">
-            <div className="p-6 border-b border-[#EAF0F6] bg-[#F8FAFB]">
-              <h2 className="text-xl font-black text-[#0A1017]">Merge Table {mergeModalOrder.sourceTableNumber}</h2>
-              <p className="text-[13px] text-[#8799AF] mt-1 font-medium">Select an active table to merge into. This will transfer all items and close Table {mergeModalOrder.sourceTableNumber}.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-[#E2E8F0] animate-in zoom-in-95 duration-150">
+            <div className="p-6 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+              <h2 className="text-xl font-black text-[#0F172A]">
+                Merge Table {mergeModalOrder.sourceTableNumber}
+              </h2>
+              <p className="text-[13px] text-[#64748B] mt-1 font-medium">
+                Select an active table to merge into. This will combine all items and close Table {mergeModalOrder.sourceTableNumber}.
+              </p>
             </div>
             <div className="p-6">
-              <select 
-                value={selectedTargetTable} 
-                onChange={e => setSelectedTargetTable(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] text-[14px] font-bold text-[#0A1017] focus:border-[#0D6EFD] outline-none transition-all"
+              <select
+                value={selectedTargetTable}
+                onChange={(e) => setSelectedTargetTable(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[#CBD5E1] bg-white text-[14px] font-bold text-[#0F172A] focus:border-[#E23744] outline-none transition"
               >
                 <option value="">Select target table...</option>
-                {tables.filter(t => t.is_active && t.table_number !== mergeModalOrder.sourceTableNumber).map(t => (
-                  <option key={t.id} value={t.table_number}>{t.table_number} (₹{t.orders?.total})</option>
-                ))}
+                {tables
+                  .filter(
+                    (t) => t.is_active && t.table_number !== mergeModalOrder.sourceTableNumber
+                  )
+                  .map((t) => (
+                    <option key={t.id} value={t.table_number}>
+                      Table {t.table_number} (₹{t.orders?.total})
+                    </option>
+                  ))}
               </select>
               <div className="flex gap-3 mt-6">
-                <button 
-                  onClick={() => { setMergeModalOrder(null); setSelectedTargetTable(""); }}
-                  className="flex-1 py-3 bg-[#F8FAFB] border border-[#EAF0F6] text-[#6B7A90] font-bold text-[14px] rounded-xl hover:bg-gray-100 transition-colors"
+                <button
+                  onClick={() => {
+                    setMergeModalOrder(null);
+                    setSelectedTargetTable("");
+                  }}
+                  className="flex-1 py-3 bg-white border border-[#E2E8F0] text-[#64748B] font-bold text-[14px] rounded-xl hover:bg-gray-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleConfirmMerge}
                   disabled={!selectedTargetTable || isProcessing}
-                  className="flex-1 py-3 bg-[#0D6EFD] text-white font-bold text-[14px] rounded-xl hover:bg-[#0B5ED7] transition-colors disabled:opacity-50"
+                  className="flex-1 py-3 bg-[#E23744] text-white font-bold text-[14px] rounded-xl hover:bg-[#D02633] transition disabled:opacity-50 cursor-pointer shadow-md shadow-red-500/20"
                 >
                   {isProcessing ? "Merging..." : "Confirm Merge"}
                 </button>
@@ -373,66 +752,110 @@ export default function TablesBoard() {
         </div>
       )}
 
+      {/* History Modal */}
       {historyModalTable && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A1017]/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-[#EAF0F6]">
-            <div className="p-6 border-b border-[#EAF0F6] flex justify-between items-center bg-[#F8FAFB]">
-              <h2 className="text-xl font-black text-[#0A1017]">Order History - Table {historyModalTable}</h2>
-              <button onClick={() => setHistoryModalTable(null)} className="text-[#8799AF] hover:text-[#0A1017] font-bold text-lg px-2">✕</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-[#E2E8F0] animate-in zoom-in-95 duration-150">
+            <div className="p-6 border-b border-[#E2E8F0] flex justify-between items-center bg-[#F8FAFC]">
+              <h2 className="text-xl font-black text-[#0F172A]">
+                Order History — Table {historyModalTable}
+              </h2>
+              <button
+                onClick={() => setHistoryModalTable(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:text-[#0F172A] hover:bg-gray-100 transition"
+              >
+                <X size={18} />
+              </button>
             </div>
             <div className="p-6 overflow-y-auto flex-1">
               {loadingHistory ? (
-                <p className="text-[#8799AF] font-bold text-center py-8">Loading history...</p>
+                <p className="text-[#64748B] font-bold text-center py-8">Loading history...</p>
               ) : tableHistory.length > 0 ? (
-                <div className="space-y-4">
-                  {tableHistory.map((order) => (
-                    <div key={order.id} className="border border-[#EAF0F6] rounded-xl p-4 bg-white">
-                      <div className="flex justify-between items-start mb-3">
+                <div className="space-y-3">
+                  {tableHistory.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="border border-[#E2E8F0] rounded-xl p-4 bg-white shadow-2xs"
+                    >
+                      <div className="flex justify-between items-start mb-2">
                         <div>
-                          <span className="text-[14px] font-black text-[#0A1017]">{order.order_number}</span>
-                          <div className="text-[12px] font-bold text-[#8799AF] mt-0.5">{new Date(order.created_at).toLocaleString()}</div>
+                          <span className="text-[14px] font-black text-[#0F172A]">
+                            {ord.order_number}
+                          </span>
+                          <div className="text-[12px] font-bold text-[#94A3B8] mt-0.5">
+                            {new Date(ord.created_at).toLocaleString("en-IN")}
+                          </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-[15px] font-black text-[#0A1017]">₹{order.total}</div>
-                          <div className={`text-[11px] font-extrabold uppercase tracking-wider mt-1 ${order.status === 'delivered' ? 'text-green-600' : 'text-red-600'}`}>{order.status}</div>
+                          <div className="text-[16px] font-black text-[#0F172A]">
+                            ₹{ord.total}
+                          </div>
+                          <div
+                            className={`text-[10px] font-black uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full inline-block ${
+                              ord.status === "delivered"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-red-50 text-red-700 border border-red-200"
+                            }`}
+                          >
+                            {ord.status}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-[13px] text-[#6B7A90] font-medium pt-3 border-t border-dashed border-[#EAF0F6]">
-                        {order.customer_name ? `Customer: ${order.customer_name} (${order.customer_phone})` : "Dine-in Customer"}
+                      <div className="text-[12px] text-[#64748B] font-medium pt-2 border-t border-dashed border-[#F1F5F9]">
+                        {ord.customer_name
+                          ? `Guest: ${ord.customer_name} (${ord.customer_phone})`
+                          : "Dine-in Customer"}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-[#8799AF] font-bold text-center py-8">No past orders found for this table.</p>
+                <p className="text-[#94A3B8] font-bold text-center py-8">
+                  No past orders recorded for this table.
+                </p>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Print QR Code Template - Only visible during print */}
+      {/* Print QR Code Template (Only visible when printing) */}
       <div className="hidden print:flex flex-col items-center justify-center fixed inset-0 z-[99999] w-full h-full bg-white m-0 p-0">
-        <style dangerouslySetInnerHTML={{__html: `
-          @media print {
-            @page { margin: 0; }
-            body { margin: 0; -webkit-print-color-adjust: exact; }
-          }
-        `}} />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+            @media print {
+              @page { margin: 0; }
+              body { margin: 0; -webkit-print-color-adjust: exact; }
+            }
+          `,
+          }}
+        />
         {printTable && (
           <div className="w-[10cm] h-[15cm] border-[3px] border-[#0A1017] rounded-3xl flex flex-col items-center justify-between p-8 text-center bg-white shadow-2xl relative overflow-hidden">
-            
-            {/* Top Pattern Decor */}
-            <div className="absolute top-0 left-0 w-full h-32 bg-[#E23744]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 80%)'}}></div>
-            
+            <div
+              className="absolute top-0 left-0 w-full h-32 bg-[#E23744]"
+              style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 80%)" }}
+            ></div>
+
             <div className="relative z-10 w-full">
-              <h1 className="text-4xl font-black text-white tracking-tighter mb-1 uppercase">Pabbas</h1>
-              <p className="text-[12px] font-extrabold text-white/90 tracking-widest uppercase">Ideal Ice Cream</p>
+              <h1 className="text-4xl font-black text-white tracking-tighter mb-1 uppercase">
+                Pabbas
+              </h1>
+              <p className="text-[12px] font-extrabold text-white/90 tracking-widest uppercase">
+                Ideal Ice Cream
+              </p>
             </div>
-            
+
             <div className="relative z-10 mt-12 mb-4 bg-white p-4 rounded-3xl border-4 border-[#0A1017] shadow-xl">
-              <QRCodeSVG 
-                value={typeof window !== "undefined" ? `${window.location.origin}/?table=${encodeURIComponent(printTable.table_number)}` : ""}
+              <QRCodeSVG
+                value={
+                  typeof window !== "undefined"
+                    ? `${window.location.origin}/?table=${encodeURIComponent(
+                        printTable.table_number
+                      )}`
+                    : ""
+                }
                 size={200}
                 bgColor={"#ffffff"}
                 fgColor={"#0A1017"}
@@ -440,14 +863,16 @@ export default function TablesBoard() {
                 includeMargin={false}
               />
             </div>
-            
+
             <div className="relative z-10 mb-8 w-full">
               <h2 className="text-[32px] font-black text-[#0A1017] leading-none mb-2">
-                {printTable.table_number}
+                Table {printTable.table_number}
               </h2>
               <div className="w-16 h-1 bg-[#E23744] mx-auto rounded-full mb-4"></div>
-              <p className="text-[16px] font-extrabold text-[#6B7A90] uppercase tracking-widest leading-snug">
-                Scan with your phone<br/>to order & pay
+              <p className="text-[15px] font-extrabold text-[#64748B] uppercase tracking-widest leading-snug">
+                Scan with your phone
+                <br />
+                to order & pay
               </p>
             </div>
           </div>

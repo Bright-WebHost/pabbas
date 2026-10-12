@@ -1,7 +1,6 @@
 "use server";
 
 import { authorize } from "@/lib/auth/staff";
-
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type RestaurantTable = {
@@ -18,7 +17,16 @@ export type RestaurantTable = {
     items_json: any;
     customer_name: string | null;
     customer_phone: string | null;
+    created_at?: string;
   } | null;
+};
+
+export type TablesOverviewMetrics = {
+  open_tables: number;
+  total_tables: number;
+  food_ready: number;
+  dine_in_week: number;
+  open_value: number;
 };
 
 export async function fetchTables() {
@@ -27,6 +35,7 @@ export async function fetchTables() {
   try {
     const adminClient = createAdminClient();
     
+    // 1. Fetch tables
     const { data, error } = await adminClient
       .from("restaurant_tables")
       .select("*")
@@ -34,16 +43,15 @@ export async function fetchTables() {
 
     if (error) {
       if (error.code === '42P01') {
-        // Table doesn't exist yet
-        return { success: false, error: "Database not migrated yet. Please run the provided SQL script." };
+        return { success: false, error: "Database not migrated yet." };
       }
       throw error;
     }
 
-    // Fetch active dine-in orders dynamically to prevent sync issues
+    // 2. Fetch active dine-in orders
     const { data: activeOrders, error: activeOrdersError } = await adminClient
       .from("orders")
-      .select("id, total, status, items_json, customer_name, customer_phone, table_number")
+      .select("id, total, status, items_json, customer_name, customer_phone, table_number, created_at")
       .eq("order_type", "dine-in")
       .in("status", ["new", "preparing", "ready_for_pickup"]);
 
@@ -51,10 +59,23 @@ export async function fetchTables() {
       console.error("[fetchTables] Error fetching active orders:", activeOrdersError);
     }
 
-    const tables = (data as any[]).map(t => {
+    // 3. Fetch weekly dine-in count for the week metric
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
+
+    const { data: weekOrders } = await adminClient
+      .from("orders")
+      .select("id")
+      .eq("order_type", "dine-in")
+      .gte("created_at", startOfWeek.toISOString());
+
+    const activeList = activeOrders || [];
+
+    const tables = (data as any[]).map((t, idx) => {
       // Find active order for this table
-      // In case there are multiple, sort by created_at or just take the first
-      const activeOrder = activeOrders?.find((o: any) => o.table_number === t.table_number);
+      const activeOrder = activeList.find((o: any) => String(o.table_number).trim() === String(t.table_number).trim());
       
       return {
         ...t,
@@ -62,16 +83,29 @@ export async function fetchTables() {
         current_order_id: activeOrder ? activeOrder.id : null,
         orders: activeOrder ? {
           id: activeOrder.id,
-          total: activeOrder.total,
+          total: Number(activeOrder.total) || 0,
           status: activeOrder.status,
           items_json: activeOrder.items_json,
           customer_name: activeOrder.customer_name,
-          customer_phone: activeOrder.customer_phone
+          customer_phone: activeOrder.customer_phone,
+          created_at: activeOrder.created_at,
         } : null
       } as RestaurantTable;
     });
 
-    return { success: true, tables };
+    const openCount = tables.filter(t => t.is_active && t.orders).length;
+    const foodReadyCount = tables.filter(t => t.orders?.status === "ready_for_pickup").length;
+    const openValue = tables.reduce((sum, t) => sum + (t.orders?.total || 0), 0);
+
+    const metrics: TablesOverviewMetrics = {
+      open_tables: openCount,
+      total_tables: tables.length,
+      food_ready: foodReadyCount,
+      dine_in_week: weekOrders?.length || 0,
+      open_value: openValue,
+    };
+
+    return { success: true, tables, metrics };
   } catch (error: any) {
     console.error("[fetchTables] Error:", error);
     return { success: false, error: "Failed to fetch tables" };
@@ -83,12 +117,23 @@ export async function addTable(tableNumber: string) {
 
   try {
     const adminClient = createAdminClient();
-    // Use the raw table number for now, we'll generate the full URL dynamically on the client
-    // Or we could construct a path if we know the domain. For now, we will just use the table number as a param.
+    const cleanNumber = tableNumber.trim();
+
+    // Check if table already exists
+    const { data: existing } = await adminClient
+      .from("restaurant_tables")
+      .select("id")
+      .eq("table_number", cleanNumber)
+      .maybeSingle();
+
+    if (existing) {
+      return { success: false, error: `Table ${cleanNumber} already exists.` };
+    }
+
     const { data, error } = await adminClient
       .from("restaurant_tables")
       .insert([{ 
-        table_number: tableNumber.trim(),
+        table_number: cleanNumber,
         is_active: false
       }])
       .select()
@@ -107,6 +152,29 @@ export async function deleteTable(id: string) {
 
   try {
     const adminClient = createAdminClient();
+
+    // Check if table currently has an active order
+    const { data: table } = await adminClient
+      .from("restaurant_tables")
+      .select("table_number")
+      .eq("id", id)
+      .single();
+
+    if (table?.table_number) {
+      const { data: activeOrder } = await adminClient
+        .from("orders")
+        .select("id")
+        .eq("table_number", table.table_number)
+        .eq("order_type", "dine-in")
+        .in("status", ["new", "preparing", "ready_for_pickup"])
+        .limit(1)
+        .maybeSingle();
+
+      if (activeOrder) {
+        return { success: false, error: "Cannot delete table while an active order is seated." };
+      }
+    }
+
     const { error } = await adminClient.from("restaurant_tables").delete().eq("id", id);
     if (error) throw error;
     return { success: true };
@@ -142,7 +210,7 @@ export async function clearTable(id: string) {
         .in("status", ["new", "preparing", "ready_for_pickup"])
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
         
       if (activeOrder) {
         orderIdToClear = activeOrder.id;
@@ -164,7 +232,11 @@ export async function clearTable(id: string) {
     if (orderIdToClear) {
       const { data: order } = await adminClient
         .from("orders")
-        .update({ status: 'delivered' })
+        .update({ 
+          status: 'delivered',
+          is_collected: true,
+          updated_at: new Date().toISOString()
+        })
         .eq("id", orderIdToClear)
         .select("order_number")
         .single();
@@ -181,6 +253,7 @@ export async function clearTable(id: string) {
     return { success: false, error: "Failed to clear table" };
   }
 }
+
 export async function fetchTableHistory(tableNumber: string) {
   await authorize("tables");
 
@@ -204,7 +277,6 @@ export async function fetchTableHistory(tableNumber: string) {
   }
 }
 
-
 export async function moveTable(orderId: string, oldTableNumber: string, newTableNumber: string) {
   await authorize("tables");
 
@@ -218,14 +290,14 @@ export async function moveTable(orderId: string, oldTableNumber: string, newTabl
       .eq('table_number', newTableNumber)
       .eq('order_type', 'dine-in')
       .in('status', ['new', 'preparing', 'ready_for_pickup'])
-      .single();
+      .maybeSingle();
       
     if (activeOrder) return { success: false, error: 'Destination table is already occupied.' };
     
     // Update order
     const { error: orderError } = await adminClient
       .from('orders')
-      .update({ table_number: newTableNumber })
+      .update({ table_number: newTableNumber, updated_at: new Date().toISOString() })
       .eq('id', orderId);
       
     if (orderError) throw orderError;
@@ -268,7 +340,7 @@ export async function mergeTables(sourceOrderId: string, targetOrderId: string, 
       });
     }
     
-    const newTotal = targetOrder.total + sourceOrder.total;
+    const newTotal = (targetOrder.total || 0) + (sourceOrder.total || 0);
     
     const summaryMap = new Map<string, number>();
     for (const item of mergedItems) {
@@ -292,7 +364,7 @@ export async function mergeTables(sourceOrderId: string, targetOrderId: string, 
     }).eq('id', targetOrderId);
     
     // Mark Source Order as cancelled to remove from active
-    await adminClient.from('orders').update({ status: 'cancelled' }).eq('id', sourceOrderId);
+    await adminClient.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', sourceOrderId);
     
     // Clear the source table
     await adminClient.from('restaurant_tables').update({ is_active: false, current_order_id: null }).eq('table_number', sourceTableNumber);
