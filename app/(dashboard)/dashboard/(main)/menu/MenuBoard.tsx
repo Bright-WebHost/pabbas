@@ -29,6 +29,8 @@ export default function MenuBoard() {
   const [formNumber, setFormNumber] = useState("");
   const [formName, setFormName] = useState("");
   const [formCategory, setFormCategory] = useState("");
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [formPrice, setFormPrice] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
@@ -90,12 +92,18 @@ export default function MenuBoard() {
     }
   };
 
+  const existingCategories = Array.from(
+    new Set(items.map((i) => i.category).filter(c => Boolean(c) && c !== "Pinned ⭐"))
+  ).sort((a, b) => a.localeCompare(b));
+
   const openAddModal = () => {
     setModalMode("add");
     setEditingId(null);
     setFormNumber("");
     setFormName("");
-    setFormCategory("");
+    setFormCategory(existingCategories[0] || "");
+    setIsCustomCategory(false);
+    setNewCategoryName("");
     setFormPrice("");
     setFormDescription("");
     setFormImageUrl("");
@@ -110,7 +118,15 @@ export default function MenuBoard() {
     setEditingId(item.id);
     setFormNumber(item.item_number.toString());
     setFormName(item.item_name);
-    setFormCategory(item.category);
+    if (existingCategories.includes(item.category)) {
+      setFormCategory(item.category);
+      setIsCustomCategory(false);
+      setNewCategoryName("");
+    } else {
+      setFormCategory("__NEW__");
+      setIsCustomCategory(true);
+      setNewCategoryName(item.category || "");
+    }
     setFormPrice(item.price.toString());
     setFormDescription(item.description || "");
     setFormImageUrl(item.image_url || "");
@@ -139,6 +155,13 @@ export default function MenuBoard() {
       return;
     }
 
+    const finalCategory = (isCustomCategory ? newCategoryName : formCategory).trim();
+    if (!finalCategory) {
+      setFormError("Category is required. Please choose or enter a category name.");
+      setFormSaving(false);
+      return;
+    }
+
     let variantsJson = null;
     if (formVariants.trim()) {
       try {
@@ -153,7 +176,7 @@ export default function MenuBoard() {
     const payload = {
       item_number: itemNum,
       item_name: formName.trim(),
-      category: formCategory.trim(),
+      category: finalCategory,
       price: priceNum,
       available: formAvailable,
       description: formDescription.trim() || null,
@@ -373,8 +396,80 @@ export default function MenuBoard() {
                   <input required type="text" value={formName} onChange={e => setFormName(e.target.value)} className="w-full rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] px-4 py-3 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 focus:bg-white transition-all" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[12px] font-extrabold uppercase tracking-widest text-[#8799AF]">Category *</label>
-                  <input required type="text" value={formCategory} onChange={e => setFormCategory(e.target.value)} className="w-full rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] px-4 py-3 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 focus:bg-white transition-all" />
+                  <div className="flex items-center justify-between">
+                    <label className="text-[12px] font-extrabold uppercase tracking-widest text-[#8799AF]">Category *</label>
+                    {!isCustomCategory ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategory(true);
+                          setNewCategoryName("");
+                        }}
+                        className="text-[11px] font-bold text-[#E23744] hover:underline cursor-pointer"
+                      >
+                        + New
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategory(false);
+                          setFormCategory(existingCategories[0] || "");
+                        }}
+                        className="text-[11px] font-bold text-[#0D6EFD] hover:underline cursor-pointer"
+                      >
+                        ← Choose list
+                      </button>
+                    )}
+                  </div>
+
+                  {!isCustomCategory ? (
+                    <select
+                      required
+                      value={formCategory}
+                      onChange={(e) => {
+                        if (e.target.value === "__NEW__") {
+                          setIsCustomCategory(true);
+                          setNewCategoryName("");
+                        } else {
+                          setFormCategory(e.target.value);
+                        }
+                      }}
+                      className="w-full rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] px-4 py-3 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 focus:bg-white transition-all cursor-pointer"
+                    >
+                      <option value="" disabled>-- Select Category --</option>
+                      {existingCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                      <option value="__NEW__" className="font-bold text-[#E23744]">
+                        ➕ + Add New Category...
+                      </option>
+                    </select>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        required
+                        type="text"
+                        placeholder="New category name..."
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        autoFocus
+                        className="flex-1 rounded-xl border border-[#EAF0F6] bg-[#F8FAFB] px-4 py-3 text-sm font-semibold text-[#0A1017] outline-none focus:border-[#0D6EFD] focus:ring-2 focus:ring-[#0D6EFD]/10 focus:bg-white transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategory(false);
+                          setFormCategory(existingCategories[0] || "");
+                        }}
+                        className="rounded-xl px-3 py-2 text-xs font-bold text-[#6B7A90] hover:bg-[#F3F6F9] hover:text-[#0A1017] border border-[#EAF0F6] transition shrink-0"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[12px] font-extrabold uppercase tracking-widest text-[#8799AF]">Price (₹) *</label>
