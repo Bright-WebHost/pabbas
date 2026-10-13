@@ -1,16 +1,11 @@
 {
+  "updatedAt": "2026-10-13T05:20:26.239Z",
+  "createdAt": "2026-09-23T06:04:34.138Z",
   "id": "24IaEnLI3RCYU6da",
   "name": "Pabbas | Status Notifier",
   "description": null,
   "active": true,
-  "activeVersionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
-  "createdAt": "2026-09-23T06:04:34.138Z",
-  "updatedAt": "2026-09-30T06:09:23.318Z",
   "isArchived": false,
-  "versionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
-  "versionCounter": 120,
-  "sourceWorkflowId": null,
-  "triggerCount": 2,
   "nodes": [
     {
       "parameters": {
@@ -123,7 +118,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : { status: $json.status }) }}",
+        "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
         "options": {
           "timeout": 10000
         }
@@ -140,7 +135,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhookBody = $('Status Webhook').first().json.body || {};\n\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = \"\";\n  let skip = false;\n  let send_receipt = false;\n  let target_phone = order.customer_phone;\n  let message_type = 'text'; // Default to text, but could be 'interactive'\n  let interactive_button = null;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n  \n  switch(order.status) {\n    case 'preparing':\n      msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n      break;\n\n    case 'ready_for_pickup':\n      if (order.order_type === 'delivery') {\n        msg = `Your Pabbas order #${order.order_number} is ready and waiting for our delivery partner to pick it up! 🛵\\nIt will be out for delivery shortly. 😊`;\n      } else {\n        msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n      }\n      break;\n\n    case 'out_for_delivery':\n      msg = webhookBody.custom_message || order.custom_message || `Your Pabbas order #${order.order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n      break;\n\n    case 'delivered':\n      msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\\nHere is your receipt! Thank you for choosing Pabbas. ❤️`;\n      send_receipt = true;\n      break;\n\n    case 'completed':\n      msg = `Your Pabbas order #${order.order_number} is now completed. 🎉\\nHere is your receipt! Thank you for choosing Pabbas. ❤️`;\n      send_receipt = true;\n      break;\n\n    case 'cancelled':\n      const cancelReason = order.cancel_reason\n        ? `\\nReason: ${order.cancel_reason}`\n        : '';\n\n      msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n      break;\n      \n    case 'rider_assigned':\n      msg = webhookBody.whatsapp_message_text || order.whatsapp_message_text || `You have a new delivery from Pabbas. Order: ${order.order_number}`;\n      target_phone = order.rider_phone || webhookBody.rider_phone;\n      if (webhookBody.interactive_button || order.interactive_button) {\n         message_type = 'interactive';\n         interactive_button = webhookBody.interactive_button || order.interactive_button;\n      }\n      break;\n\n    default:\n      skip = true;\n  }\n  \n  // Enforce + for YCloud WhatsApp\n  if (target_phone && !target_phone.startsWith('+')) {\n    target_phone = '+' + target_phone;\n  }\n\n  item.json.phone = target_phone;\n  item.json.message = msg;\n  item.json.skip = skip;\n  item.json.send_receipt = send_receipt;\n  item.json.message_type = message_type;\n  item.json.interactive_button = interactive_button;\n}\n\nreturn $input.all();"
+        "jsCode": "const webhookBody = $('Status Webhook').first().json.body || {};\n\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = \"\";\n  let skip = false;\n  let send_receipt = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n  \n  // Restore all critical data from the webhook because \"Update Status\" strips it or returns empty for rider_assigned\n  const order_number = webhookBody.order_number || order.order_number;\n  const statusToUse = webhookBody.status || order.status;\n  const isRiderNotice = statusToUse === 'rider_assigned';\n  const target_phone = isRiderNotice\n    ? (webhookBody.rider_phone || order.rider_phone)\n    : (order.customer_phone || webhookBody.customer_phone);\n\n  const whatsapp_message_text = webhookBody.whatsapp_message_text || order.whatsapp_message_text;\n  const interactive_btn = webhookBody.interactive_button || order.interactive_button;\n  const cancel_reason = webhookBody.cancel_reason || order.cancel_reason;\n\n  let message_type = interactive_btn ? 'interactive' : 'text';\n  let interactive_button = interactive_btn || null;\n\n  switch(statusToUse) {\n    case 'preparing':\n      msg = `Your Pabbas order #${order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n      break;\n\n    case 'ready_for_pickup':\n      if (order.order_type === 'delivery' || webhookBody.order_type === 'delivery') {\n        msg = `Your Pabbas order #${order_number} is ready and waiting for our delivery partner to pick it up! 🛵\\nIt will be out for delivery shortly. 😊`;\n      } else {\n        msg = `Your Pabbas order #${order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n      }\n      break;\n\n    case 'out_for_delivery':\n      msg = webhookBody.custom_message || order.custom_message || `Your Pabbas order #${order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n      break;\n\n    case 'delivered':\n      msg = `Your Pabbas order #${order_number} has been delivered. 🎉\\nHere is your receipt! Thank you for choosing Pabbas. ❤️`;\n      send_receipt = true;\n      break;\n\n    case 'completed':\n      msg = `Your Pabbas order #${order_number} is now completed. 🎉\\nHere is your receipt! Thank you for choosing Pabbas. ❤️`;\n      send_receipt = true;\n      break;\n\n    case 'cancelled':\n      const reason = cancel_reason ? `\\nReason: ${cancel_reason}` : '';\n      msg = `Your Pabbas order #${order_number} has been cancelled.${reason}`;\n      break;\n      \n    case 'rider_assigned':\n      msg = whatsapp_message_text || `You have a new delivery from Pabbas. Order: ${order_number}`;\n      break;\n\n    default:\n      skip = true;\n  }\n  \n  let final_phone = target_phone ? String(target_phone).replace(/[^0-9]/g, '') : '';\n  if (final_phone && !final_phone.startsWith('91') && final_phone.length === 10) {\n    final_phone = '91' + final_phone;\n  }\n  if (final_phone) {\n    final_phone = '+' + final_phone;\n  } else {\n    skip = true;\n  }\n\n  // Update item.json with only what we need to send\n  item.json = {\n     order_number: order_number,\n     phone: final_phone,\n     message: msg,\n     skip: skip,\n     send_receipt: send_receipt,\n     message_type: message_type,\n     interactive_button: interactive_button\n  };\n}\n\nreturn $input.all();"
       },
       "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
       "name": "Build Message",
@@ -192,13 +187,13 @@
             },
             {
               "name": "X-API-Key",
-              "value": "d5502caecd15e608b38bb515f76d5f35"
+              "value": "6596d7172f705edbe0f0f104b3e2b9d6"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify((function() {\n  const req = {\n    from: \"+919180348124\",\n    to: $json.phone\n  };\n  \n  if ($json.send_receipt) {\n    req.type = 'image';\n    req.image = {\n      link: 'https://pabbas-one.vercel.app/api/receipt?order_number=' + $json.order_number,\n      caption: $json.message\n    };\n  } else if ($json.message_type === 'interactive') {\n    req.type = 'interactive';\n    req.interactive = {\n      type: 'button',\n      body: {\n        text: $json.message\n      },\n      action: {\n        buttons: [\n          {\n            type: 'reply',\n            reply: {\n              id: 'accept_' + $json.order_number,\n              title: $json.interactive_button\n            }\n          }\n        ]\n      }\n    };\n  } else {\n    req.type = 'text';\n    req.text = {\n      body: $json.message\n    };\n  }\n  \n  return req;\n})()) }}",
+        "jsonBody": "={{ JSON.stringify((function() {\n  const req = {\n    from: \"+919180348124\",\n    to: $json.phone\n  };\n  \n  if ($json.send_receipt) {\n    req.type = 'image';\n    req.image = {\n      link: 'https://pabbas-one.vercel.app/api/receipt?order_number=' + $json.order_number,\n      caption: $json.message\n    };\n  } else if ($json.message_type === 'interactive') {\n    req.type = 'interactive';\n    req.interactive = {\n      type: 'button',\n      body: { text: $json.message },\n      action: {\n        buttons: [\n          {\n            type: 'reply',\n            reply: {\n              id: 'accept_' + $json.order_number,\n              title: $json.interactive_button || 'Accept'\n            }\n          }\n        ]\n      }\n    };\n  } else {\n    req.type = 'text';\n    req.text = {\n      body: $json.message\n    };\n  }\n  \n  return req;\n})()) }}",
         "options": {
           "timeout": 15000
         }
@@ -333,9 +328,7 @@
             }
           },
           "timeout": 10000
-        },
-        "authentication": "none",
-        "nodeCredentialType": "httpCustomAuth"
+        }
       },
       "id": "acce89ad-93bb-417d-88d4-38897fba9075",
       "name": "Verify Staff",
@@ -441,7 +434,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nconst body = item.json.body || item.json;\n\nconst order_number = body.order_number || '';\nconst customer_phone = body.customer_phone || '';\nconst customer_name = body.customer_name || 'Valued Customer';\nconst order_type = body.order_type || 'delivery';\nconst items = body.items || [];\nconst total = body.total || 0;\n\n// Pass through the new rider fields!\nconst target = body.target || 'customer';\nconst rider_phone = body.rider_phone || '';\nconst rider_name = body.rider_name || '';\nconst whatsapp_message_text = body.whatsapp_message_text || '';\nconst interactive_button = body.interactive_button || '';\nconst status = body.status || '';\n\nreturn [{\n  json: {\n    order_number,\n    customer_phone,\n    customer_name,\n    order_type,\n    items,\n    total,\n    target,\n    rider_phone,\n    rider_name,\n    whatsapp_message_text,\n    interactive_button,\n    status\n  }\n}];"
+        "jsCode": "const item = $input.first();\nconst body = item.json.body || item.json;\n\nconst order_number = body.order_number || '';\nconst customer_phone = body.customer_phone || '';\nconst customer_name = body.customer_name || 'Valued Customer';\nconst order_type = body.order_type || 'delivery';\nconst items = body.items || [];\nconst total = body.total || 0;\n\nreturn [{\n  json: {\n    order_number,\n    customer_phone,\n    customer_name,\n    order_type,\n    items,\n    total\n  }\n}];"
       },
       "id": "521285bc-cc5d-435e-adfe-513f2d14ce92",
       "name": "Extract Order Data",
@@ -512,7 +505,7 @@
             },
             {
               "name": "X-API-Key",
-              "value": "d5502caecd15e608b38bb515f76d5f35"
+              "value": "6596d7172f705edbe0f0f104b3e2b9d6"
             }
           ]
         },
@@ -600,7 +593,7 @@
       "main": [
         [
           {
-            "node": "Verify Staff",
+            "node": "Extract Data",
             "type": "main",
             "index": 0
           }
@@ -801,12 +794,15 @@
       ]
     }
   },
-  "nodeGroups": [],
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
   "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
   "pinData": {
     "Status Webhook": [
       {
@@ -846,32 +842,16 @@
       }
     ]
   },
-  "meta": {
-    "templateCredsSetupCompleted": true
-  },
+  "versionId": "1aebd1c0-6332-4a40-974b-0e4dac09a0a1",
+  "activeVersionId": "1aebd1c0-6332-4a40-974b-0e4dac09a0a1",
+  "versionCounter": 143,
+  "triggerCount": 2,
+  "sourceWorkflowId": null,
   "tags": [],
-  "shared": [
-    {
-      "role": "workflow:owner",
-      "workflowId": "24IaEnLI3RCYU6da",
-      "projectId": "nA9h8O54aEZhDQ9B",
-      "project": {
-        "id": "nA9h8O54aEZhDQ9B",
-        "name": "Maithri Maithri <smaithri039@gmail.com>",
-        "type": "personal",
-        "icon": null,
-        "description": null,
-        "customTelemetryTags": [],
-        "creatorId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-09-09T06:43:52.178Z",
-        "updatedAt": "2026-09-09T06:45:10.777Z"
-      },
-      "createdAt": "2026-09-23T06:04:34.139Z",
-      "updatedAt": "2026-09-23T06:04:34.139Z"
-    }
-  ],
   "activeVersion": {
-    "versionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
+    "updatedAt": "2026-10-13T05:20:26.241Z",
+    "createdAt": "2026-10-13T05:20:26.241Z",
+    "versionId": "1aebd1c0-6332-4a40-974b-0e4dac09a0a1",
     "workflowId": "24IaEnLI3RCYU6da",
     "nodes": [
       {
@@ -985,7 +965,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : { status: $json.status }) }}",
+          "jsonBody": "={{ JSON.stringify($json.status === 'cancelled' ? { status: $json.status, cancelled_by: 'staff:' + $json.staff, cancelled_at: new Date().toISOString(), cancel_reason: $json.cancel_reason } : ($json.status === 'rider_assigned' ? {} : { status: $json.status })) }}",
           "options": {
             "timeout": 10000
           }
@@ -1002,7 +982,7 @@
       },
       {
         "parameters": {
-          "jsCode": "for (const item of $input.all()) {\n  const order = item.json;\n  let msg = \"\";\n  let skip = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n  \n  switch(order.status) {\n    case 'preparing':\n      msg = `Your Pabbas order #${order.order_number} is now being prepared. 👨‍🍳✨\nWe're getting everything ready for you!`;\n      break;\n\n    case 'ready_for_pickup':\n      msg = `Your Pabbas order #${order.order_number} is ready for pickup! 🎉\nYou can collect it at the counter whenever you're ready. 😊`;\n      break;\n\n    case 'out_for_delivery':\n      msg = `Your Pabbas order #${order.order_number} is on its way! 🛵💨\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n      break;\n\n    case 'delivered':\n      msg = `Your Pabbas order #${order.order_number} has been delivered. 🎉\nWe hope you enjoy your order! Thank you for choosing Pabbas. ❤️`;\n      break;\n\n    case 'cancelled':\n      const cancelReason = order.cancel_reason\n        ? `\\nReason: ${order.cancel_reason}`\n        : '';\n\n      msg = `Your Pabbas order #${order.order_number} has been cancelled.${cancelReason}`;\n      break;\n\n    default:\n      skip = true;\n  }\n  \n  item.json.phone = order.customer_phone;\n  item.json.message = msg;\n  item.json.skip = skip;\n}\n\nreturn $input.all();"
+          "jsCode": "const webhookBody = $('Status Webhook').first().json.body || {};\n\nfor (const item of $input.all()) {\n  const order = item.json;\n  let msg = \"\";\n  let skip = false;\n  let send_receipt = false;\n  \n  if (Array.isArray(order) && order.length > 0) {\n    Object.assign(order, order[0]);\n  }\n  \n  // Restore all critical data from the webhook because \"Update Status\" strips it or returns empty for rider_assigned\n  const order_number = webhookBody.order_number || order.order_number;\n  const statusToUse = webhookBody.status || order.status;\n  const isRiderNotice = statusToUse === 'rider_assigned';\n  const target_phone = isRiderNotice\n    ? (webhookBody.rider_phone || order.rider_phone)\n    : (order.customer_phone || webhookBody.customer_phone);\n\n  const whatsapp_message_text = webhookBody.whatsapp_message_text || order.whatsapp_message_text;\n  const interactive_btn = webhookBody.interactive_button || order.interactive_button;\n  const cancel_reason = webhookBody.cancel_reason || order.cancel_reason;\n\n  let message_type = interactive_btn ? 'interactive' : 'text';\n  let interactive_button = interactive_btn || null;\n\n  switch(statusToUse) {\n    case 'preparing':\n      msg = `Your Pabbas order #${order_number} is now being prepared. 👨‍🍳✨\\nWe're getting everything ready for you!`;\n      break;\n\n    case 'ready_for_pickup':\n      if (order.order_type === 'delivery' || webhookBody.order_type === 'delivery') {\n        msg = `Your Pabbas order #${order_number} is ready and waiting for our delivery partner to pick it up! 🛵\\nIt will be out for delivery shortly. 😊`;\n      } else {\n        msg = `Your Pabbas order #${order_number} is ready for pickup! 🎉\\nYou can collect it at the counter whenever you're ready. 😊`;\n      }\n      break;\n\n    case 'out_for_delivery':\n      msg = webhookBody.custom_message || order.custom_message || `Your Pabbas order #${order_number} is on its way! 🛵💨\\nIt won't be long now. Enjoy your treats! 🍨❤️`;\n      break;\n\n    case 'delivered':\n      msg = `Your Pabbas order #${order_number} has been delivered. 🎉\\nHere is your receipt! Thank you for choosing Pabbas. ❤️`;\n      send_receipt = true;\n      break;\n\n    case 'completed':\n      msg = `Your Pabbas order #${order_number} is now completed. 🎉\\nHere is your receipt! Thank you for choosing Pabbas. ❤️`;\n      send_receipt = true;\n      break;\n\n    case 'cancelled':\n      const reason = cancel_reason ? `\\nReason: ${cancel_reason}` : '';\n      msg = `Your Pabbas order #${order_number} has been cancelled.${reason}`;\n      break;\n      \n    case 'rider_assigned':\n      msg = whatsapp_message_text || `You have a new delivery from Pabbas. Order: ${order_number}`;\n      break;\n\n    default:\n      skip = true;\n  }\n  \n  let final_phone = target_phone ? String(target_phone).replace(/[^0-9]/g, '') : '';\n  if (final_phone && !final_phone.startsWith('91') && final_phone.length === 10) {\n    final_phone = '91' + final_phone;\n  }\n  if (final_phone) {\n    final_phone = '+' + final_phone;\n  } else {\n    skip = true;\n  }\n\n  // Update item.json with only what we need to send\n  item.json = {\n     order_number: order_number,\n     phone: final_phone,\n     message: msg,\n     skip: skip,\n     send_receipt: send_receipt,\n     message_type: message_type,\n     interactive_button: interactive_button\n  };\n}\n\nreturn $input.all();"
         },
         "id": "933cf180-b7ce-40c7-934a-4de09f5d6348",
         "name": "Build Message",
@@ -1054,13 +1034,13 @@
               },
               {
                 "name": "X-API-Key",
-                "value": "d5502caecd15e608b38bb515f76d5f35"
+                "value": "6596d7172f705edbe0f0f104b3e2b9d6"
               }
             ]
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({\n  from: \"+919180348124\",\n  to: $json.phone,\n  type: \"text\",\n  text: {\n    body: $json.message\n  }\n}) }}",
+          "jsonBody": "={{ JSON.stringify((function() {\n  const req = {\n    from: \"+919180348124\",\n    to: $json.phone\n  };\n  \n  if ($json.send_receipt) {\n    req.type = 'image';\n    req.image = {\n      link: 'https://pabbas-one.vercel.app/api/receipt?order_number=' + $json.order_number,\n      caption: $json.message\n    };\n  } else if ($json.message_type === 'interactive') {\n    req.type = 'interactive';\n    req.interactive = {\n      type: 'button',\n      body: { text: $json.message },\n      action: {\n        buttons: [\n          {\n            type: 'reply',\n            reply: {\n              id: 'accept_' + $json.order_number,\n              title: $json.interactive_button || 'Accept'\n            }\n          }\n        ]\n      }\n    };\n  } else {\n    req.type = 'text';\n    req.text = {\n      body: $json.message\n    };\n  }\n  \n  return req;\n})()) }}",
           "options": {
             "timeout": 15000
           }
@@ -1195,9 +1175,7 @@
               }
             },
             "timeout": 10000
-          },
-          "authentication": "none",
-          "nodeCredentialType": "httpCustomAuth"
+          }
         },
         "id": "acce89ad-93bb-417d-88d4-38897fba9075",
         "name": "Verify Staff",
@@ -1374,7 +1352,7 @@
               },
               {
                 "name": "X-API-Key",
-                "value": "d5502caecd15e608b38bb515f76d5f35"
+                "value": "6596d7172f705edbe0f0f104b3e2b9d6"
               }
             ]
           },
@@ -1462,7 +1440,7 @@
         "main": [
           [
             {
-              "node": "Verify Staff",
+              "node": "Extract Data",
               "type": "main",
               "index": 0
             }
@@ -1668,16 +1646,14 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-09-30T06:09:23.321Z",
-    "updatedAt": "2026-09-30T06:09:23.321Z",
     "workflowPublishHistory": [
       {
-        "id": 248,
+        "createdAt": "2026-10-13T05:20:26.445Z",
+        "id": 574,
         "workflowId": "24IaEnLI3RCYU6da",
-        "versionId": "8f21a7cc-da8e-45dd-8647-6afeb7110084",
+        "versionId": "1aebd1c0-6332-4a40-974b-0e4dac09a0a1",
         "event": "activated",
-        "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b",
-        "createdAt": "2026-09-30T06:09:23.538Z"
+        "userId": "a6b577b3-383e-47f7-b7cf-1c086a15eb7b"
       }
     ]
   }

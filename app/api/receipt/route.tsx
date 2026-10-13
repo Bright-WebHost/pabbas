@@ -24,7 +24,15 @@ export async function GET(request: NextRequest) {
       return new Response('Order not found', { status: 404 })
     }
 
-    const items = order.order_items || []
+    const rawItems = (order.order_items && order.order_items.length > 0)
+      ? order.order_items
+      : (Array.isArray(order.items_json) ? order.items_json : [])
+    const items = rawItems.map((item: any, idx: number) => ({
+      id: item.id || `item-${idx}`,
+      item_name: item.item_name || item.name || 'Item',
+      quantity: Number(item.quantity) || 1,
+      unit_price: Number(item.unit_price || item.price || 0)
+    }))
     
     // Format date nicely
     const date = new Date(order.created_at).toLocaleString('en-IN', {

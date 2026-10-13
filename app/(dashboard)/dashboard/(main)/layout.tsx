@@ -30,9 +30,7 @@ export default async function DashboardLayout({
     <StaffProvider staff={staff}>
       <OrderManagerProvider initialOrders={initialOrders}>
       <div className="flex min-h-screen bg-[#F8FAFB] text-[#0A1017]">
-        <div className="print:hidden">
-          <Sidebar />
-        </div>
+        <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <div className="print:hidden">
             <Header />

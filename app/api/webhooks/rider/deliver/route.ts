@@ -60,7 +60,6 @@ export async function POST(request: Request) {
       order_type: order.order_type,
       customer_name: order.customer_name || "Guest",
       customer_phone: order.customer_phone,
-      rider_phone: order.customer_phone, // HACK: Force n8n to send to customer instead of rider
       custom_message: customMessage,
       whatsapp_message_text: customMessage,
       items: itemsArr.map((item: any) => ({
