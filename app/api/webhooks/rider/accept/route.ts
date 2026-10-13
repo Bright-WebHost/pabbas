@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     // 7. Send Delivery Completion options to Rider via direct YCloud API
     const riderDeliveryMessage = `✅ You have accepted Order ${order.order_number}.\n\nWhen you complete the delivery, please select whether payment was collected:`;
     
-    const ycloudApiKey = process.env.YCLOUD_API_KEY || "d5502caecd15e608b38bb515f76d5f35";
+    const ycloudApiKey = process.env.YCLOUD_API_KEY || "";
     
     let cleanPhone = (order.rider_phone || '').replace(/[^0-9]/g, '');
     if (cleanPhone.length === 10) {
