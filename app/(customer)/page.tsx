@@ -268,9 +268,13 @@ export default function Home() {
       </nav>
 
       <main className="w-full" id="menu-list">
-        <section className="pt-6">
-          <h2 className="text-xl font-extrabold mb-4 px-4 text-gray-800">{category === "All" ? "Recommended" : category}</h2>
-          <div className="flex flex-col">
+        <section className="pt-4 pb-12">
+          <div className="px-4 mb-3 flex items-center justify-between">
+            <h2 className="text-[15px] font-bold text-gray-800">
+              {category === "All" ? `Items (${visibleItems.length})` : `${category} (${visibleItems.length})`}
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 px-3.5 sm:grid-cols-3">
             {visibleItems.map((item) => (
               <ProductCard key={item.id} item={item} quantity={quantityFor(item.id)} onAdd={addToCart} onChange={changeQuantity} onDetails={setSelectedItem} />
             ))}
@@ -292,9 +296,14 @@ export default function Home() {
         </section>
       </main>
 
-      {/* Floating Menu Button */}
-      <button onClick={() => setMenuMenuOpen(true)} className="fixed bottom-[88px] right-4 sm:absolute sm:bottom-24 sm:right-4 z-40 bg-[#252525] text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-xl shadow-black/20 border border-gray-700">
-        <Utensils size={15} /> Menu
+      {/* Floating Items Menu Button */}
+      <button 
+        onClick={() => setMenuMenuOpen(true)} 
+        className="fixed bottom-[84px] right-4 sm:absolute sm:bottom-24 sm:right-4 z-40 w-14 h-14 rounded-full bg-[#111111] text-white flex flex-col items-center justify-center shadow-2xl shadow-black/40 border border-gray-800 active:scale-95 transition-transform"
+        aria-label="View Menu Items"
+      >
+        <Utensils size={17} strokeWidth={2.2} className="opacity-90 mb-0.5" />
+        <span className="text-[9px] font-black tracking-wider uppercase">ITEMS</span>
       </button>
 
       {/* Floating Cart Bar */}
@@ -418,43 +427,100 @@ function Welcome({ orderType, setOrderType }: { orderType: OrderType; setOrderTy
 }
 
 function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: MenuItem; quantity: number; onAdd: (item: MenuItem, amount?: number) => void; onChange: (id: string, delta: number) => void; onDetails: (item: MenuItem) => void; }) { 
-  return <article onClick={() => item.options ? onDetails(item) : null} className={`flex gap-4 bg-white w-full py-5 px-4 border-b border-gray-100 ${item.options ? 'cursor-pointer' : ''} hover:bg-gray-50/50 transition duration-300`}>
-    <div className="flex-1 min-w-0 pr-2 pt-1">
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[3px] ${item.vegetarian !== false ? 'border-green-600' : 'border-red-700'}`}>
-          <span className={`w-2 h-2 rounded-full ${item.vegetarian !== false ? 'bg-green-600' : 'bg-red-700'}`}></span>
-        </span>
-        {item.is_pinned && <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-amber-200 flex items-center gap-1"><Star size={10} fill="currentColor" /> Pinned</span>}
-        {item.badge && <span className="bg-[#fff0f1] text-[#ef4f5f] px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-[#ffc9ce]">{item.badge}</span>}
-      </div>
-      <h3 className="font-extrabold text-gray-900 text-[18px] leading-tight mb-2 tracking-tight">{item.name}</h3>
-      <div className="flex items-center gap-2 mb-2.5">
-         <span className="font-extrabold text-gray-900 text-[16px]">{money(item.price)}</span>
-         {item.price > 150 && <span className="text-gray-400 text-[13px] line-through font-medium">{money(item.price + 100)}</span>}
-      </div>
-      {item.description && <p className="text-gray-500 text-[13px] line-clamp-2 leading-[1.5] font-medium">{item.description}</p>}
-    </div>
-    
-    <div className="relative w-[140px] shrink-0 flex flex-col items-center justify-center pb-3">
-      <div className="w-[140px] h-[140px] rounded-[24px] overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.08)] border border-gray-100">
-        <img src={item.image} alt={item.name} className="w-full h-full object-cover transform hover:scale-105 transition duration-500" />
-      </div>
-      
-      <div className="absolute -bottom-1 w-[120px] z-10">
-        {quantity > 0 ? (
-          <div className="flex items-center justify-between bg-[#ef4f5f] text-white rounded-xl h-[40px] shadow-lg shadow-red-500/30 px-3 font-bold" onClick={e => e.stopPropagation()}>
-            <button onClick={() => onChange(item.id, -1)} className="p-1 h-full flex items-center active:scale-90 transition"><Minus size={18} strokeWidth={3} /></button>
-            <span className="text-[16px]">{quantity}</span>
-            <button onClick={() => onChange(item.id, 1)} className="p-1 h-full flex items-center active:scale-90 transition"><Plus size={18} strokeWidth={3} /></button>
-          </div>
-        ) : (
-          <button onClick={(e) => { e.stopPropagation(); item.options ? onDetails(item) : onAdd(item); }} className="w-full bg-white text-[#ef4f5f] border-[1.5px] border-[#ef4f5f] shadow-xl shadow-red-500/10 rounded-xl h-[40px] font-extrabold text-[16px] tracking-wide flex justify-center items-center gap-1 hover:bg-[#fff0f1] active:scale-95 transition-all">
-            ADD <Plus size={16} strokeWidth={3} />
-          </button>
+  const isVeg = item.vegetarian !== false;
+  const originalPrice = item.price > 120 ? Math.round(item.price * 1.35) : null;
+
+  return (
+    <article 
+      onClick={() => item.options ? onDetails(item) : null} 
+      className={`flex flex-col bg-white rounded-2xl p-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-gray-100 hover:shadow-md transition duration-200 ${item.options ? 'cursor-pointer' : ''}`}
+    >
+      {/* 1. Image & Badges */}
+      <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-gray-50 mb-2">
+        <img 
+          src={item.image} 
+          alt={item.name} 
+          className="w-full h-full object-cover transform hover:scale-105 transition duration-500" 
+          loading="lazy"
+        />
+        {item.badge && (
+          <span className="absolute top-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow-sm tracking-wider">
+            {item.badge}
+          </span>
         )}
       </div>
-    </div>
-  </article> 
+
+      {/* 2. Metadata: Veg dot + Bestseller */}
+      <div className="flex items-center gap-1.5 mb-1 min-h-[18px]">
+        <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] shrink-0 ${isVeg ? 'border-green-600' : 'border-red-700'}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-700'}`}></span>
+        </span>
+        {(item.is_pinned || item.featured) && (
+          <span className="text-[#e23744] text-[11px] font-bold flex items-center gap-0.5 tracking-tight">
+            ★ Bestseller
+          </span>
+        )}
+      </div>
+
+      {/* 3. Title */}
+      <h3 className="font-extrabold text-gray-900 text-[14px] leading-snug line-clamp-2 min-h-[36px] mb-1 tracking-tight">
+        {item.name}
+      </h3>
+
+      {/* Optional Description / Subtext */}
+      {item.description && (
+        <p className="text-[11px] text-amber-900/80 font-medium line-clamp-1 mb-2">
+          {item.description}
+        </p>
+      )}
+
+      {/* 4. Price & ADD Action */}
+      <div className="mt-auto pt-2 flex items-end justify-between gap-1.5">
+        <div className="flex flex-col">
+          {originalPrice && (
+            <span className="text-gray-400 text-[11px] line-through font-semibold leading-none mb-1">
+              {money(originalPrice)}
+            </span>
+          )}
+          <span className="bg-[#ffd700] text-black font-black text-[13px] px-1.5 py-0.5 rounded leading-none inline-block shadow-sm">
+            {money(item.price)}
+          </span>
+        </div>
+
+        <div className="shrink-0" onClick={e => e.stopPropagation()}>
+          {quantity > 0 ? (
+            <div className="flex items-center justify-between bg-emerald-700 text-white rounded-lg h-[34px] px-1.5 min-w-[76px] shadow-sm font-extrabold text-[13px]">
+              <button 
+                onClick={() => onChange(item.id, -1)} 
+                className="p-1 h-full flex items-center justify-center active:scale-90 transition"
+                aria-label="Decrease quantity"
+              >
+                <Minus size={14} strokeWidth={3} />
+              </button>
+              <span className="px-1 text-[13px]">{quantity}</span>
+              <button 
+                onClick={() => onChange(item.id, 1)} 
+                className="p-1 h-full flex items-center justify-center active:scale-90 transition"
+                aria-label="Increase quantity"
+              >
+                <Plus size={14} strokeWidth={3} />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                item.options ? onDetails(item) : onAdd(item); 
+              }} 
+              className="h-[34px] px-4 min-w-[76px] bg-white text-emerald-700 border-[1.5px] border-emerald-600 rounded-lg font-black text-[13px] tracking-wide shadow-sm hover:bg-emerald-50 active:scale-95 transition-all flex items-center justify-center"
+            >
+              ADD
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, onChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; onChange: (id: string, delta: number) => void; onCheckout: () => void }) { 
