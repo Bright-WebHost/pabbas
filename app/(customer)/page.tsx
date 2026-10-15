@@ -340,7 +340,16 @@ export default function Home() {
       
       <AnimatePresence>
         {notice && <motion.div key="notice" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 bg-[#252525] text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg whitespace-nowrap">{notice}</motion.div>}
-        {selectedItem && <ProductDetails key="details" item={selectedItem} onClose={() => setSelectedItem(null)} onAdd={(item, amount) => { addToCart(item, amount); setSelectedItem(null); }} />}
+        {selectedItem && (
+          <ProductDetails 
+            key="details" 
+            item={selectedItem} 
+            quantity={quantityFor(selectedItem.id)} 
+            onClose={() => setSelectedItem(null)} 
+            onAdd={(item, amount) => addToCart(item, amount)} 
+            onChange={changeQuantity} 
+          />
+        )}
         {cartOpen && <div key="cart" className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end sm:items-center sm:p-5">
           <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="max-h-[85vh] w-full sm:max-w-md overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-gray-50 p-5 pb-24 relative">
             <div className="mb-4 flex items-center justify-between sticky top-0 bg-gray-50 z-10 py-2 border-b border-gray-200">
@@ -432,8 +441,8 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
 
   return (
     <article 
-      onClick={() => item.options ? onDetails(item) : null} 
-      className={`flex flex-col bg-white rounded-2xl p-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-gray-100 hover:shadow-md transition duration-200 ${item.options ? 'cursor-pointer' : ''}`}
+      onClick={() => onDetails(item)} 
+      className="flex flex-col bg-white rounded-2xl p-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-gray-100 hover:shadow-md transition duration-200 cursor-pointer"
     >
       {/* 1. Image & Badges */}
       <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-gray-50 mb-2">
@@ -599,36 +608,125 @@ function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, onCha
   </div> 
 }
 
-function ProductDetails({ item, onClose, onAdd }: { item: MenuItem; onClose: () => void; onAdd: (item: MenuItem, amount?: number) => void }) { 
-  const [quantity, setQuantity] = useState(1); 
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-5">
-    <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl overflow-hidden relative pb-4">
-      <button onClick={onClose} aria-label="Close details" className="absolute right-4 top-4 z-10 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center backdrop-blur"><X size={16} /></button>
-      <img src={item.image} alt={item.name} className="w-full h-64 object-cover" />
-      <div className="p-6">
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className={`w-4 h-4 border-[1.5px] flex items-center justify-center rounded-[2px] ${item.vegetarian !== false ? 'border-green-600' : 'border-red-700'}`}>
-            <span className={`w-2 h-2 rounded-full ${item.vegetarian !== false ? 'bg-green-600' : 'bg-red-700'}`}></span>
-          </span>
-          <p className="text-xs font-bold text-gray-500 uppercase">{item.category}</p>
+function ProductDetails({ 
+  item, 
+  quantity, 
+  onClose, 
+  onAdd, 
+  onChange 
+}: { 
+  item: MenuItem; 
+  quantity: number; 
+  onClose: () => void; 
+  onAdd: (item: MenuItem, amount?: number) => void; 
+  onChange: (id: string, delta: number) => void; 
+}) { 
+  const isVeg = item.vegetarian !== false;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-5" onClick={onClose}>
+      <motion.div 
+        initial={{ y: "100%", opacity: 0 }} 
+        animate={{ y: 0, opacity: 1 }} 
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", damping: 30, stiffness: 350 }}
+        className="w-full max-w-lg bg-white rounded-t-[32px] sm:rounded-3xl overflow-visible relative shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Floating Close Button Above Sheet */}
+        <button 
+          onClick={onClose} 
+          aria-label="Close details" 
+          className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 w-10 h-10 bg-[#333333] hover:bg-[#1a1a1a] text-white rounded-full flex items-center justify-center shadow-xl active:scale-90 transition-transform"
+        >
+          <X size={20} strokeWidth={2.5} />
+        </button>
+
+        {/* Modal Inner Content */}
+        <div className="overflow-hidden rounded-t-[32px] sm:rounded-3xl">
+          {/* Hero Image */}
+          <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+            <img 
+              src={item.image} 
+              alt={item.name} 
+              className="w-full h-full object-cover" 
+            />
+            {item.badge && (
+              <span className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-sm text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-sm tracking-wider">
+                {item.badge}
+              </span>
+            )}
+          </div>
+
+          {/* Details Body */}
+          <div className="p-5 pb-8 sm:pb-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                {/* Veg / Non-veg dot + Bestseller */}
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] shrink-0 ${isVeg ? 'border-green-600' : 'border-red-700'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-700'}`}></span>
+                  </span>
+                  {(item.is_pinned || item.featured) && (
+                    <span className="text-[#e23744] text-[12px] font-bold flex items-center gap-0.5 tracking-tight">
+                      ★ Bestseller
+                    </span>
+                  )}
+                </div>
+
+                {/* Title */}
+                <h2 className="text-[20px] font-extrabold text-gray-900 leading-tight tracking-tight">
+                  {item.name}
+                </h2>
+
+                {/* Price */}
+                <div className="text-[18px] font-black text-gray-900 mt-1">
+                  {money(item.price)}
+                </div>
+              </div>
+
+              {/* Action: ADD Button / Stepper */}
+              <div className="shrink-0 pt-1">
+                {quantity > 0 ? (
+                  <div className="flex items-center justify-between bg-emerald-700 text-white rounded-xl h-11 px-3 min-w-[110px] shadow-sm font-extrabold text-[15px]">
+                    <button 
+                      onClick={() => onChange(item.id, -1)} 
+                      className="p-1 h-full flex items-center justify-center active:scale-90 transition"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={16} strokeWidth={3} />
+                    </button>
+                    <span className="px-2 text-[15px]">{quantity}</span>
+                    <button 
+                      onClick={() => onChange(item.id, 1)} 
+                      className="p-1 h-full flex items-center justify-center active:scale-90 transition"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={16} strokeWidth={3} />
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => onAdd(item)} 
+                    className="h-11 px-7 min-w-[110px] bg-white text-emerald-700 border-2 border-emerald-600 rounded-xl font-black text-[14px] tracking-wide shadow-sm hover:bg-emerald-50 active:scale-95 transition-all flex items-center justify-center"
+                  >
+                    ADD
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Description */}
+            {item.description && (
+              <p className="mt-4 text-[13.5px] text-gray-600 leading-relaxed font-normal">
+                {item.description}
+              </p>
+            )}
+          </div>
         </div>
-        <h2 className="text-[22px] font-extrabold text-gray-900 leading-tight">{item.name}</h2>
-        <p className="mt-2 text-[14px] text-gray-500 leading-[1.5]">{item.description}</p>
-        
-        <div className="mt-6 pt-6 border-t border-gray-100">
-           <div className="flex items-center justify-between mb-4">
-             <span className="text-[20px] font-extrabold">{money(item.price * quantity)}</span>
-             <div className="flex items-center justify-between bg-[#fff0f1] text-[#ef4f5f] border border-[#ffc9ce] rounded-[10px] w-[100px] h-[38px] px-1 font-bold">
-               <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 h-full flex items-center justify-center"><Minus size={16} strokeWidth={3}/></button>
-               <span className="text-[16px]">{quantity}</span>
-               <button onClick={() => setQuantity(quantity + 1)} className="p-2 h-full flex items-center justify-center"><Plus size={16} strokeWidth={3}/></button>
-             </div>
-           </div>
-           <button onClick={() => onAdd(item, quantity)} className="w-full bg-[#ef4f5f] text-white rounded-[14px] py-[14px] font-bold text-[16px] shadow-md shadow-red-500/20 active:scale-[0.98] transition">Add item</button>
-        </div>
-      </div>
-    </motion.div>
-  </div> 
+      </motion.div>
+    </div>
+  );
 }
 
 function Checkout({
