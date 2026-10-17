@@ -22,7 +22,7 @@ function LoginForm() {
         
         {(state?.error || urlError) && (
           <div className="bg-[var(--tint)] border border-[#F5C6CB] text-[var(--red2)] p-2.5 rounded-xl mb-3 text-sm font-semibold">
-            {state?.error || (urlError === 'unauthorized' ? 'Unauthorized access' : urlError)}
+            {state?.error || (urlError === 'unauthorized' ? 'Unauthorized access' : urlError === 'session_expired' ? 'Your session expired. Please sign in again.' : urlError)}
           </div>
         )}
 

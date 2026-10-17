@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
 import { notifyStatusWebhook, notifyOrderCreatedWebhook } from "@/lib/server/notify";
 import { useStaff } from "@/components/providers/StaffProvider";
+import { isAuthError, redirectIfSessionExpired } from "@/lib/auth/session-expired";
 
 interface OrderManagerContextType {
   orders: DashboardOrder[];
@@ -182,6 +183,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
       });
 
     } catch (err: any) {
+      if (isAuthError(err) && (await redirectIfSessionExpired())) return;
       console.error("Refresh orders failed", err);
       setError("Orders could not be refreshed. Showing the last known data.");
     } finally {

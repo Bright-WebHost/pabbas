@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { redirectIfSessionExpired } from "@/lib/auth/session-expired";
 import type { StaffRole } from "@/lib/auth/permissions";
 import {
   formatTime12h,
@@ -93,7 +94,11 @@ export default function SettingsBoard({
   const run = (action: () => Promise<Result>, okText: string, onOk?: () => void) =>
     new Promise<boolean>((resolve) => {
       startTransition(async () => {
-        const result = await action().catch(() => ({ success: false as const, error: "Network error — please try again." }));
+        const result = await action().catch(async () => {
+          // A failed action is usually the proxy bouncing an expired login to /dashboard/login.
+          if (await redirectIfSessionExpired()) return { success: false as const, error: "Your session expired. Please sign in again." };
+          return { success: false as const, error: "Network error — please try again." };
+        });
         if (result.success) {
           onOk?.();
           showToast(okText);
