@@ -31,7 +31,7 @@ export default async function DashboardLayout({
     <StaffProvider staff={staff}>
       <OrderManagerProvider initialOrders={initialOrders} autoPrint={settings.autoPrint}>
       <div className="flex min-h-screen bg-[#F8FAFB] text-[#0A1017]">
-        <Sidebar />
+        <Sidebar restaurantName={settings.restaurantName} logoUrl={settings.logoUrl} />
         <div className="flex-1 flex flex-col min-w-0">
           <div className="print:hidden">
             <Header />

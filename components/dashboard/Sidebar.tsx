@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOrderManager } from "@/app/(dashboard)/dashboard/OrderManagerProvider";
 import { useStaff } from "@/components/providers/StaffProvider";
 
-export default function Sidebar() {
+export default function Sidebar({ restaurantName = "Pabbas", logoUrl = "" }: { restaurantName?: string; logoUrl?: string }) {
+  // Remember which logo URL failed to load, so a newly uploaded logo gets a fresh try.
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -31,12 +34,21 @@ export default function Sidebar() {
       `}>
         <div className={`flex items-center py-2 mb-4 ${desktopMenuCollapsed ? 'justify-center px-0' : 'justify-between px-2'}`}>
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#E23744] to-[#B0202B] text-white font-[Fraunces] text-xl font-bold grid place-items-center shadow-[0_4px_12px_rgba(226,55,68,0.3)] shrink-0">
-              P
-            </div>
+            {logoUrl && failedLogoUrl !== logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={restaurantName}
+                onError={() => setFailedLogoUrl(logoUrl)}
+                className="w-10 h-10 rounded-[10px] object-cover bg-white shadow-[0_4px_12px_rgba(0,0,0,0.3)] shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#E23744] to-[#B0202B] text-white font-[Fraunces] text-xl font-bold grid place-items-center shadow-[0_4px_12px_rgba(226,55,68,0.3)] shrink-0">
+                {restaurantName.trim().charAt(0).toUpperCase() || "P"}
+              </div>
+            )}
             {!desktopMenuCollapsed && (
               <div className="flex flex-col overflow-hidden">
-                <span className="text-[18px] font-extrabold tracking-[-0.5px] leading-none text-white whitespace-nowrap">Pabbas</span>
+                <span className="text-[18px] font-extrabold tracking-[-0.5px] leading-none text-white whitespace-nowrap truncate">{restaurantName}</span>
                 <span className="text-[9px] tracking-[2px] text-[#A1B2C6] mt-1 font-bold uppercase whitespace-nowrap truncate">
                   {staff.role === 'admin' ? 'Admin Dashboard' : 
                    staff.role === 'kitchen' ? 'Kitchen Dashboard' :
