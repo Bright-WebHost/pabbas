@@ -8,6 +8,7 @@ import { GlobalNewOrderPopup } from "../GlobalNewOrderPopup";
 import GlobalAssignRiderPopup from "../GlobalAssignRiderPopup";
 import { getDashboardOrders } from "@/lib/orders/queries";
 import { createClient } from "@/lib/supabase/server";
+import { getSettings } from "@/lib/settings/server";
 
 export default async function DashboardLayout({
   children,
@@ -24,11 +25,11 @@ export default async function DashboardLayout({
   }
 
   // Pre-fetch initial orders for the provider
-  const { orders: initialOrders } = await getDashboardOrders();
+  const [{ orders: initialOrders }, settings] = await Promise.all([getDashboardOrders(), getSettings()]);
 
   return (
     <StaffProvider staff={staff}>
-      <OrderManagerProvider initialOrders={initialOrders}>
+      <OrderManagerProvider initialOrders={initialOrders} autoPrint={settings.autoPrint}>
       <div className="flex min-h-screen bg-[#F8FAFB] text-[#0A1017]">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">

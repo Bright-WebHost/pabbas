@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkOrderRules } from '@/lib/settings'
+import { getActivePincodes, getSettings } from '@/lib/settings/server'
 
 type ActiveMenuItem = { id: string; is_active: boolean }
 type ActiveMenuVariant = { id: string; menu_item_id: string; is_active: boolean }
@@ -111,6 +113,18 @@ export async function POST(request: Request) {
 
   if (orderType === 'dine-in' && !tableId) {
     return NextResponse.json({ error: 'Table selection is required for dine-in orders.' }, { status: 400 })
+  }
+
+  // Hours / pause, order types and delivery pincodes from Settings. Prices are computed
+  // inside create_customer_order, so the minimum order is enforced on /api/orders only.
+  const [settings, activePincodes] = await Promise.all([getSettings(), getActivePincodes()])
+  const ruleError = checkOrderRules({ ...settings, minOrder: 0 }, activePincodes, {
+    orderType: orderType === 'pickup' ? 'takeaway' : orderType,
+    itemsSubtotal: 0,
+    pincode,
+  })
+  if (ruleError) {
+    return NextResponse.json({ error: ruleError, code: 'ORDER_RULES' }, { status: 400 })
   }
 
   const adminClient = createAdminClient()

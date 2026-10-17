@@ -10,7 +10,8 @@ interface OrderManagerContextType {
   orders: DashboardOrder[];
   queuedNewOrders: DashboardOrder[];
   acknowledgeOrder: (orderId: string, isUpdate?: boolean) => void;
-  updateOrderStatus: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => Promise<void>;
+  updateOrderStatus: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }, options?: { pin?: string }) => Promise<void>;
+  autoPrint: boolean;
   isLoading: boolean;
   error: string | null;
   lastUpdated: Date | null;
@@ -28,7 +29,7 @@ export const useOrderManager = () => {
   return ctx;
 };
 
-export function OrderManagerProvider({ children, initialOrders = [] }: { children: React.ReactNode, initialOrders?: DashboardOrder[] }) {
+export function OrderManagerProvider({ children, initialOrders = [], autoPrint = false }: { children: React.ReactNode, initialOrders?: DashboardOrder[], autoPrint?: boolean }) {
   const [orders, setOrders] = useState<DashboardOrder[]>(initialOrders);
   const [queuedNewOrders, setQueuedNewOrders] = useState<DashboardOrder[]>([]);
   const [isLoading, setIsLoading] = useState(initialOrders.length === 0);
@@ -252,16 +253,19 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     setQueuedNewOrders(prev => prev.filter(o => o.id !== orderId));
   }, []);
 
-  const updateOrderStatus = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }) => {
+  const updateOrderStatus = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }, options?: { pin?: string }) => {
     // Optimistic update
     pendingUpdates.current.add(order.id);
     const previousStatus = order.status;
     const nextOrderState = { ...order, status: nextStatus, rider_id: rider?.id, rider_name: rider?.name, rider_phone: rider?.phone };
-    setOrders(current => {
-      const updated = current.map(item => item.id === order.id ? nextOrderState : item);
-      ordersRef.current = updated;
-      return updated;
-    });
+    // Restoring a cancelled order waits for the passcode check instead of updating optimistically.
+    if (order.status !== "cancelled") {
+      setOrders(current => {
+        const updated = current.map(item => item.id === order.id ? nextOrderState : item);
+        ordersRef.current = updated;
+        return updated;
+      });
+    }
 
     // Also remove from queue if it was in it
     acknowledgeOrder(order.id);
@@ -288,12 +292,20 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
     }
 
     try {
-      const { updateOrderInDb } = await import("@/lib/orders/actions");
-      const result = await updateOrderInDb(order.id, updates);
+      const { updateOrderInDb, reopenCancelledOrder } = await import("@/lib/orders/actions");
+      const result = order.status === "cancelled" && nextStatus !== "cancelled"
+        ? await reopenCancelledOrder(order.id, nextStatus, options?.pin ?? "")
+        : await updateOrderInDb(order.id, updates);
       if (!result.success) throw new Error(result.error || "Failed to update order");
 
       // Trigger refresh but don't await it to keep UI responsive
       refreshOrders().catch(console.error);
+
+      if (autoPrint && previousStatus === "new" && nextStatus === "preparing") {
+        import("@/lib/print/bill")
+          .then(({ printOrderBill }) => printOrderBill(order.id, { auto: true }))
+          .catch(console.error);
+      }
 
       // Trigger Webhook
       try {
@@ -378,7 +390,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       // Remove from pending updates so subsequent polls can take over
       pendingUpdates.current.delete(order.id);
     }
-  }, [acknowledgeOrder, refreshOrders]);
+  }, [acknowledgeOrder, refreshOrders, autoPrint]);
 
   return (
     <OrderManagerContext.Provider value={{
@@ -386,6 +398,7 @@ export function OrderManagerProvider({ children, initialOrders = [] }: { childre
       queuedNewOrders,
       acknowledgeOrder,
       updateOrderStatus,
+      autoPrint,
       isLoading,
       error,
       lastUpdated,

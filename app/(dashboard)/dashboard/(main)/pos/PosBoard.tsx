@@ -6,6 +6,7 @@ import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, XCircle, ArrowLe
 import { createPosOrder, updatePosOrder } from "./actions";
 import { useOrderManager } from "../../OrderManagerProvider";
 import { fetchTables, RestaurantTable } from "../tables/actions";
+import { printOrderBill } from "@/lib/print/bill";
 
 type VariantOption = {
   label: string;
@@ -92,7 +93,7 @@ export default function PosBoard() {
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [appendOrderId, setAppendOrderId] = useState<string | null>(null);
   const [showActiveOrders, setShowActiveOrders] = useState(false);
-  const { orders } = useOrderManager();
+  const { orders, autoPrint } = useOrderManager();
 
   const activePosOrders = useMemo(() => {
     return orders.filter(o => o.source === "pos" && o.status !== "delivered" && o.status !== "cancelled");
@@ -316,6 +317,9 @@ export default function PosBoard() {
         const result = await createPosOrder(payload);
         if (result.success) {
           setOrderResult({ success: true, order_number: result.order?.order_number });
+          if (autoPrint && result.order?.id) {
+            printOrderBill(result.order.id, { auto: true }).catch(console.error);
+          }
         } else {
           setOrderResult({ success: false, error: result.error });
         }

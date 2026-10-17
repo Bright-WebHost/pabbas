@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { StaffRole, FeaturePermission, PageRoute, hasPermission, canAccessPage } from "./permissions";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 export interface StaffUser {
@@ -34,10 +34,21 @@ export const getStaffSession = cache(async (): Promise<StaffUser | null> => {
       role: data.role as StaffRole,
     };
   } catch (err) {
+    // Let Next.js internals (dynamic-rendering bailout, redirects) propagate instead of logging them.
+    unstable_rethrow(err);
     console.error("Error in getStaffSession:", err);
     return null;
   }
 });
+
+// For Server Actions any signed-in staff member may call
+export async function requireStaff(): Promise<StaffUser> {
+  const staff = await getStaffSession();
+  if (!staff) {
+    throw new Error("Unauthorized: Please log in.");
+  }
+  return staff;
+}
 
 // For Server Actions
 export async function authorize(permission: FeaturePermission): Promise<StaffUser> {
