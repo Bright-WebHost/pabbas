@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSessionCookie } from '@/lib/session/cookies'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkOrderRules, deliveryFeeFor } from '@/lib/settings'
+import { getActivePincodes, getSettings } from '@/lib/settings/server'
 
 const MAX_CART_ITEMS = 50
 const MAX_QUANTITY_PER_ITEM = 20
@@ -153,6 +155,20 @@ export async function POST(request: Request) {
       })
     }
 
+    // Restaurant rules from Settings: hours / pause, order types, minimum order, delivery pincodes.
+    const [settings, activePincodes] = await Promise.all([getSettings(), getActivePincodes()])
+    const ruleError = checkOrderRules(settings, activePincodes, {
+      orderType: normalizedOrderType,
+      itemsSubtotal: total,
+      pincode: typeof pincode === 'string' ? pincode : null,
+    })
+    if (ruleError) {
+      return NextResponse.json({ error: ruleError, code: 'ORDER_RULES' }, { status: 400 })
+    }
+
+    const deliveryFee = normalizedOrderType === 'delivery' ? deliveryFeeFor(settings, total) : 0
+    const grandTotal = total + deliveryFee
+
     let finalTableNumber: string | null = null
     if (normalizedOrderType === 'dine-in') {
       const inputTableNumber = body.table_number || body.table_id;
@@ -192,7 +208,8 @@ export async function POST(request: Request) {
       customer_phone: resolvedPhone,
       customer_name: resolvedName,
       items: orderedItems.map((item) => `${item.item_name} x ${item.quantity}`).join(', '),
-      total: Number(total.toFixed(2)),
+      total: Number(grandTotal.toFixed(2)),
+      delivery_fee: deliveryFee,
       status: 'new',
       order_type: liveOrderType,
       source: 'pwa',
@@ -210,11 +227,18 @@ export async function POST(request: Request) {
       })),
     }
 
-    const { data: createdOrder, error: createdOrderError } = await adminClient
-      .from('orders')
-      .insert(orderInsertPayload)
-      .select('id, order_number, status, order_type')
-      .single()
+    const insertOrder = (payload: Record<string, unknown>) =>
+      adminClient.from('orders').insert(payload).select('id, order_number, status, order_type').single()
+
+    let { data: createdOrder, error: createdOrderError } = await insertOrder(orderInsertPayload)
+
+    // supabase/phase9_settings.sql not applied yet: keep orders flowing without the
+    // delivery_fee column (the fee is still included in the total).
+    if (createdOrderError && /delivery_fee/.test(createdOrderError.message || '')) {
+      console.warn('[POST /api/orders] orders.delivery_fee missing — run supabase/phase9_settings.sql')
+      const { delivery_fee: _deliveryFee, ...legacyPayload } = orderInsertPayload
+      ;({ data: createdOrder, error: createdOrderError } = await insertOrder(legacyPayload))
+    }
 
     if (createdOrderError || !createdOrder) {
       console.error('[POST /api/orders] Order insert failed:', createdOrderError?.message || 'No order returned')
@@ -259,12 +283,19 @@ export async function POST(request: Request) {
     }
 
 
+    const finalTotal = Number(grandTotal.toFixed(2))
     return NextResponse.json({
       success: true,
+      // Top-level copy for the n8n "Confirm Order" node, which reads $json.order_number.
+      order_number: createdOrder.order_number,
+      total: finalTotal,
+      delivery_fee: deliveryFee,
       order: {
         order_number: createdOrder.order_number,
         order_type: createdOrder.order_type,
         order_status: createdOrder.status,
+        total: finalTotal,
+        delivery_fee: deliveryFee,
         is_duplicate: false,
       },
     })

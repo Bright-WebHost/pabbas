@@ -85,6 +85,9 @@ export default function Sidebar() {
           {hasPerm("blast") && (
             <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} collapsed={desktopMenuCollapsed} />
           )}
+          {hasPerm("settings") && (
+            <SidebarLink href="/dashboard/settings" label="Settings" icon="⚙️" active={pathname === "/dashboard/settings"} collapsed={desktopMenuCollapsed} />
+          )}
         </nav>
 
         <div className="mt-auto flex flex-col gap-1.5 border-t border-[#1C2633] pt-3">

@@ -8,6 +8,7 @@ import { AssignRiderModal } from "./AssignRiderModal";
 import { SlideAction } from "@/components/dashboard/ui/SlideAction";
 import { motion, AnimatePresence } from "framer-motion";
 import { collectCash } from "./actions";
+import { printOrderBill } from "@/lib/print/bill";
 
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
@@ -424,25 +425,11 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
             )}
 
             {hasPerm("reopen_cancelled") && order.status === "cancelled" && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const pin = window.prompt("Enter Security PIN to Undo Cancel:");
-                  if (pin === "0000") {
-                    const prevStatus = (order.cancel_reason && order.cancel_reason.includes("|")) 
-                      ? order.cancel_reason.split("|")[0] 
-                      : "new";
-                    onStatusChange(order, prevStatus as any, "Undo Cancel");
-                    onClose();
-                  } else if (pin) {
-                    alert("Incorrect PIN");
-                  }
-                }}
+              <UndoCancelButton
+                order={order}
+                onRestored={onClose}
                 className="h-[48px] rounded-[12px] border border-[#C6ECD6] bg-[#E5F5EC] px-5 text-[14px] font-extrabold text-[#146C43] hover:bg-[#D1E7DD] transition-colors shadow-sm"
-              >
-                Undo Cancel
-              </button>
+              />
             )}
 
 
@@ -480,26 +467,88 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
 }
 
 function printOrder(order: DashboardOrder) {
-  if (typeof window === "undefined") return;
-  const printWindow = window.open("", "_blank", "width=420,height=640");
-  if (!printWindow) return;
+  void printOrderBill(order.id);
+}
 
-  const items = buildItemList(order).map((item) => `${item.quantity} × ${item.name} — ${money(item.unit_price * item.quantity)}`).join("<br/>");
-  printWindow.document.write(`
-    <html>
-      <head><title>${order.order_number}</title></head>
-      <body style="font-family: Arial, sans-serif; padding: 20px; color: #10151C;">
-        <h2>${order.order_number}</h2>
-        <p><strong>Customer:</strong> ${order.customer_name || "Guest"} · ${order.customer_phone}</p>
-        <p><strong>Status:</strong> ${statusLabels[order.status]}</p>
-        <p><strong>Total:</strong> ${money(order.total)}</p>
-        <div>${items || "No items"}</div>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => printWindow.print(), 250);
+function previousStatusOf(order: DashboardOrder): OrderStatus {
+  const prev = order.cancel_reason?.includes("|") ? order.cancel_reason.split("|")[0] : "new";
+  return (["new", "preparing", "ready_for_pickup", "out_for_delivery"] as OrderStatus[]).includes(prev as OrderStatus) ? (prev as OrderStatus) : "new";
+}
+
+function UndoCancelButton({ order, className, onRestored }: { order: DashboardOrder; className: string; onRestored?: () => void }) {
+  const { updateOrderStatus } = useOrderManager();
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const target = previousStatusOf(order);
+
+  const submit = async (value: string) => {
+    if (!/^\d{4}$/.test(value) || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await updateOrderStatus(order, target, "Undo Cancel", undefined, { pin: value });
+      setOpen(false);
+      onRestored?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not restore the order.");
+      setPin("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setPin("");
+          setError(null);
+          setOpen(true);
+        }}
+        className={className}
+      >
+        Undo Cancel
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={(e) => { e.stopPropagation(); setOpen(false); }}>
+          <div className="w-full max-w-[340px] rounded-[24px] bg-white p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-extrabold text-[var(--ink)]">Undo cancel</h3>
+            <p className="mt-1 text-sm font-medium text-[var(--muted)]">
+              Restore {order.order_number} to {statusLabels[target]}. Enter the 4-digit undo passcode.
+            </p>
+            <input
+              autoFocus
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={pin}
+              disabled={busy}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                setPin(value);
+                if (value.length === 4) void submit(value);
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") void submit(pin); }}
+              className={`mt-4 w-full rounded-xl border bg-[#F8FAFB] px-4 py-3 text-center text-2xl font-extrabold tracking-[0.6em] outline-none focus:bg-white ${error ? "border-[#E23744]" : "border-[#EAF0F6] focus:border-[#0D6EFD]"}`}
+              placeholder="••••"
+            />
+            {error && <p className="mt-2 text-[13px] font-bold text-[#C0392B]">{error}</p>}
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setOpen(false)} className="flex-1 rounded-xl border border-[#EAF0F6] py-2.5 text-sm font-bold text-[var(--ink)] hover:bg-[#F3F6F9]">Cancel</button>
+              <button type="button" disabled={busy || pin.length !== 4} onClick={() => void submit(pin)} className="flex-1 rounded-xl bg-[#146C43] py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                {busy ? "Checking…" : "Restore"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrder; onOpen: () => void; onStatusChange: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string) => void; now: number }) {
@@ -650,24 +699,10 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
             </button>
           )}
           {hasPerm("reopen_cancelled") && order.status === "cancelled" && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                const pin = window.prompt("Enter Security PIN to Undo Cancel:");
-                if (pin === "0000") {
-                  const prevStatus = (order.cancel_reason && order.cancel_reason.includes("|")) 
-                    ? order.cancel_reason.split("|")[0] 
-                    : "new";
-                  onStatusChange(order, prevStatus as any, "Undo Cancel");
-                } else if (pin) {
-                  alert("Incorrect PIN");
-                }
-              }}
+            <UndoCancelButton
+              order={order}
               className="px-3 py-1.5 rounded-[8px] bg-[#E5F5EC] text-[#146C43] font-extrabold text-[12px] hover:bg-[#D1E7DD] border border-[#C6ECD6] shadow-sm transition-colors"
-            >
-              Undo Cancel
-            </button>
+            />
           )}
           {order.source === "pos" && order.status !== "cancelled" && order.status !== "delivered" && (
             <button

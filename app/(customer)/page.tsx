@@ -6,6 +6,7 @@ import { ArrowLeft, Check, ChevronRight, Clock3, MapPin, Minus, Plus, Search, Sh
 import { categories, displayCategory } from "@/lib/menu-data";
 import { CartItem, CustomerDetails, MenuItem, OrderType, PaymentMethod } from "@/lib/types";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { checkOrderRules, closedMessage, deliveryFeeFor, isOpenAt, type CustomerOrderType, type PublicSettings } from "@/lib/settings";
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
 const initialDetails: CustomerDetails = { name: "", phone: "", address: "", landmark: "", pincode: "", pickupDate: "", pickupTime: "19:00", payment: "cash" };
@@ -36,6 +37,14 @@ export default function Home() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
   const [menuError, setMenuError] = useState(false);
+  const [store, setStore] = useState<PublicSettings | null>(null);
+
+  useEffect(() => {
+    fetch('/api/settings/public', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data && !data.error) setStore(data); })
+      .catch((err) => console.error('Failed to load settings:', err));
+  }, []);
 
   const fetchMenu = async () => {
     setIsLoadingMenu(true);
@@ -103,8 +112,13 @@ export default function Home() {
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const newItemsSubtotal = cart.reduce((sum, line) => sum + line.item.price * line.quantity, 0);
   const subtotal = newItemsSubtotal + activeOrderTotal;
-  const deliveryFee = orderType === "delivery" && subtotal > 0 ? 35 : 0;
+  const deliveryFee = orderType === "delivery" && store ? deliveryFeeFor(store, newItemsSubtotal) : 0;
   const total = subtotal + deliveryFee;
+  // Same rules the server enforces in /api/orders; adding a round to an open table is always allowed.
+  const ruleOrderType: CustomerOrderType = orderType === "pickup" ? "takeaway" : orderType;
+  const isTableAppend = Boolean(activeOrderId && orderType === "dine-in");
+  const cartBlock = store && !isTableAppend ? checkOrderRules(store, [], { orderType: ruleOrderType, itemsSubtotal: newItemsSubtotal }) : null;
+  const checkoutBlock = store && !isTableAppend ? checkOrderRules(store, store.pincodes, { orderType: ruleOrderType, itemsSubtotal: newItemsSubtotal, pincode: details.pincode }) : null;
 
   const addToCart = (item: MenuItem, amount = 1) => { 
     setCart((current) => { 
@@ -242,9 +256,9 @@ export default function Home() {
     }
   };
 
-  if (screen === "welcome") return <Welcome orderType={orderType} setOrderType={(type) => { setOrderType(type); setScreen("menu"); }} />;
+  if (screen === "welcome") return <Welcome store={store} setOrderType={(type) => { setOrderType(type); setScreen("menu"); }} />;
 
-  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} total={total} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
+  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} total={total} blockReason={checkoutBlock} deliveryNote={store?.deliveryNote || ""} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
 
   if (screen === "confirmed") return <Confirmation orderNumber={orderNumber} orderType={orderType} table={table} cart={cart} total={total} onContinue={() => { setScreen("welcome"); setCart([]); setIdempotencyKey(""); }} />;
 
@@ -253,7 +267,7 @@ export default function Home() {
     <div className="max-w-[768px] mx-auto bg-white min-h-screen relative shadow-sm">
       <Header search={search} setSearch={setSearch} onBack={() => setScreen("welcome")} />
       
-      <RestaurantInfo orderType={orderType} table={table} />
+      <RestaurantInfo orderType={orderType} table={table} store={store} />
 
       <nav aria-label="Menu categories" className="sticky top-[64px] z-30 flex gap-3 overflow-x-auto bg-white px-4 py-3 border-b border-gray-100 shadow-[0_2px_15px_rgba(0,0,0,0.04)] no-scrollbar">
         <button onClick={() => setMenuMenuOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-[13px] font-bold shrink-0 text-gray-700 transition">
@@ -356,7 +370,7 @@ export default function Home() {
               <h2 className="text-xl font-bold">Your Order</h2>
               <button aria-label="Close cart" onClick={() => setCartOpen(false)} className="p-2 rounded-full bg-white border border-gray-200 text-gray-600"><X size={19} /></button>
             </div>
-            <CartPanel cart={cart} activeOrderItems={activeOrderItems} subtotal={subtotal} deliveryFee={deliveryFee} total={total} onChange={changeQuantity} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
+            <CartPanel cart={cart} activeOrderItems={activeOrderItems} subtotal={subtotal} deliveryFee={deliveryFee} total={total} blockReason={cartBlock} freeDeliveryHint={orderType === "delivery" && store && store.freeDeliveryAbove > 0 && deliveryFee > 0 ? `Add ${money(Math.ceil(store.freeDeliveryAbove - newItemsSubtotal))} more for free delivery` : null} onChange={changeQuantity} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
           </motion.div>
         </div>}
       </AnimatePresence>
@@ -379,12 +393,20 @@ function Header({ search, setSearch, onBack }: { search: string, setSearch: (v: 
   </header>
 }
 
-function RestaurantInfo({ orderType, table }: { orderType: OrderType, table: string }) {
+function ClosedBanner({ store }: { store: PublicSettings | null }) {
+  if (!store || isOpenAt(store)) return null;
+  return <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
+    <Clock3 size={16} className="mt-0.5 shrink-0" />
+    <span>{closedMessage(store)}{!store.ordersPaused && store.hoursText ? ` Hours: ${store.hoursText}.` : ""} You can still browse the menu.</span>
+  </div>;
+}
+
+function RestaurantInfo({ orderType, table, store }: { orderType: OrderType, table: string, store: PublicSettings | null }) {
   return <div className="px-4 pt-4 pb-4 bg-white border-b border-gray-100">
     <div className="flex justify-between items-start gap-4">
-      <div className="flex-1">
-        <h1 className="text-[26px] font-extrabold flex items-center gap-2 text-gray-900 leading-tight">Pabbas <Info size={18} className="text-gray-400 mt-1"/></h1>
-        <p className="text-gray-600 text-[13px] mt-1.5 flex items-center gap-1 font-medium"><MapPin size={14} className="text-gray-400"/> 1.2 km • Lalbagh</p>
+      <div className="flex-1 min-w-0">
+        <h1 className="text-[26px] font-extrabold flex items-center gap-2 text-gray-900 leading-tight">{store?.restaurantName || "Pabbas"} <Info size={18} className="text-gray-400 mt-1"/></h1>
+        <p className="text-gray-600 text-[13px] mt-1.5 flex items-center gap-1 font-medium"><MapPin size={14} className="text-gray-400 shrink-0"/> <span className="truncate">{store?.address || "Lalbagh, Mangaluru"}</span></p>
         <p className="text-gray-600 text-[13px] mt-1 flex items-center gap-1 font-medium">
           <Clock3 size={14} className="text-gray-400"/>
           {orderType === 'dine-in' ? (
@@ -401,23 +423,27 @@ function RestaurantInfo({ orderType, table }: { orderType: OrderType, table: str
         <span className="text-[10px] text-gray-500 mt-1.5 font-medium border-b border-dashed border-gray-300 pb-0.5">By 10K+</span>
       </div>
     </div>
+    {store && !isOpenAt(store) && <div className="mt-3"><ClosedBanner store={store} /></div>}
   </div>
 }
 
-function Welcome({ orderType, setOrderType }: { orderType: OrderType; setOrderType: (type: OrderType) => void; }) { 
+function Welcome({ store, setOrderType }: { store: PublicSettings | null; setOrderType: (type: OrderType) => void; }) {
   const modes = [
-    { type: "delivery" as const, title: "Delivery", copy: "Fresh treats delivered to you", icon: <MapPin size={24} /> }, 
+    { type: "delivery" as const, title: "Delivery", copy: "Fresh treats delivered to you", icon: <MapPin size={24} /> },
     { type: "pickup" as const, title: "Takeaway", copy: "Pick up your order in person", icon: <ShoppingBag size={24} /> }
-  ]; 
-  
+  ].filter((mode) => !store || (mode.type === "delivery" ? store.orderTypes.delivery : store.orderTypes.takeaway));
+
   return <main className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
     <div className="w-full max-w-md bg-white rounded-[24px] shadow-xl overflow-hidden border border-gray-100">
       <div className="bg-[#ef4f5f] p-10 text-center text-white">
-        <h1 className="font-extrabold text-5xl tracking-tight mb-2">pabbas</h1>
-        <p className="text-white/90 text-sm font-medium">Delicious desserts since 1969</p>
+        {store?.logoUrl && <img src={store.logoUrl} alt="" className="mx-auto mb-3 h-16 w-16 rounded-2xl bg-white object-cover shadow-md" />}
+        <h1 className="font-extrabold text-5xl tracking-tight mb-2">{(store?.restaurantName || "pabbas").toLowerCase()}</h1>
+        <p className="text-white/90 text-sm font-medium">{store ? store.tagline : "Delicious desserts since 1969"}</p>
       </div>
       <div className="p-6">
         <h2 className="text-[22px] font-extrabold text-gray-900 mb-6 text-center">Select Order Type</h2>
+        {store && !isOpenAt(store) && <div className="mb-4"><ClosedBanner store={store} /></div>}
+        {modes.length === 0 && <p className="text-center text-gray-500 font-medium">Online ordering is not available right now. Please contact us on WhatsApp.</p>}
         <div className="flex flex-col gap-3">
           {modes.map((mode) => (
             <button key={mode.type} onClick={() => setOrderType(mode.type)} className="flex items-center gap-4 p-4 rounded-2xl border border-gray-200 hover:border-[#ef4f5f] hover:shadow-md transition text-left bg-white group">
@@ -532,7 +558,7 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
   );
 }
 
-function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, onChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; onChange: (id: string, delta: number) => void; onCheckout: () => void }) { 
+function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, blockReason, freeDeliveryHint, onChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; blockReason: string | null; freeDeliveryHint: string | null; onChange: (id: string, delta: number) => void; onCheckout: () => void }) {
   return <div className="bg-white rounded-[20px] p-5">
     {cart.length === 0 && (!activeOrderItems || activeOrderItems.length === 0) ? (
       <div className="text-center py-8 text-gray-500">
@@ -600,8 +626,14 @@ function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, onCha
           {deliveryFee > 0 && <div className="flex justify-between text-gray-600 font-medium"><span>Delivery Partner Fee</span><span>{money(deliveryFee)}</span></div>}
           <div className="flex justify-between font-bold text-gray-900 text-[17px] mt-2 border-t border-gray-100 pt-3"><span>To Pay</span><span>{money(total)}</span></div>
         </div>
+        {freeDeliveryHint && !blockReason && (
+          <p className="mt-4 rounded-xl bg-green-50 border border-green-100 px-3 py-2 text-[13px] font-semibold text-green-700">🛵 {freeDeliveryHint}</p>
+        )}
+        {blockReason && cart.length > 0 && (
+          <p className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[13px] font-semibold text-amber-800">{blockReason}</p>
+        )}
         {cart.length > 0 && (
-          <button onClick={onCheckout} className="w-full bg-[#e23744] text-white rounded-[14px] py-3.5 font-bold text-[16px] mt-6 active:scale-[0.98] transition shadow-md shadow-red-500/20">Proceed to Checkout</button>
+          <button onClick={onCheckout} disabled={Boolean(blockReason)} className="w-full bg-[#e23744] text-white rounded-[14px] py-3.5 font-bold text-[16px] mt-6 active:scale-[0.98] transition shadow-md shadow-red-500/20 disabled:opacity-50 disabled:active:scale-100">Proceed to Checkout</button>
         )}
       </>
     )}
@@ -742,7 +774,11 @@ function Checkout({
   isAsap,
   setIsAsap,
   cart,
+  subtotal,
+  deliveryFee,
   total,
+  blockReason,
+  deliveryNote,
   details,
   setDetails,
   isSubmitting,
@@ -762,7 +798,11 @@ function Checkout({
   isAsap: boolean;
   setIsAsap: (asap: boolean) => void;
   cart: CartItem[];
+  subtotal: number;
+  deliveryFee: number;
   total: number;
+  blockReason: string | null;
+  deliveryNote: string;
   details: CustomerDetails;
   setDetails: (details: CustomerDetails | ((prev: CustomerDetails) => CustomerDetails)) => void;
   isSubmitting: boolean;
@@ -908,7 +948,8 @@ function Checkout({
 
             {orderType === "delivery" && <>
               <h2 className="text-[17px] font-bold mt-8 mb-4 text-gray-800">Delivery Address</h2>
-              
+              {deliveryNote && <p className="-mt-2 mb-4 text-[13px] font-medium text-gray-500">🛵 {deliveryNote}</p>}
+
               {fetchingAddresses ? (
                 <div className="text-gray-500 text-sm">Loading addresses...</div>
               ) : addresses.length === 0 || showAddressForm ? (
@@ -1048,9 +1089,19 @@ function Checkout({
             )}
             {cart.map((line) => <div className="flex justify-between text-[14px]" key={line.item.id}><span className="text-gray-700 font-medium">{line.quantity} × {line.item.name}</span><strong className="text-gray-900">{money(line.item.price * line.quantity)}</strong></div>)}
           </div>
-          <div className="border-t border-dashed border-gray-200 pt-4">
+          <div className="border-t border-dashed border-gray-200 pt-4 flex flex-col gap-2">
+            {deliveryFee > 0 && <>
+              <div className="flex justify-between text-[14px] text-gray-600 font-medium"><span>Item Total</span><span>{money(subtotal)}</span></div>
+              <div className="flex justify-between text-[14px] text-gray-600 font-medium"><span>Delivery Fee</span><span>{money(deliveryFee)}</span></div>
+            </>}
             <div className="flex justify-between font-extrabold text-[18px] text-gray-900"><span>Grand Total</span><span>{money(total)}</span></div>
           </div>
+
+          {blockReason && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold">
+              {blockReason}
+            </div>
+          )}
 
           {submitError && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
@@ -1060,7 +1111,7 @@ function Checkout({
 
           <button
             onClick={onPlace}
-            disabled={isSubmitting || ((!activeOrderItems || activeOrderItems.length === 0) && (!details.name || !details.phone)) || (orderType === "delivery" && !details.address)}
+            disabled={isSubmitting || Boolean(blockReason) || ((!activeOrderItems || activeOrderItems.length === 0) && (!details.name || !details.phone)) || (orderType === "delivery" && !details.address)}
             className="w-full bg-[#e23744] text-white font-bold text-[16px] py-[15px] rounded-[14px] mt-6 disabled:opacity-50 shadow-md shadow-red-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
