@@ -118,6 +118,14 @@ export default function Home() {
   const ruleOrderType: CustomerOrderType = orderType === "pickup" ? "takeaway" : orderType;
   const isTableAppend = Boolean(activeOrderId && orderType === "dine-in");
   const cartBlock = store && !isTableAppend ? checkOrderRules(store, [], { orderType: ruleOrderType, itemsSubtotal: newItemsSubtotal }) : null;
+  // Swiggy-style "Add ₹X more for FREE delivery" — only when the admin set a threshold and a fee.
+  const deliveryOffer: DeliveryOffer | null =
+    orderType === "delivery" && store && store.freeDeliveryAbove > 0 && store.deliveryFee > 0
+      ? { target: store.freeDeliveryAbove, fee: store.deliveryFee, subtotal: newItemsSubtotal }
+      : null;
+  // The cart bar grows when it shows the free-delivery / minimum-order strip; lift floating UI above it.
+  const cartStripShown = cart.length > 0 && Boolean(cartBlock || deliveryOffer);
+  const waivedDeliveryFee = deliveryOffer && deliveryFee === 0 && newItemsSubtotal > 0 ? deliveryOffer.fee : 0;
   const checkoutBlock = store && !isTableAppend ? checkOrderRules(store, store.pincodes, { orderType: ruleOrderType, itemsSubtotal: newItemsSubtotal, pincode: details.pincode }) : null;
 
   const addToCart = (item: MenuItem, amount = 1) => { 
@@ -258,7 +266,7 @@ export default function Home() {
 
   if (screen === "welcome") return <Welcome store={store} setOrderType={(type) => { setOrderType(type); setScreen("menu"); }} />;
 
-  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} total={total} blockReason={checkoutBlock} deliveryNote={store?.deliveryNote || ""} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
+  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} waivedDeliveryFee={waivedDeliveryFee} total={total} blockReason={checkoutBlock} deliveryNote={store?.deliveryNote || ""} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
 
   if (screen === "confirmed") return <Confirmation orderNumber={orderNumber} orderType={orderType} table={table} cart={cart} total={total} onContinue={() => { setScreen("welcome"); setCart([]); setIdempotencyKey(""); }} />;
 
@@ -313,7 +321,7 @@ export default function Home() {
       {/* Floating Items Menu Button */}
       <button 
         onClick={() => setMenuMenuOpen(true)} 
-        className="fixed bottom-[84px] right-4 sm:absolute sm:bottom-24 sm:right-4 z-40 w-14 h-14 rounded-full bg-[#111111] text-white flex flex-col items-center justify-center shadow-2xl shadow-black/40 border border-gray-800 active:scale-95 transition-transform"
+        className={`fixed ${cartStripShown ? "bottom-[150px] sm:bottom-[156px]" : "bottom-[84px] sm:bottom-24"} right-4 sm:absolute sm:right-4 z-40 w-14 h-14 rounded-full bg-[#111111] text-white flex flex-col items-center justify-center shadow-2xl shadow-black/40 border border-gray-800 active:scale-95 transition-all`}
         aria-label="View Menu Items"
       >
         <Utensils size={17} strokeWidth={2.2} className="opacity-90 mb-0.5" />
@@ -323,6 +331,11 @@ export default function Home() {
       {/* Floating Cart Bar */}
       {cart.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 sm:absolute sm:bottom-0 sm:left-0 sm:right-0 z-40 bg-white px-4 pb-4 pt-2 border-t border-gray-100">
+          {cartBlock ? (
+            <p className="mb-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] font-semibold text-amber-800">{cartBlock}</p>
+          ) : deliveryOffer ? (
+            <FreeDeliveryProgress offer={deliveryOffer} className="mb-2" />
+          ) : null}
           <button onClick={() => setCartOpen(true)} className="w-full bg-[#ef4f5f] text-white rounded-[14px] h-[52px] flex items-center justify-between px-4 font-medium shadow-md shadow-red-500/20 active:scale-[0.98] transition-transform">
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 bg-white/20 rounded flex items-center justify-center text-sm font-bold shadow-sm">
@@ -353,7 +366,7 @@ export default function Home() {
       </AnimatePresence>
       
       <AnimatePresence>
-        {notice && <motion.div key="notice" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="fixed bottom-[88px] left-1/2 -translate-x-1/2 z-50 bg-[#252525] text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg whitespace-nowrap">{notice}</motion.div>}
+        {notice && <motion.div key="notice" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={`fixed ${cartStripShown ? "bottom-[150px]" : "bottom-[88px]"} left-1/2 -translate-x-1/2 z-50 bg-[#252525] text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg whitespace-nowrap`}>{notice}</motion.div>}
         {selectedItem && (
           <ProductDetails 
             key="details" 
@@ -370,7 +383,7 @@ export default function Home() {
               <h2 className="text-xl font-bold">Your Order</h2>
               <button aria-label="Close cart" onClick={() => setCartOpen(false)} className="p-2 rounded-full bg-white border border-gray-200 text-gray-600"><X size={19} /></button>
             </div>
-            <CartPanel cart={cart} activeOrderItems={activeOrderItems} subtotal={subtotal} deliveryFee={deliveryFee} total={total} blockReason={cartBlock} freeDeliveryHint={orderType === "delivery" && store && store.freeDeliveryAbove > 0 && deliveryFee > 0 ? `Add ${money(Math.ceil(store.freeDeliveryAbove - newItemsSubtotal))} more for free delivery` : null} onChange={changeQuantity} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
+            <CartPanel cart={cart} activeOrderItems={activeOrderItems} subtotal={subtotal} deliveryFee={deliveryFee} total={total} blockReason={cartBlock} deliveryOffer={deliveryOffer} onChange={changeQuantity} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
           </motion.div>
         </div>}
       </AnimatePresence>
@@ -423,6 +436,11 @@ function RestaurantInfo({ orderType, table, store }: { orderType: OrderType, tab
         <span className="text-[10px] text-gray-500 mt-1.5 font-medium border-b border-dashed border-gray-300 pb-0.5">By 10K+</span>
       </div>
     </div>
+    {orderType === "delivery" && store && store.freeDeliveryAbove > 0 && store.deliveryFee > 0 && (
+      <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[12px] font-bold text-green-700">
+        <span aria-hidden>🛵</span> FREE delivery on orders above {money(store.freeDeliveryAbove)}
+      </div>
+    )}
     {store && !isOpenAt(store) && <div className="mt-3"><ClosedBanner store={store} /></div>}
   </div>
 }
@@ -558,7 +576,32 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
   );
 }
 
-function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, blockReason, freeDeliveryHint, onChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; blockReason: string | null; freeDeliveryHint: string | null; onChange: (id: string, delta: number) => void; onCheckout: () => void }) {
+type DeliveryOffer = { target: number; fee: number; subtotal: number };
+
+/** "Add ₹55 more for FREE delivery" with a progress bar; turns green once unlocked. */
+function FreeDeliveryProgress({ offer, className = "" }: { offer: DeliveryOffer; className?: string }) {
+  const remaining = Math.max(0, Math.ceil(offer.target - offer.subtotal));
+  const unlocked = remaining === 0;
+  const percent = Math.min(100, Math.round((offer.subtotal / offer.target) * 100));
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${unlocked ? "bg-green-50 border-green-200" : "bg-[#fff7ed] border-orange-200"} ${className}`}>
+      <p className={`text-[12.5px] font-bold flex items-center gap-1.5 ${unlocked ? "text-green-700" : "text-orange-800"}`}>
+        <span aria-hidden>{unlocked ? "🎉" : "🛵"}</span>
+        {unlocked ? (
+          <span>Yay! You&apos;ve unlocked <span className="font-extrabold">FREE delivery</span></span>
+        ) : (
+          <span>Add <span className="font-extrabold">{money(remaining)}</span> more to get <span className="font-extrabold">FREE delivery</span></span>
+        )}
+      </p>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/10" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+        <div className={`h-full rounded-full transition-all duration-500 ${unlocked ? "bg-green-500" : "bg-orange-500"}`} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, blockReason, deliveryOffer, onChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; blockReason: string | null; deliveryOffer: DeliveryOffer | null; onChange: (id: string, delta: number) => void; onCheckout: () => void }) {
+  const freeDeliveryApplied = Boolean(deliveryOffer) && deliveryFee === 0 && cart.length > 0;
   return <div className="bg-white rounded-[20px] p-5">
     {cart.length === 0 && (!activeOrderItems || activeOrderItems.length === 0) ? (
       <div className="text-center py-8 text-gray-500">
@@ -624,11 +667,12 @@ function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, block
         <div className="border-t border-dashed border-gray-200 pt-4 text-[14px] flex flex-col gap-2.5">
           <div className="flex justify-between text-gray-600 font-medium"><span>Item Total</span><span>{money(subtotal)}</span></div>
           {deliveryFee > 0 && <div className="flex justify-between text-gray-600 font-medium"><span>Delivery Partner Fee</span><span>{money(deliveryFee)}</span></div>}
+          {freeDeliveryApplied && deliveryOffer && (
+            <div className="flex justify-between text-gray-600 font-medium"><span>Delivery Partner Fee</span><span><s className="text-gray-400 mr-1.5">{money(deliveryOffer.fee)}</s><span className="font-bold text-green-600">FREE</span></span></div>
+          )}
           <div className="flex justify-between font-bold text-gray-900 text-[17px] mt-2 border-t border-gray-100 pt-3"><span>To Pay</span><span>{money(total)}</span></div>
         </div>
-        {freeDeliveryHint && !blockReason && (
-          <p className="mt-4 rounded-xl bg-green-50 border border-green-100 px-3 py-2 text-[13px] font-semibold text-green-700">🛵 {freeDeliveryHint}</p>
-        )}
+        {deliveryOffer && !blockReason && cart.length > 0 && <FreeDeliveryProgress offer={deliveryOffer} className="mt-4" />}
         {blockReason && cart.length > 0 && (
           <p className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[13px] font-semibold text-amber-800">{blockReason}</p>
         )}
@@ -776,6 +820,7 @@ function Checkout({
   cart,
   subtotal,
   deliveryFee,
+  waivedDeliveryFee,
   total,
   blockReason,
   deliveryNote,
@@ -800,6 +845,7 @@ function Checkout({
   cart: CartItem[];
   subtotal: number;
   deliveryFee: number;
+  waivedDeliveryFee: number;
   total: number;
   blockReason: string | null;
   deliveryNote: string;
@@ -1090,9 +1136,14 @@ function Checkout({
             {cart.map((line) => <div className="flex justify-between text-[14px]" key={line.item.id}><span className="text-gray-700 font-medium">{line.quantity} × {line.item.name}</span><strong className="text-gray-900">{money(line.item.price * line.quantity)}</strong></div>)}
           </div>
           <div className="border-t border-dashed border-gray-200 pt-4 flex flex-col gap-2">
-            {deliveryFee > 0 && <>
+            {(deliveryFee > 0 || waivedDeliveryFee > 0) && <>
               <div className="flex justify-between text-[14px] text-gray-600 font-medium"><span>Item Total</span><span>{money(subtotal)}</span></div>
-              <div className="flex justify-between text-[14px] text-gray-600 font-medium"><span>Delivery Fee</span><span>{money(deliveryFee)}</span></div>
+              <div className="flex justify-between text-[14px] text-gray-600 font-medium">
+                <span>Delivery Fee</span>
+                {waivedDeliveryFee > 0
+                  ? <span><s className="text-gray-400 mr-1.5">{money(waivedDeliveryFee)}</s><span className="font-bold text-green-600">FREE</span></span>
+                  : <span>{money(deliveryFee)}</span>}
+              </div>
             </>}
             <div className="flex justify-between font-extrabold text-[18px] text-gray-900"><span>Grand Total</span><span>{money(total)}</span></div>
           </div>
