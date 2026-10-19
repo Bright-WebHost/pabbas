@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPickupTime } from "@/lib/orders/format";
 import React, { useMemo, useEffect, useRef } from "react";
 import { useOrderManager } from "../../OrderManagerProvider";
 import { formatDistanceToNow } from "date-fns";
@@ -119,6 +120,11 @@ export default function KitchenBoard() {
                       'bg-[#2563EB]/20 text-[#BFDBFE]'}`}>
                     {order.order_type}
                   </span>
+                  {formatPickupTime(order.scheduled_for) && (
+                    <span className="text-[11px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider bg-[#F59E0B]/20 text-[#FCD34D]">
+                      ⏰ {formatPickupTime(order.scheduled_for)}
+                    </span>
+                  )}
                 </div>
                 <div className={`text-sm font-bold ${timerColor} flex items-center gap-1`}>
                   🕒 {timeAgo}

@@ -1,3 +1,4 @@
+import { INTERNAL_SECRET_HEADER, internalSecret } from '@/lib/server/internal-auth'
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'x-pabbas-whatsapp-secret': 'internal_bypass_secret_12345'
+                [INTERNAL_SECRET_HEADER]: internalSecret()
               },
               body: JSON.stringify({ order_number: orderNumber, rider_phone: riderPhone })
             });
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'x-pabbas-whatsapp-secret': 'internal_bypass_secret_12345'
+                [INTERNAL_SECRET_HEADER]: internalSecret()
               },
               body: JSON.stringify({ order_number: orderNumber, rider_phone: riderPhone })
             });
@@ -182,7 +183,7 @@ export async function POST(request: Request) {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'x-pabbas-whatsapp-secret': 'internal_bypass_secret_12345'
+                [INTERNAL_SECRET_HEADER]: internalSecret()
               },
               body: JSON.stringify({ order_number: orderNumber, rider_phone: riderPhone, payment_status })
             });

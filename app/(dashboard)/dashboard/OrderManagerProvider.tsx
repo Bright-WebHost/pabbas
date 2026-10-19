@@ -134,7 +134,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
     try {
       const { data, error: fetchErr } = await supabase.current
         .from("orders")
-        .select("id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone, collected_amount, is_collected")
+        .select("id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone, collected_amount, is_collected, scheduled_for")
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -174,12 +174,13 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
       });
 
       setQueuedNewOrders(prev => {
-        const prevIds = new Set(prev.map(p => p.id));
-        const toAdd = unackNew.filter(n => !prevIds.has(n.id));
-        if (toAdd.length > 0) {
-          return [...prev, ...toAdd];
-        }
-        return prev;
+        // Keep only alerts that still need attention (the order wasn't deleted, accepted elsewhere, etc.)
+        const stillWaiting = new Set(unackNew.map(n => n.id));
+        const kept = prev.filter(p => stillWaiting.has(p.id));
+        const keptIds = new Set(kept.map(p => p.id));
+        const toAdd = unackNew.filter(n => !keptIds.has(n.id));
+        if (toAdd.length === 0 && kept.length === prev.length) return prev;
+        return [...kept, ...toAdd];
       });
 
     } catch (err: any) {

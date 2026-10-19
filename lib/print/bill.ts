@@ -1,6 +1,7 @@
 import { getOrderBill } from "@/lib/orders/actions";
 import { gstBreakup } from "@/lib/settings";
 import type { BillData } from "./types";
+import { formatPickupTime } from "@/lib/orders/format";
 
 const esc = (value: unknown) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -49,6 +50,7 @@ export function renderBillHtml(bill: BillData) {
   <table>
     <tr><td class="nowrap"><b>${esc(bill.orderNumber)}</b></td><td class="r">${esc(date)}</td></tr>
     <tr><td colspan="2">${esc(orderTypeLabel(bill))}</td></tr>
+    ${formatPickupTime(bill.scheduledFor) ? `<tr><td colspan="2"><b>PICKUP AT ${esc(formatPickupTime(bill.scheduledFor))}</b></td></tr>` : ""}
     ${bill.customerName || bill.customerPhone ? `<tr><td colspan="2">${esc([bill.customerName, bill.customerPhone].filter(Boolean).join(" · "))}</td></tr>` : ""}
     ${bill.orderType === "delivery" && bill.address ? `<tr><td colspan="2" class="muted">${esc(bill.address)}</td></tr>` : ""}
   </table>

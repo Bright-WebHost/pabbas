@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isInternalRequest } from '@/lib/server/internal-auth';
 import { notifyStatusWebhook } from "@/lib/server/notify";
 
 export async function POST(request: Request) {
+  // Only the YCloud webhook route calls this (rider tapped "Delivered").
+  if (!isInternalRequest(request)) {
+    console.error("[RIDER DELIVER] Unauthorized request");
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const { order_number, rider_phone, payment_status } = body;

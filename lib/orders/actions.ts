@@ -124,6 +124,7 @@ export async function getOrderBill(orderId: string, options: { auto?: boolean } 
         customerName: order.customer_name,
         customerPhone: order.customer_phone,
         address: [order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", "),
+        scheduledFor: order.scheduled_for ?? null,
         items,
         itemsSubtotal,
         deliveryFee: Number(order.delivery_fee || 0),

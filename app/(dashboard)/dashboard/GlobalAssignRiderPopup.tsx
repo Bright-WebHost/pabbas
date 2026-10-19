@@ -15,7 +15,11 @@ export default function GlobalAssignRiderPopup() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set());
 
+  const canViewRiders = hasPerm("view_riders");
+
   useEffect(() => {
+    // fetchRiders requires view_riders; other roles (e.g. waiter) would only get a Forbidden error.
+    if (!canViewRiders) return;
     async function getRiders() {
       const { fetchRiders } = await import("@/app/(dashboard)/dashboard/(main)/riders/actions");
       const result = await fetchRiders();
@@ -24,7 +28,7 @@ export default function GlobalAssignRiderPopup() {
       }
     }
     getRiders();
-  }, []);
+  }, [canViewRiders]);
 
   // Only Admin or Dispatcher can assign riders
   const canAssignRider = hasPerm("assign_rider") || hasPerm("view_orders_full");

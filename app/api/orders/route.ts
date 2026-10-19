@@ -1,307 +1,64 @@
 import { NextResponse } from 'next/server'
 import { getSessionCookie } from '@/lib/session/cookies'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { checkOrderRules, deliveryFeeFor } from '@/lib/settings'
-import { getActivePincodes, getSettings } from '@/lib/settings/server'
-
-const MAX_CART_ITEMS = 50
-const MAX_QUANTITY_PER_ITEM = 20
-
-function normalizeOrderType(value: unknown): 'delivery' | 'takeaway' | 'dine-in' | null {
-  if (value === 'delivery' || value === 'dine-in' || value === 'takeaway') return value
-  if (value === 'pickup') return 'takeaway'
-  return null
-}
-
-function isValidPositiveInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0
-}
+import { createCustomerOrder } from '@/lib/orders/create'
 
 export async function POST(request: Request) {
   try {
     const aiSecret = request.headers.get('x-pabbas-ai-secret')?.trim()
-    const isAiBackend = aiSecret && aiSecret === process.env.PABBAS_AI_WEBHOOK_SECRET?.trim()
+    const isAiBackend = Boolean(aiSecret && aiSecret === process.env.PABBAS_AI_WEBHOOK_SECRET?.trim())
 
-    let body: any
+    let body: Record<string, unknown>
     try {
       body = await request.json()
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
-    let sessionCustomerId: string | null = null
-
-    if (isAiBackend && body.customer_id) {
-      sessionCustomerId = body.customer_id
+    let customerId: string | null = null
+    if (isAiBackend && typeof body.customer_id === 'string') {
+      customerId = body.customer_id
     } else {
       const session = await getSessionCookie()
-      if (session && session.customerId) {
-        sessionCustomerId = session.customerId
-      }
-    }
-    const {
-      order_type,
-      customer_name,
-      customer_phone,
-      delivery_address,
-      landmark,
-      pincode,
-      scheduled_time,
-      payment_method,
-      idempotency_key,
-      cart_items,
-      table_id,
-      party_size,
-    } = body
-
-    const normalizedOrderType = normalizeOrderType(order_type)
-    if (!normalizedOrderType) {
-      return NextResponse.json({ error: 'Invalid order type' }, { status: 400 })
+      if (session?.customerId) customerId = session.customerId
     }
 
-    if (!Array.isArray(cart_items) || cart_items.length === 0 || cart_items.length > MAX_CART_ITEMS) {
-      return NextResponse.json({ error: 'Cart cannot be empty' }, { status: 400 })
-    }
-
-    const adminClient = createAdminClient()
-
-    let customerData: any = null
-    if (sessionCustomerId) {
-      const { data } = await adminClient
-        .from('app_customers')
-        .select('name, phone')
-        .eq('id', sessionCustomerId)
-        .single()
-      customerData = data
-    }
-
-    const resolvedName = typeof customer_name === 'string' && customer_name.trim() ? customer_name.trim() : customerData?.name || 'Valued Customer'
-    const resolvedPhone = typeof customer_phone === 'string' && customer_phone.trim() ? customer_phone.trim() : customerData?.phone || ''
-
-    if (!resolvedPhone) {
-      return NextResponse.json({ error: 'Customer phone is required' }, { status: 400 })
-    }
-
-    if (normalizedOrderType === 'delivery' && (!delivery_address || typeof delivery_address !== 'string' || !delivery_address.trim())) {
-      return NextResponse.json({ error: 'Delivery address is required for delivery orders' }, { status: 400 })
-    }
-
-    const validatedItems: Array<{ menu_item_id: string; quantity: number }> = []
-    for (const item of cart_items) {
-      if (!item || typeof item !== 'object') {
-        return NextResponse.json({ error: 'Invalid cart item' }, { status: 400 })
-      }
-
-      const menuItemId = typeof item.menu_item_id === 'string' ? item.menu_item_id : null
-      const itemQuantity = typeof item.quantity === 'number' ? item.quantity : Number(item.quantity)
-
-      if (!menuItemId) {
-        return NextResponse.json({ error: 'Each cart item requires a menu_item_id.' }, { status: 400 })
-      }
-
-      if (!Number.isInteger(itemQuantity) || itemQuantity <= 0 || itemQuantity > MAX_QUANTITY_PER_ITEM) {
-        return NextResponse.json({ error: 'Invalid item quantity' }, { status: 400 })
-      }
-
-      validatedItems.push({ menu_item_id: menuItemId, quantity: itemQuantity })
-    }
-
-    const menuItemIds = validatedItems.map((item) => item.menu_item_id)
-    const { data: liveMenuItems, error: menuError } = await adminClient
-      .from('menu_items')
-      .select('id, item_name, price, available')
-      .in('id', menuItemIds)
-
-    if (menuError) {
-      console.error('[POST /api/orders] Menu lookup failed:', menuError.message)
-      return NextResponse.json({ error: 'Unable to load menu items' }, { status: 500 })
-    }
-
-    const menuLookup = new Map<string, { id: string; item_name: string; price: number; available: boolean }>()
-    const menuLookupByName = new Map<string, { id: string; item_name: string; price: number; available: boolean }>()
-    for (const row of liveMenuItems ?? []) {
-      const itemData = {
-        id: row.id,
-        item_name: row.item_name,
-        price: Number(row.price),
-        available: Boolean(row.available),
-      }
-      menuLookup.set(row.id, itemData)
-      menuLookupByName.set(row.item_name.toLowerCase().replace(/\s+/g, ' ').trim(), itemData)
-    }
-
-    const orderedItems: Array<{ menu_item_id: string; item_name: string; quantity: number; unit_price: number; line_total: number }> = []
-    let total = 0
-
-    for (const item of validatedItems) {
-      const menuItem = menuLookup.get(item.menu_item_id)
-      if (!menuItem || menuItem.available !== true) {
-        return NextResponse.json({ error: 'One or more menu items are unavailable' }, { status: 400 })
-      }
-
-      const unitPrice = Number(menuItem.price)
-      if (!Number.isFinite(unitPrice)) {
-        return NextResponse.json({ error: 'Invalid menu item price' }, { status: 400 })
-      }
-
-      const lineTotal = unitPrice * item.quantity
-      total += lineTotal
-      orderedItems.push({
-        menu_item_id: item.menu_item_id,
-        item_name: menuItem.item_name,
-        quantity: item.quantity,
-        unit_price: unitPrice,
-        line_total: lineTotal,
-      })
-    }
-
-    // Restaurant rules from Settings: hours / pause, order types, minimum order, delivery pincodes.
-    const [settings, activePincodes] = await Promise.all([getSettings(), getActivePincodes()])
-    const ruleError = checkOrderRules(settings, activePincodes, {
-      orderType: normalizedOrderType,
-      itemsSubtotal: total,
-      pincode: typeof pincode === 'string' ? pincode : null,
+    const result = await createCustomerOrder({
+      source: isAiBackend && body.source === 'whatsapp' ? 'whatsapp' : 'pwa',
+      orderType: body.order_type,
+      customerName: body.customer_name,
+      customerPhone: body.customer_phone,
+      customerId,
+      deliveryAddress: body.delivery_address,
+      landmark: body.landmark,
+      pincode: body.pincode,
+      scheduledTime: body.scheduled_time,
+      tableNumber: body.table_number || body.table_id,
+      cartItems: body.cart_items,
     })
-    if (ruleError) {
-      return NextResponse.json({ error: ruleError, code: 'ORDER_RULES' }, { status: 400 })
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error, ...(result.code ? { code: result.code } : {}) }, { status: result.status })
     }
 
-    const deliveryFee = normalizedOrderType === 'delivery' ? deliveryFeeFor(settings, total) : 0
-    const grandTotal = total + deliveryFee
-
-    let finalTableNumber: string | null = null
-    if (normalizedOrderType === 'dine-in') {
-      const inputTableNumber = body.table_number || body.table_id;
-      if (!inputTableNumber || typeof inputTableNumber !== 'string') {
-        return NextResponse.json({ error: 'Table selection is required for dine-in orders' }, { status: 400 })
-      }
-
-      // Verify the table number exists
-      const { data: tableRow, error: tableError } = await adminClient
-        .from('restaurant_tables')
-        .select('table_number')
-        .eq('table_number', inputTableNumber)
-        .maybeSingle()
-
-      if (tableError || !tableRow) {
-        console.error('[POST /api/orders] Table lookup failed:', tableError?.message)
-        return NextResponse.json({ error: 'Invalid table selection' }, { status: 400 })
-      }
-
-      finalTableNumber = tableRow.table_number
-    }
-
-    const orderNumberResult = await adminClient.rpc('next_order_number', { src: 'pwa' })
-    if (orderNumberResult.error) {
-      console.error('[POST /api/orders] next_order_number failed:', orderNumberResult.error.message)
-      return NextResponse.json({ error: 'Unable to generate order number' }, { status: 500 })
-    }
-
-    const orderNumber = typeof orderNumberResult.data === 'string' ? orderNumberResult.data : null
-    if (!orderNumber) {
-      return NextResponse.json({ error: 'Unable to generate order number' }, { status: 500 })
-    }
-
-    const liveOrderType = normalizedOrderType === 'takeaway' ? 'takeaway' : normalizedOrderType
-    const orderInsertPayload = {
-      order_number: orderNumber,
-      customer_phone: resolvedPhone,
-      customer_name: resolvedName,
-      items: orderedItems.map((item) => `${item.item_name} x ${item.quantity}`).join(', '),
-      total: Number(grandTotal.toFixed(2)),
-      delivery_fee: deliveryFee,
-      status: 'new',
-      order_type: liveOrderType,
-      source: 'pwa',
-      address: normalizedOrderType === 'delivery' ? (typeof delivery_address === 'string' ? delivery_address.trim() : null) : null,
-      landmark: normalizedOrderType === 'delivery' ? (typeof landmark === 'string' ? landmark.trim() : null) : null,
-      city: null,
-      pincode: normalizedOrderType === 'delivery' ? (typeof pincode === 'string' ? pincode.trim() : null) : null,
-      table_number: normalizedOrderType === 'dine-in' ? finalTableNumber : null,
-      items_json: orderedItems.map((item) => ({
-        menu_item_id: item.menu_item_id,
-        item_name: item.item_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        round: 1
-      })),
-    }
-
-    const insertOrder = (payload: Record<string, unknown>) =>
-      adminClient.from('orders').insert(payload).select('id, order_number, status, order_type').single()
-
-    let { data: createdOrder, error: createdOrderError } = await insertOrder(orderInsertPayload)
-
-    // supabase/phase9_settings.sql not applied yet: keep orders flowing without the
-    // delivery_fee column (the fee is still included in the total).
-    if (createdOrderError && /delivery_fee/.test(createdOrderError.message || '')) {
-      console.warn('[POST /api/orders] orders.delivery_fee missing — run supabase/phase9_settings.sql')
-      const { delivery_fee: _deliveryFee, ...legacyPayload } = orderInsertPayload
-      ;({ data: createdOrder, error: createdOrderError } = await insertOrder(legacyPayload))
-    }
-
-    if (createdOrderError || !createdOrder) {
-      console.error('[POST /api/orders] Order insert failed:', createdOrderError?.message || 'No order returned')
-      return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
-    }
-
-    const orderItemsPayload = orderedItems.map((item) => ({
-      order_id: createdOrder.id,
-      menu_item_id: item.menu_item_id,
-      item_name: item.item_name,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      size: null,
-      notes: null,
-    }))
-
-    const { error: orderItemsError } = await adminClient.from('order_items').insert(orderItemsPayload)
-
-    if (orderItemsError) {
-      console.error('[POST /api/orders] Order item insert failed:', orderItemsError.message)
-
-      const { error: cleanupError } = await adminClient.from('orders').delete().eq('id', createdOrder.id)
-      if (cleanupError) {
-        console.error('[POST /api/orders] Failed to clean up orphaned order after item insert failure:', cleanupError.message)
-      }
-
-      return NextResponse.json({ error: 'Failed to create order items' }, { status: 500 })
-    }
-
-    if (normalizedOrderType === 'dine-in' && finalTableNumber) {
-      const { error: tableUpdateError } = await adminClient
-        .from('restaurant_tables')
-        .update({
-          is_active: true,
-          current_order_id: createdOrder.id
-        })
-        .eq('table_number', finalTableNumber)
-      
-      if (tableUpdateError) {
-        console.error('[POST /api/orders] Failed to update table with active order:', tableUpdateError.message)
-      }
-    }
-
-
-    const finalTotal = Number(grandTotal.toFixed(2))
     return NextResponse.json({
       success: true,
       // Top-level copy for the n8n "Confirm Order" node, which reads $json.order_number.
-      order_number: createdOrder.order_number,
-      total: finalTotal,
-      delivery_fee: deliveryFee,
+      order_number: result.orderNumber,
+      total: result.total,
+      delivery_fee: result.deliveryFee,
       order: {
-        order_number: createdOrder.order_number,
-        order_type: createdOrder.order_type,
-        order_status: createdOrder.status,
-        total: finalTotal,
-        delivery_fee: deliveryFee,
+        order_number: result.orderNumber,
+        order_type: result.orderType,
+        order_status: result.status,
+        total: result.total,
+        delivery_fee: result.deliveryFee,
+        scheduled_for: result.scheduledFor,
         is_duplicate: false,
       },
     })
-  } catch (err: any) {
-    console.error('[POST /api/orders] Internal error:', err?.message || 'Failed to place order')
-    return NextResponse.json({ error: err?.message || 'Failed to place order' }, { status: 500 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to place order'
+    console.error('[POST /api/orders] Internal error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
-

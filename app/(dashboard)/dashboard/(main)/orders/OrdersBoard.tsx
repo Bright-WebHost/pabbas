@@ -9,6 +9,8 @@ import { SlideAction } from "@/components/dashboard/ui/SlideAction";
 import { motion, AnimatePresence } from "framer-motion";
 import { collectCash } from "./actions";
 import { printOrderBill } from "@/lib/print/bill";
+import { formatPickupTime } from "@/lib/orders/format";
+import { TodaySummaryCard } from "./TodaySummaryCard";
 
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
@@ -294,6 +296,9 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
           <div className="flex flex-col">
             <span className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--muted)] mb-1">Type & Source</span>
             <span className="text-[15px] font-bold text-[var(--ink)]">{normalizeOrderType(order.order_type)}</span>
+            {formatPickupTime(order.scheduled_for) && (
+              <span className="text-[13px] font-extrabold text-[#9A6700]">⏰ Pickup {formatPickupTime(order.scheduled_for)}</span>
+            )}
             <span className="text-[14px] font-medium text-[var(--muted)]">{order.source || "Direct"}</span>
           </div>
 
@@ -630,6 +635,11 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
         <span className="rounded bg-[#F8FAFB] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] border border-[#E6E9EE]">
           {normalizeOrderType(order.order_type)}
         </span>
+        {formatPickupTime(order.scheduled_for) && (
+          <span className="rounded bg-[#FFF7E6] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#9A6700] border border-[#F3D28B]">
+            ⏰ Pickup {formatPickupTime(order.scheduled_for)}
+          </span>
+        )}
         {hasNewItems && order.status !== 'delivered' && order.status !== 'cancelled' && (
           <span className="rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#D97706] border border-[#FDE68A] animate-pulse">
             🚨 UPDATED (New Items)
@@ -744,6 +754,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
 
 export default function OrdersBoard() {
   const { orders, error, updateOrderStatus, isLoading } = useOrderManager();
+  const { hasPerm } = useStaff();
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -795,6 +806,7 @@ export default function OrdersBoard() {
 
   return (
     <section className="space-y-6">
+      {hasPerm("analytics") && <TodaySummaryCard ordersVersion={orders.length} />}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/50 p-4 rounded-[20px] border border-[#EAF0F6] backdrop-blur-md">
         <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
           <span className="text-[13px] font-bold text-[#8799AF]">Filter:</span>

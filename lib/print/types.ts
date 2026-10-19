@@ -6,6 +6,7 @@ export interface BillData {
   customerName: string | null;
   customerPhone: string | null;
   address: string;
+  scheduledFor: string | null;
   items: Array<{ name: string; quantity: number; unitPrice: number }>;
   itemsSubtotal: number;
   deliveryFee: number;

@@ -481,7 +481,6 @@ function Welcome({ store, setOrderType }: { store: PublicSettings | null; setOrd
 
 function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: MenuItem; quantity: number; onAdd: (item: MenuItem, amount?: number) => void; onChange: (id: string, delta: number) => void; onDetails: (item: MenuItem) => void; }) { 
   const isVeg = item.vegetarian !== false;
-  const originalPrice = item.price > 120 ? Math.round(item.price * 1.35) : null;
 
   return (
     <article 
@@ -530,11 +529,6 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
       {/* 4. Price & ADD Action */}
       <div className="mt-auto pt-2 flex items-end justify-between gap-1.5">
         <div className="flex flex-col">
-          {originalPrice && (
-            <span className="text-gray-400 text-[11px] line-through font-semibold leading-none mb-1">
-              {money(originalPrice)}
-            </span>
-          )}
           <span className="bg-[#ffd700] text-black font-black text-[13px] px-1.5 py-0.5 rounded leading-none inline-block shadow-sm">
             {money(item.price)}
           </span>
@@ -1174,7 +1168,6 @@ function Checkout({
               'Place Order'
             )}
           </button>
-          <p className="text-center text-[12px] text-gray-400 mt-4 font-medium">Payment is simulated in this preview.</p>
         </section>
       </div>
     </div>

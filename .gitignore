@@ -54,3 +54,7 @@ production_*.json
 status_*.json
 n8n/
 referenece/
+
+# Local DB scripts (contain credentials)
+update_chat_context.js
+scratch_update.js
