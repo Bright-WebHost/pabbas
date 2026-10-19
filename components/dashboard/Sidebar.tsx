@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +15,7 @@ export default function Sidebar({ restaurantName = "Pabbas", logoUrl = "" }: { r
   const supabase = createClient();
   const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
   const { hasPerm, staff, mobileMenuOpen, setMobileMenuOpen, desktopMenuCollapsed, setDesktopMenuCollapsed } = useStaff();
+  const waitingForPerson = useWaitingForPersonCount(hasPerm("chat"));
 
   return (
     <>
@@ -80,7 +81,7 @@ export default function Sidebar({ restaurantName = "Pabbas", logoUrl = "" }: { r
             <SidebarLink href="/dashboard/tables" label="Tables" icon="🍽️" active={pathname === "/dashboard/tables"} collapsed={desktopMenuCollapsed} />
           )}
           {hasPerm("chat") && (
-            <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} collapsed={desktopMenuCollapsed} />
+            <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} collapsed={desktopMenuCollapsed} badge={waitingForPerson} />
           )}
           {hasPerm("manage_menu") && (
             <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} collapsed={desktopMenuCollapsed} />
@@ -130,7 +131,29 @@ export default function Sidebar({ restaurantName = "Pabbas", logoUrl = "" }: { r
   );
 }
 
-function SidebarLink({ href, label, icon, active = false, collapsed = false }: { href: string; label: string; icon: string; active?: boolean; collapsed?: boolean }) {
+/** Chats where the customer asked for a person and the AI is still paused (polled every 20s). */
+function useWaitingForPersonCount(enabled: boolean) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    const supabase = createClient();
+    let active = true;
+    const load = async () => {
+      const { count: c } = await supabase
+        .from("chat_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("ai_enabled", false)
+        .eq("ai_disabled_by", "customer_request");
+      if (active) setCount(c ?? 0);
+    };
+    void load();
+    const timer = window.setInterval(load, 20000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [enabled]);
+  return count;
+}
+
+function SidebarLink({ href, label, icon, active = false, collapsed = false, badge = 0 }: { href: string; label: string; icon: string; active?: boolean; collapsed?: boolean; badge?: number }) {
   return (
     <Link
       href={href}
@@ -145,6 +168,11 @@ function SidebarLink({ href, label, icon, active = false, collapsed = false }: {
     >
       <span className="text-[15px] opacity-80 shrink-0">{icon}</span>
       {!collapsed && <span className="whitespace-nowrap truncate">{label}</span>}
+      {badge > 0 && (
+        <span title={`${badge} customer(s) asked for a person`} className={`${collapsed ? "absolute top-1 right-1" : "ml-auto"} min-w-[18px] h-[18px] px-1 rounded-full bg-[#E23744] text-white text-[10px] font-extrabold grid place-items-center`}>
+          {badge}
+        </span>
+      )}
       {active && <span className={`absolute left-0 w-1 rounded-r bg-[#E23744] ${collapsed ? 'h-5' : 'h-6'}`} />}
     </Link>
   );

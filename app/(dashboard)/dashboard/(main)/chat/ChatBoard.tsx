@@ -12,8 +12,12 @@ export interface ChatSession {
   last_message_by: string;
   unread_count: number;
   ai_enabled: boolean;
+  ai_disabled_by?: string | null;
   updated_at: string;
 }
+
+/** Customer asked for a person (set by /api/ai/tools/handover) and nobody has turned the AI back on yet. */
+export const wantsPerson = (s: Pick<ChatSession, "ai_enabled" | "ai_disabled_by">) => !s.ai_enabled && s.ai_disabled_by === "customer_request";
 
 export interface ChatMessage {
   id: string;
@@ -44,7 +48,9 @@ export default function ChatBoard() {
       .order("updated_at", { ascending: false });
     
     if (data && !error) {
-      setSessions(data as ChatSession[]);
+      // Chats waiting for a person go to the top.
+      const list = data as ChatSession[];
+      setSessions([...list.filter(wantsPerson), ...list.filter((s) => !wantsPerson(s))]);
     }
     setLoadingSessions(false);
   };
@@ -176,7 +182,12 @@ export default function ChatBoard() {
                   }`}
                 >
                   <div className="flex justify-between items-center w-full">
-                    <span className="font-extrabold text-[14px] text-[#0A1017] tracking-tight">{session.phone}</span>
+                    <span className="font-extrabold text-[14px] text-[#0A1017] tracking-tight flex items-center gap-2">
+                      {session.phone}
+                      {wantsPerson(session) && (
+                        <span className="rounded-full bg-[#FDE8E8] border border-[#F5C2C6] px-2 py-0.5 text-[10px] font-extrabold text-[#C0392B]">🙋 Wants a person</span>
+                      )}
+                    </span>
                     <span className="text-[10px] font-bold text-[#8799AF] uppercase tracking-widest">{formatTime(session.updated_at)}</span>
                   </div>
                   <div className="text-[12.5px] font-medium text-[#6B7A90] truncate">
