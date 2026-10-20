@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { collectCash } from "./actions";
 import { printOrderBill } from "@/lib/print/bill";
 import { formatPickupTime } from "@/lib/orders/format";
-import { TodaySummaryCard } from "./TodaySummaryCard";
 
 const ORDER_SELECT =
   "id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json";
@@ -754,7 +753,6 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
 
 export default function OrdersBoard() {
   const { orders, error, updateOrderStatus, isLoading } = useOrderManager();
-  const { hasPerm } = useStaff();
   const [range, setRange] = useState<RangeKey>("today");
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -806,7 +804,6 @@ export default function OrdersBoard() {
 
   return (
     <section className="space-y-6">
-      {hasPerm("analytics") && <TodaySummaryCard ordersVersion={orders.length} />}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/50 p-4 rounded-[20px] border border-[#EAF0F6] backdrop-blur-md">
         <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
           <span className="text-[13px] font-bold text-[#8799AF]">Filter:</span>
