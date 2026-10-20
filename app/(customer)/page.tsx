@@ -42,7 +42,14 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/settings/public', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (data && !data.error) setStore(data); })
+      .then((data) => {
+        if (!data || data.error) return;
+        setStore(data);
+        setOrderType((t) =>
+          t === "delivery" && !data.orderTypes.delivery && data.orderTypes.takeaway ? "pickup"
+          : t === "pickup" && !data.orderTypes.takeaway && data.orderTypes.delivery ? "delivery"
+          : t);
+      })
       .catch((err) => console.error('Failed to load settings:', err));
   }, []);
 
@@ -94,6 +101,10 @@ export default function Home() {
           }
         })
         .catch(console.error);
+    } else if (params.get("from") === "whatsapp") {
+      // Tapped "Order Now" in WhatsApp: show the food first; Delivery/Takeaway is picked at checkout.
+      setScreen("menu");
+      window.history.replaceState(null, "", window.location.pathname);
     }
   }, []);
 
@@ -266,7 +277,7 @@ export default function Home() {
 
   if (screen === "welcome") return <Welcome store={store} setOrderType={(type) => { setOrderType(type); setScreen("menu"); }} />;
 
-  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} waivedDeliveryFee={waivedDeliveryFee} total={total} blockReason={checkoutBlock} deliveryNote={store?.deliveryNote || ""} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
+  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} setOrderType={setOrderType} canDeliver={!store || store.orderTypes.delivery} canTakeaway={!store || store.orderTypes.takeaway} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} waivedDeliveryFee={waivedDeliveryFee} total={total} blockReason={checkoutBlock} deliveryNote={store?.deliveryNote || ""} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
 
   if (screen === "confirmed") return <Confirmation orderNumber={orderNumber} orderType={orderType} table={table} cart={cart} total={total} onContinue={() => { setScreen("welcome"); setCart([]); setIdempotencyKey(""); }} />;
 
@@ -507,7 +518,11 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
         <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] shrink-0 ${isVeg ? 'border-green-600' : 'border-red-700'}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-700'}`}></span>
         </span>
-        {(item.is_pinned || item.featured) && (
+        {item.popular_today ? (
+          <span className="text-[#c2410c] text-[11px] font-bold flex items-center gap-0.5 tracking-tight">
+            🔥 Popular today
+          </span>
+        ) : (item.is_pinned || item.featured) && (
           <span className="text-[#e23744] text-[11px] font-bold flex items-center gap-0.5 tracking-tight">
             ★ Bestseller
           </span>
@@ -802,6 +817,9 @@ function ProductDetails({
 function Checkout({
   activeOrderItems,
   orderType,
+  setOrderType,
+  canDeliver,
+  canTakeaway,
   table,
   setTable,
   tables,
@@ -827,6 +845,9 @@ function Checkout({
 }: {
   activeOrderItems?: any[];
   orderType: OrderType;
+  setOrderType: (type: OrderType) => void;
+  canDeliver: boolean;
+  canTakeaway: boolean;
   table: string;
   setTable: (table: string) => void;
   tables: import("@/lib/supabase/types").RestaurantTableRow[];
@@ -936,6 +957,22 @@ function Checkout({
       <div className="grid gap-6">
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h1 className="text-2xl font-extrabold mb-6 text-gray-900">Complete Order</h1>
+          {orderType !== "dine-in" && canDeliver && canTakeaway && (
+            <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1" role="radiogroup" aria-label="How would you like your order?">
+              {([["delivery", "🛵 Delivery"], ["pickup", "🛍️ Takeaway"]] as const).map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  role="radio"
+                  aria-checked={orderType === type}
+                  onClick={() => setOrderType(type)}
+                  className={`rounded-xl py-2.5 text-[15px] font-bold transition ${orderType === type ? "bg-white text-[#e23744] shadow-sm" : "text-gray-600"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           
           {user ? (
             <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50/60 border border-green-200/80 rounded-2xl p-4 flex items-center justify-between shadow-xs">

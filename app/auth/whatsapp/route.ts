@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     // 4. Redirect to the clean ordering URL, dropping the token parameter
     // We set a Referrer-Policy header via NextResponse if needed, but the 302 itself
     // to a URL without the token is the main protection against leaking via Referer.
-    const response = NextResponse.redirect(new URL('/', request.url))
+    const response = NextResponse.redirect(new URL('/?from=whatsapp', request.url))
     
     // Hardening: Ensure we don't cache this redirect and don't leak referrer
     response.headers.set('Cache-Control', 'no-store, max-age=0')

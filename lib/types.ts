@@ -17,6 +17,8 @@ export interface MenuItem {
   badge?: string;
   featured?: boolean;
   is_pinned?: boolean;
+  /** In 2+ real orders today (set by /api/menu) */
+  popular_today?: boolean;
   options?: MenuOption[];
 }
 

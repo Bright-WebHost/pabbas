@@ -24,7 +24,7 @@ type CheckoutState = {
 type Button = { id: string; title: string }
 type CartLine = { menu_item_id: string; item_name: string; quantity: number; unit_price: number }
 
-const EVENTS = ['start', 'takeaway', 'delivery', 'use_last_address', 'address', 'confirm', 'edit', 'reorder'] as const
+const EVENTS = ['start', 'takeaway', 'delivery', 'use_last_address', 'address', 'confirm', 'edit', 'reorder', 'upsell', 'track'] as const
 type CheckoutEvent = (typeof EVENTS)[number]
 
 const STATE_TTL_MS = 30 * 60 * 1000
@@ -36,6 +36,7 @@ const B = {
   lastAddress: { id: 'btn_use_last_address', title: '📍 Use this address' },
   checkout: { id: 'btn_checkout', title: 'Place Order' },
   addMore: { id: 'btn_add_more', title: 'Add More' },
+  track: { id: 'btn_track', title: '📍 Track Order' },
 } satisfies Record<string, Button>
 
 const rs = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`
@@ -106,6 +107,55 @@ export async function POST(request: Request) {
   const itemList = (lines: Array<CartLine & { line: number }>) => lines.map((l) => `• ${l.item_name} ×${l.quantity} — ${rs(l.line)}`).join('\n')
 
   const enabled = { takeaway: settings.orderTypes.takeaway, delivery: settings.orderTypes.delivery }
+
+  /** "Add ₹40 more for FREE delivery" — only when delivery has a fee and a free threshold. */
+  const deliveryNudge = (subtotal: number) => {
+    if (!enabled.delivery || settings.deliveryFee <= 0 || settings.freeDeliveryAbove <= 0) return ''
+    const remaining = Math.ceil(settings.freeDeliveryAbove - subtotal)
+    return remaining > 0 ? `\n🛵 Add ${rs(remaining)} more for *FREE delivery*` : '\n🎉 You get *FREE delivery* on this order'
+  }
+
+  // ---------- track ----------
+  if (event === 'track') {
+    const { data: o } = await db
+      .from('orders')
+      .select('order_number, status, order_type, created_at, rider_name, rider_phone, total')
+      .eq('customer_phone', customerPhone)
+      .neq('status', 'draft')
+      .gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!o) return reply("I can't see an order from you in the last 24 hours. Would you like to place one? 😊", [B.addMore])
+    const placed = new Date(o.created_at).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+    const pickup = o.order_type !== 'delivery'
+    const status: Record<string, string> = {
+      new: '✅ Received — waiting for the restaurant to confirm',
+      preparing: '👩‍🍳 Being prepared right now',
+      ready_for_pickup: pickup ? '🛍️ Ready! You can pick it up now' : '📦 Packed and waiting for the delivery partner',
+      out_for_delivery: `🛵 On the way${o.rider_name ? ` with ${o.rider_name}${o.rider_phone ? ` (📞 ${o.rider_phone})` : ''}` : ''}`,
+      delivered: pickup ? '🎉 Picked up. Enjoy!' : '🎉 Delivered. Enjoy!',
+      cancelled: '❌ This order was cancelled',
+    }
+    const active = ['new', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)
+    return reply(`*Order #${o.order_number}* (placed ${placed})\n\n${status[o.status] || o.status}\n\nTotal: ${rs(Number(o.total))}`, active ? [B.track] : [])
+  }
+
+  // ---------- upsell (one-tap add-on) ----------
+  if (event === 'upsell') {
+    const itemId = text.replace(/^btn_upsell:/i, '').trim()
+    if (!/^[0-9a-f-]{36}$/i.test(itemId)) return reply("Sorry, I couldn't add that. What would you like? 😊", [B.checkout, B.addMore])
+    const { data: item } = await db.from('menu_items').select('id, item_name, price, available').eq('id', itemId).maybeSingle()
+    if (!item || !item.available) return reply("Sorry, that item isn't available right now 😔", [B.checkout, B.addMore])
+    const next = cart.map((l) => ({ ...l }))
+    const existing = next.find((l) => l.menu_item_id === item.id)
+    if (existing) existing.quantity = Math.min(20, existing.quantity + 1)
+    else next.push({ menu_item_id: item.id, item_name: item.item_name, unit_price: Number(item.price), quantity: 1 })
+    await db.from('ai_carts').upsert({ channel_user_id: channelUserId, items: next, updated_at: new Date().toISOString() }, { onConflict: 'channel_user_id' })
+    const p = await priced(next)
+    return reply(`✅ Added *${item.item_name}*!\n\n${itemList(p.lines)}\n\n*Item total:* ${rs(p.subtotal)}${deliveryNudge(p.subtotal)}`, [B.checkout, B.addMore])
+  }
+
   const fresh = (patch: Omit<CheckoutState, 'at'>): CheckoutState => ({ ...patch, at: new Date().toISOString() })
 
   // ---------- reorder ----------
@@ -139,7 +189,7 @@ export async function POST(request: Request) {
     await saveState(null)
     const p = await priced(lines)
     return reply(
-      `🔁 I've added your last order:\n\n${itemList(p.lines)}\n\n*Item total:* ${rs(p.subtotal)}` +
+      `🔁 I've added your last order:\n\n${itemList(p.lines)}\n\n*Item total:* ${rs(p.subtotal)}${deliveryNudge(p.subtotal)}` +
         (missing.length ? `\n\n_Not available right now: ${missing.join(', ')}_` : '') +
         `\n\nPlace the order, or add something else?`,
       [B.checkout, B.addMore]
@@ -173,7 +223,7 @@ export async function POST(request: Request) {
 
   const askMode = async () => {
     await saveState(fresh({ step: 'choose_mode' }))
-    return reply(`🧾 *Your order*\n\n${itemList(p.lines)}\n\n*Item total:* ${rs(p.subtotal)}${soldOut}\n\nHow would you like to get it?`, [B.takeaway, B.delivery, B.edit])
+    return reply(`🧾 *Your order*\n\n${itemList(p.lines)}\n\n*Item total:* ${rs(p.subtotal)}${deliveryNudge(p.subtotal)}${soldOut}\n\nHow would you like to get it?`, [B.takeaway, B.delivery, B.edit])
   }
 
   const confirmTakeaway = async () => {
@@ -261,7 +311,7 @@ export async function POST(request: Request) {
     const how = state.order_type === 'delivery' ? `🛵 Delivery to ${state.address}` : '🛍️ Takeaway'
     return reply(
       `🎉 *Order placed!* #${result.orderNumber}\n\n${itemList(p.lines)}\n\n*Total: ${rs(result.total)}* (pay on ${state.order_type === 'delivery' ? 'delivery' : 'pickup'})\n${how}\n\nOur team will confirm it shortly and keep you updated here 🙏`,
-      [],
+      [B.track],
       { order_number: result.orderNumber, total: result.total }
     )
   }
