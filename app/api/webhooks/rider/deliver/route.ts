@@ -3,6 +3,22 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isInternalRequest } from '@/lib/server/internal-auth';
 import { notifyStatusWebhook } from "@/lib/server/notify";
 
+async function notifyRider(phone: string, text: string) {
+  const apiKey = process.env.YCLOUD_API_KEY;
+  if (!apiKey) return;
+  const to = String(phone || '').replace(/[^0-9]/g, '');
+  try {
+    const res = await fetch('https://api.ycloud.com/v2/whatsapp/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body: JSON.stringify({ from: '+919180348124', to: `+${to}`, type: 'text', text: { body: text } }),
+    });
+    if (!res.ok) console.error('[RIDER DELIVER] rider confirmation failed:', res.status);
+  } catch (err) {
+    console.error('[RIDER DELIVER] rider confirmation error', err);
+  }
+}
+
 export async function POST(request: Request) {
   // Only the YCloud webhook route calls this (rider tapped "Delivered").
   if (!isInternalRequest(request)) {
@@ -41,13 +57,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: 'Already delivered' });
     }
 
-    const updatePayload: any = {
+    // "Collected": the rider holds the cash until the cashier collects it (is_collected stays false).
+    // "Unpaid": the customer didn't pay the rider, so the rider owes nothing for this order and
+    // the shop follows up with the customer (the Orders page flags it).
+    const paymentStatus = payment_status === 'unpaid' ? 'unpaid' : 'collected';
+    const updatePayload: Record<string, unknown> = {
       status: 'delivered',
+      payment_status: paymentStatus,
       updated_at: new Date().toISOString()
     };
-    // Note: The rider has collected cash from the customer upon delivery,
-    // but the store cashier has not collected it from the rider yet.
-    // Keep is_collected = false until the cashier explicitly collects it.
 
     // 2. Mark as delivered
     const { error: updateError } = await adminClient
@@ -56,6 +74,19 @@ export async function POST(request: Request) {
       .eq('id', order.id);
 
     if (updateError) throw updateError;
+
+    // Tell the rider their tap was recorded (they got no reply before).
+    const amount = `₹${Math.round(Number(order.total) || 0).toLocaleString('en-IN')}`;
+    await notifyRider(
+      rider_phone,
+      paymentStatus === 'unpaid'
+        ? `⚠️ Order ${order_number} delivered and marked *UNPAID* (${amount}).
+
+You don't need to hand over cash for this order. The restaurant will follow up with the customer.`
+        : `✅ Order ${order_number} delivered. Cash collected: *${amount}*.
+
+Please hand it over at the counter. Thank you! 🙏`
+    );
 
     // 3. Notify webhook
     const customMessage = `Your order ${order.order_number} has been delivered! 🎉\n\nHere is your receipt. Thank you for choosing Pabbas! We hope you enjoy your meal. 😋`;

@@ -69,3 +69,30 @@ export async function collectCash(orderId: string, expectedAmount: number, recei
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * A delivery the rider marked "Unpaid" has now been paid to the shop (cash at the counter, UPI…).
+ * The rider never held this money, so it is settled here rather than through rider cash collection.
+ */
+export async function markUnpaidOrderPaid(orderId: string) {
+  await authorize("collect_cash");
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createAdminClient();
+
+  const { data: order, error } = await adminClient
+    .from("orders")
+    .select("id, total, payment_status")
+    .eq("id", orderId)
+    .single();
+  if (error || !order) return { success: false, error: "Order not found" };
+  if (order.payment_status === "paid_later") return { success: true };
+  if (order.payment_status !== "unpaid") return { success: false, error: "This order is not marked unpaid." };
+
+  const { error: updateError } = await adminClient
+    .from("orders")
+    .update({ payment_status: "paid_later", is_collected: true, collected_amount: order.total, updated_at: new Date().toISOString() })
+    .eq("id", orderId)
+    .eq("payment_status", "unpaid");
+  if (updateError) return { success: false, error: "Could not update the order." };
+  return { success: true };
+}

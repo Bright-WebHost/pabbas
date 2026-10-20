@@ -86,7 +86,7 @@ export async function fetchRidersPageData(timeFilter: TimeFilter = "this_week") 
     // 2. Fetch orders assigned to riders
     let ordersQuery = adminClient
       .from("orders")
-      .select("id, order_number, total, collected_amount, is_collected, status, rider_id, created_at")
+      .select("id, order_number, total, collected_amount, is_collected, status, rider_id, created_at, payment_status")
       .not("rider_id", "is", null);
 
     const { start, end } = getTimeRange(timeFilter);
@@ -105,12 +105,14 @@ export async function fetchRidersPageData(timeFilter: TimeFilter = "this_week") 
       const delivered = rOrders.filter((o: any) => o.status === "delivered");
       const cancelled = rOrders.filter((o: any) => o.status === "cancelled");
 
-      // Cash collected by rider for delivered orders
-      const totalCollected = delivered.reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0);
+      // Cash collected by rider for delivered orders. "Unpaid" deliveries (customer didn't pay the
+      // rider) and orders the shop was paid for directly are not cash the rider holds.
+      const riderHeldCash = delivered.filter((o: any) => o.payment_status !== "unpaid" && o.payment_status !== "paid_later");
+      const totalCollected = riderHeldCash.reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0);
 
       // Handed over to store: recorded in riders.cash_collected or orders.collected_amount
       // In all_time, use rider's cash_collected column; in time filter, use delivered orders with is_collected
-      const handedOverFromOrders = delivered
+      const handedOverFromOrders = riderHeldCash
         .filter((o: any) => o.is_collected)
         .reduce((sum: number, o: any) => sum + (Number(o.collected_amount != null && o.collected_amount > 0 ? o.collected_amount : o.total) || 0), 0);
 
@@ -265,14 +267,16 @@ export async function collectRiderCash(riderId: string, amountToCollect?: number
     // Fetch delivered orders for this rider
     const { data: deliveredOrders, error: ordersFetchError } = await adminClient
       .from("orders")
-      .select("id, total, collected_amount, is_collected")
+      .select("id, total, collected_amount, is_collected, payment_status")
       .eq("rider_id", riderId)
       .eq("status", "delivered")
       .order("created_at", { ascending: true });
 
     if (ordersFetchError) throw ordersFetchError;
 
-    const totalDelivered = (deliveredOrders || []).reduce(
+    // Only deliveries where the rider actually took the cash (not "Unpaid" / paid to the shop)
+    const riderHeldOrders = (deliveredOrders || []).filter((o: any) => o.payment_status !== "unpaid" && o.payment_status !== "paid_later");
+    const totalDelivered = riderHeldOrders.reduce(
       (sum: number, o: any) => sum + (Number(o.total) || 0),
       0
     );
@@ -301,7 +305,7 @@ export async function collectRiderCash(riderId: string, amountToCollect?: number
 
     // 2. Mark uncollected delivered orders as collected up to the collected amount
     let budget = collectAmount;
-    const uncollectedOrders = (deliveredOrders || []).filter((o: any) => !o.is_collected);
+    const uncollectedOrders = riderHeldOrders.filter((o: any) => !o.is_collected);
 
     for (const order of uncollectedOrders) {
       if (budget <= 0) break;
@@ -339,7 +343,8 @@ export async function collectRiderCash(riderId: string, amountToCollect?: number
         })
         .eq("rider_id", riderId)
         .eq("status", "delivered")
-        .eq("is_collected", false);
+        .eq("is_collected", false)
+        .or("payment_status.is.null,payment_status.eq.collected");
     }
 
     return {

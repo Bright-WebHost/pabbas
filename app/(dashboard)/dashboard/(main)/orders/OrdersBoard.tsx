@@ -7,7 +7,7 @@ import { useOrderManager } from "../../OrderManagerProvider";
 import { AssignRiderModal } from "./AssignRiderModal";
 import { SlideAction } from "@/components/dashboard/ui/SlideAction";
 import { motion, AnimatePresence } from "framer-motion";
-import { collectCash } from "./actions";
+import { collectCash, markUnpaidOrderPaid } from "./actions";
 import { printOrderBill } from "@/lib/print/bill";
 import { formatPickupTime } from "@/lib/orders/format";
 
@@ -438,7 +438,16 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
 
 
 
-            {hasPerm("collect_cash") && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
+            {isUnpaid(order) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="h-[48px] rounded-[12px] border border-[#F5C2C6] bg-[#FDE8E8] px-4 flex items-center text-[14px] font-extrabold text-[#C0392B]">
+                  ⚠️ Customer didn&apos;t pay the rider ({money(order.total)})
+                </div>
+                {hasPerm("collect_cash") && <MarkPaidButton order={order} className="h-[48px] rounded-[12px] border border-[#C6ECD6] bg-[#E5F5EC] px-5 text-[14px] font-extrabold text-[#146C43] hover:bg-[#D1E7DD] transition-colors disabled:opacity-50" />}
+              </div>
+            )}
+
+            {hasPerm("collect_cash") && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && !isUnpaid(order) && (
               <button
                 type="button"
                 disabled={isCollecting}
@@ -451,7 +460,7 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
 
             {order.order_type === "delivery" && order.status === "delivered" && order.is_collected && (
               <div className="h-[48px] rounded-[12px] border border-[#C6ECD6] bg-[#E5F5EC] px-5 flex items-center text-[14px] font-extrabold text-[#146C43]">
-                ✓ Cash Collected (₹{order.collected_amount != null && order.collected_amount > 0 ? order.collected_amount : order.total})
+                {order.payment_status === "paid_later" ? "✓ Paid to the shop" : "✓ Cash Collected"} (₹{order.collected_amount != null && order.collected_amount > 0 ? order.collected_amount : order.total})
               </div>
             )}
           </div>
@@ -467,6 +476,32 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">{label}</p>
       <p className="mt-1 text-sm font-semibold leading-5">{value}</p>
     </div>
+  );
+}
+
+/** Rider tapped "Unpaid": delivered, but the customer still owes the shop. */
+const isUnpaid = (order: DashboardOrder) => order.order_type === "delivery" && order.status === "delivered" && order.payment_status === "unpaid";
+
+function MarkPaidButton({ order, className }: { order: DashboardOrder; className: string }) {
+  const { refreshOrders } = useOrderManager();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      className={className}
+      onClick={async (event) => {
+        event.stopPropagation();
+        if (!window.confirm(`Mark ${order.order_number} as paid? Use this once the customer has paid the shop (₹${order.total}).`)) return;
+        setBusy(true);
+        const res = await markUnpaidOrderPaid(order.id).catch(() => ({ success: false, error: "Network error" }));
+        setBusy(false);
+        if (res.success) await refreshOrders();
+        else alert("Could not mark as paid: " + ("error" in res ? res.error : ""));
+      }}
+    >
+      {busy ? "Saving…" : `✅ Mark as paid (₹${order.total})`}
+    </button>
   );
 }
 
@@ -657,7 +692,11 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
         {order.cancel_requested_at && order.status !== "cancelled" && order.status !== "delivered" && (
           <span className="rounded border border-[#F5C6CB] bg-[#FDE8E8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#B42318]">Cancel request</span>
         )}
-        {order.order_type === "delivery" && (order.status === "out_for_delivery" || order.status === "delivered") && !order.is_collected && (
+        {isUnpaid(order) ? (
+          <span className="rounded border border-[#F5C2C6] bg-[#FDE8E8] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#C0392B]">
+            ⚠️ Unpaid ₹{order.total}
+          </span>
+        ) : order.order_type === "delivery" && (order.status === "out_for_delivery" || order.status === "delivered") && !order.is_collected && (
           <span className="rounded border border-[#B8D5F6] bg-[#EAF3FF] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1A5FA8]">
             Collect ₹{order.total}
           </span>
@@ -680,7 +719,13 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
             resetOnComplete={false}
           />
         )}
-        {!slideAction && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && hasPerm("collect_cash") && (
+        {!slideAction && isUnpaid(order) && hasPerm("collect_cash") && (
+          <MarkPaidButton
+            order={order}
+            className="w-full h-[40px] rounded-[10px] bg-[#E5F5EC] hover:bg-[#D1E7DD] border border-[#C6ECD6] text-[#146C43] font-black text-[13px] flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+          />
+        )}
+        {!slideAction && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && !isUnpaid(order) && hasPerm("collect_cash") && (
           <button
             type="button"
             onClick={handleQuickCollectCash}
@@ -725,7 +770,7 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
               Edit
             </button>
           )}
-          {hasPerm("collect_cash") && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && (
+          {hasPerm("collect_cash") && order.order_type === "delivery" && order.status === "delivered" && !order.is_collected && !isUnpaid(order) && (
             <button
               type="button"
               onClick={handleQuickCollectCash}
@@ -794,6 +839,8 @@ export default function OrdersBoard() {
   }, [orders, range]);
 
   const visibleOrders = filteredOrders.filter((order) => order.status !== "cancelled");
+  // Shown regardless of the date filter until someone marks them paid.
+  const unpaidOrders = orders.filter(isUnpaid);
   const cancelledOrders = filteredOrders.filter((order) => order.status === "cancelled");
 
   const totalRevenue = visibleOrders.reduce((sum, order) => sum + Number(order.total ?? 0), 0);
@@ -838,6 +885,25 @@ export default function OrdersBoard() {
       {statusMessage && (
         <div className="rounded-xl border border-[#C6ECD6] bg-[#E5F5EC] px-4 py-3 text-sm font-semibold text-[#146C43] shadow-[0_4px_12px_rgba(25,135,84,0.1)]">
           {statusMessage}
+        </div>
+      )}
+
+      {unpaidOrders.length > 0 && (
+        <div className="rounded-xl border border-[#F5C2C6] bg-[#FDE8E8] px-4 py-3 shadow-[0_4px_12px_rgba(226,55,68,0.1)]">
+          <p className="text-sm font-extrabold text-[#C0392B]">
+            ⚠️ {unpaidOrders.length} delivered order{unpaidOrders.length > 1 ? "s were" : " was"} not paid. Please follow up with the customer.
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {unpaidOrders.map((o) => (
+              <li key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-[#7A1F1F]">
+                <button type="button" onClick={() => setSelectedOrder(o)} className="font-extrabold underline">{o.order_number}</button>
+                <span>{money(o.total)}</span>
+                <span>{o.customer_name || "Customer"}</span>
+                {o.customer_phone && <a href={`tel:+${String(o.customer_phone).replace(/\D/g, "")}`} className="underline">📞 {o.customer_phone}</a>}
+                {o.rider_name && <span className="text-[#9B4545]">rider: {o.rider_name}</span>}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

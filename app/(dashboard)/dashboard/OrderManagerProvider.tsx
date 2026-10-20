@@ -134,7 +134,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
     try {
       const { data, error: fetchErr } = await supabase.current
         .from("orders")
-        .select("id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone, collected_amount, is_collected, scheduled_for")
+        .select("id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone, collected_amount, is_collected, scheduled_for, payment_status")
         .order("created_at", { ascending: false })
         .limit(100);
 

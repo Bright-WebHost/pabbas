@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, ChevronRight, Clock3, MapPin, Minus, Plus, Search, ShoppingBag, Sparkles, Trash2, Utensils, X, Star, Info, ChevronDown, SlidersHorizontal, Bookmark, Share2, Users, MoreVertical, ChevronLeft, LogOut } from "lucide-react";
 import { categories, displayCategory } from "@/lib/menu-data";
 import { CartItem, CustomerDetails, MenuItem, OrderType, PaymentMethod } from "@/lib/types";
@@ -872,6 +872,7 @@ function Checkout({
   onPlace: () => void;
 }) { 
   const { user, signOut } = useAuth();
+  const reduceMotion = useReducedMotion();
 
   const [addresses, setAddresses] = useState<import("@/lib/supabase/types").CustomerAddressRow[]>([]);
   const [fetchingAddresses, setFetchingAddresses] = useState(false);
@@ -958,19 +959,33 @@ function Checkout({
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h1 className="text-2xl font-extrabold mb-6 text-gray-900">Complete Order</h1>
           {orderType !== "dine-in" && canDeliver && canTakeaway && (
-            <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1" role="radiogroup" aria-label="How would you like your order?">
-              {([["delivery", "🛵 Delivery"], ["pickup", "🛍️ Takeaway"]] as const).map(([type, label]) => (
-                <button
-                  key={type}
-                  type="button"
-                  role="radio"
-                  aria-checked={orderType === type}
-                  onClick={() => setOrderType(type)}
-                  className={`rounded-xl py-2.5 text-[15px] font-bold transition ${orderType === type ? "bg-white text-[#e23744] shadow-sm" : "text-gray-600"}`}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="mb-6">
+              <p id="order-mode-label" className="mb-2 text-[15px] font-bold text-gray-800">How would you like your order?</p>
+              {/* Glows twice when checkout opens so the choice isn't missed (skipped for reduced motion). */}
+              <motion.div
+                className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1"
+                role="radiogroup"
+                aria-labelledby="order-mode-label"
+                initial={reduceMotion ? false : { boxShadow: "0 0 0 0 rgba(226,55,68,0)" }}
+                animate={reduceMotion ? undefined : { boxShadow: ["0 0 0 0 rgba(226,55,68,0)", "0 0 0 6px rgba(226,55,68,0.35)", "0 0 0 0 rgba(226,55,68,0)"] }}
+                transition={{ duration: 1.1, repeat: 1, delay: 0.4, ease: "easeInOut" }}
+              >
+                {([["delivery", "🛵 Delivery"], ["pickup", "🛍️ Takeaway"]] as const).map(([type, label]) => (
+                  <button
+                    key={type}
+                    type="button"
+                    role="radio"
+                    aria-checked={orderType === type}
+                    onClick={() => setOrderType(type)}
+                    className={`rounded-xl py-2.5 text-[15px] font-bold transition ${orderType === type ? "bg-white text-[#e23744] shadow-sm" : "text-gray-600"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </motion.div>
+              <p className="mt-1.5 text-[12.5px] font-medium text-gray-500">
+                {orderType === "delivery" ? "We'll deliver to your address. Tap Takeaway to pick it up yourself." : "You'll pick it up from the shop. Tap Delivery to get it delivered."}
+              </p>
             </div>
           )}
           
