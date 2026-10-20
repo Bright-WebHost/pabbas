@@ -24,11 +24,22 @@ type PosOrderPayload = {
   }>;
 };
 
+/** A dine-in order must name a table that exists, or it never shows up on the Tables page. */
+async function checkDineInTable(adminClient: ReturnType<typeof createAdminClient>, payload: PosOrderPayload) {
+  if (payload.order_type !== "dine-in") return null;
+  const table = String(payload.table_number || "").trim();
+  if (!table) return "Please select a table for a dine-in order.";
+  const { data } = await adminClient.from("restaurant_tables").select("table_number").eq("table_number", table).maybeSingle();
+  return data ? null : `Table ${table} doesn't exist.`;
+}
+
 export async function createPosOrder(payload: PosOrderPayload) {
   await authorize("pos");
 
   try {
     const adminClient = createAdminClient();
+    const tableError = await checkDineInTable(adminClient, payload);
+    if (tableError) return { success: false, error: tableError };
 
     // Call our newly created atomic RPC
     const { data, error } = await adminClient.rpc("create_pos_order", {
@@ -79,6 +90,8 @@ export async function updatePosOrder(orderId: string, payload: PosOrderPayload) 
 
   try {
     const adminClient = createAdminClient();
+    const tableError = await checkDineInTable(adminClient, payload);
+    if (tableError) return { success: false, error: tableError };
 
     // Fetch old order to compare
     const { data: oldOrder } = await adminClient.from("orders").select("total, items_json, status").eq("id", orderId).single();

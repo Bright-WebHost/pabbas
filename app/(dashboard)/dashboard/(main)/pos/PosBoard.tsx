@@ -72,6 +72,8 @@ export default function PosBoard() {
   const [customerName, setCustomerName] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [tableNumber, setTableNumber] = useState("");
+  // Opened from a table card ("Start order"): always dine-in for that table, no type choice.
+  const [lockedTable, setLockedTable] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryLandmark, setDeliveryLandmark] = useState("");
   const [deliveryPincode, setDeliveryPincode] = useState("");
@@ -108,6 +110,12 @@ export default function PosBoard() {
       const editId = params.get("edit");
       const appendId = params.get("append");
       const activeId = editId || appendId;
+      const tableParam = params.get("table");
+      if (tableParam && !editId) {
+        setOrderType("dine-in");
+        setTableNumber(tableParam);
+        setLockedTable(tableParam);
+      }
 
       if (!cachedMenuItems || !cachedTables) {
         setLoading(true);
@@ -251,6 +259,10 @@ export default function PosBoard() {
   };
 
   const handleConfirmOrder = () => {
+    if (orderType === "dine-in" && !tableNumber.trim()) {
+      setOrderResult({ success: false, error: "Please select a table for a dine-in order." });
+      return;
+    }
     startTransition(async () => {
       if (appendOrderId) {
         try {
@@ -320,6 +332,9 @@ export default function PosBoard() {
           if (autoPrint && result.order?.id) {
             printOrderBill(result.order.id, { auto: true }).catch(console.error);
           }
+          if (lockedTable) {
+            setTimeout(() => { window.location.href = "/dashboard/tables"; }, 1500);
+          }
         } else {
           setOrderResult({ success: false, error: result.error });
         }
@@ -335,7 +350,7 @@ export default function PosBoard() {
     setCart([]);
     setCustomerName("");
     setWhatsappNumber("");
-    setTableNumber("");
+    setTableNumber(lockedTable ?? "");
     setDeliveryAddress("");
     setDeliveryLandmark("");
     setDeliveryPincode("");
@@ -536,6 +551,12 @@ export default function PosBoard() {
             </div>
           </div>
 
+          {lockedTable || (appendOrderId && orderType === "dine-in") ? (
+            <div className="flex items-center justify-between gap-2 rounded-[14px] border border-[#C6ECD6] bg-[#E5F5EC] px-4 py-2.5">
+              <span className="text-[14px] font-extrabold text-[#146C43]">🍽️ Dine-in · Table {tableNumber || lockedTable}</span>
+              <a href="/dashboard/tables" className="text-[12px] font-bold text-[#146C43] underline">Change table</a>
+            </div>
+          ) : (
           <div className="grid grid-cols-3 gap-1.5 bg-[#F8FAFB] p-1.5 rounded-[14px] border border-[#EAF0F6]">
             {([
               { id: "takeaway", label: "Takeaway" },
@@ -555,6 +576,7 @@ export default function PosBoard() {
               </button>
             ))}
           </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto bg-[#F8FAFB]">
@@ -635,7 +657,7 @@ export default function PosBoard() {
           </div>
 
 
-          {orderType === "dine-in" && (
+          {orderType === "dine-in" && !lockedTable && !appendOrderId && (
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <label className="text-[11px] font-black text-[#6B7A90] uppercase tracking-widest mb-1.5 block">Select Table</label>

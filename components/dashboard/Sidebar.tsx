@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useOrderManager } from "@/app/(dashboard)/dashboard/OrderManagerProvider";
 import { useStaff } from "@/components/providers/StaffProvider";
+import { canAccessPage, type PageRoute } from "@/lib/auth/permissions";
 
 export default function Sidebar({ restaurantName = "Pabbas", logoUrl = "" }: { restaurantName?: string; logoUrl?: string }) {
   // Remember which logo URL failed to load, so a newly uploaded logo gets a fresh try.
@@ -14,8 +15,10 @@ export default function Sidebar({ restaurantName = "Pabbas", logoUrl = "" }: { r
   const router = useRouter();
   const supabase = createClient();
   const { refreshOrders, toggleSound, soundEnabled } = useOrderManager();
-  const { hasPerm, staff, mobileMenuOpen, setMobileMenuOpen, desktopMenuCollapsed, setDesktopMenuCollapsed } = useStaff();
-  const waitingForPerson = useWaitingForPersonCount(hasPerm("chat"));
+  const { staff, mobileMenuOpen, setMobileMenuOpen, desktopMenuCollapsed, setDesktopMenuCollapsed } = useStaff();
+  // Same list the pages use to allow/redirect, so the sidebar never offers a page that bounces you back.
+  const canOpen = (page: PageRoute) => canAccessPage(staff.role, page);
+  const waitingForPerson = useWaitingForPersonCount(canOpen("/dashboard/chat"));
 
   return (
     <>
@@ -68,37 +71,37 @@ export default function Sidebar({ restaurantName = "Pabbas", logoUrl = "" }: { r
         </div>
 
         <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto overflow-x-hidden pr-0.5 pb-4 scrollbar-hide">
-          {(hasPerm("view_orders_full") || hasPerm("view_orders_basic")) && (
+          {canOpen("/dashboard/orders") && (
             <SidebarLink href="/dashboard" label="Orders" icon="🧾" active={pathname === "/dashboard"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("kitchen_screen") && (
+          {canOpen("/dashboard/kitchen") && (
             <SidebarLink href="/dashboard/kitchen" label="Kitchen" icon="🍳" active={pathname === "/dashboard/kitchen"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("pos") && (
+          {canOpen("/dashboard/pos") && (
             <SidebarLink href="/dashboard/pos" label="POS" icon="💻" active={pathname === "/dashboard/pos"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("tables") && (
+          {canOpen("/dashboard/tables") && (
             <SidebarLink href="/dashboard/tables" label="Tables" icon="🍽️" active={pathname === "/dashboard/tables"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("chat") && (
+          {canOpen("/dashboard/chat") && (
             <SidebarLink href="/dashboard/chat" label="Live Chat" icon="💬" active={pathname === "/dashboard/chat"} collapsed={desktopMenuCollapsed} badge={waitingForPerson} />
           )}
-          {hasPerm("manage_menu") && (
+          {canOpen("/dashboard/menu") && (
             <SidebarLink href="/dashboard/menu" label="Menu" icon="📋" active={pathname === "/dashboard/menu"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("view_riders") && (
+          {canOpen("/dashboard/riders") && (
             <SidebarLink href="/dashboard/riders" label="Riders" icon="🛵" active={pathname === "/dashboard/riders"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("analytics") && (
+          {canOpen("/dashboard/stats") && (
             <SidebarLink href="/dashboard/stats" label="Analytics" icon="📊" active={pathname === "/dashboard/stats"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("contacts") && (
+          {canOpen("/dashboard/contacts") && (
             <SidebarLink href="/dashboard/contacts" label="Contacts" icon="👥" active={pathname === "/dashboard/contacts"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("blast") && (
+          {canOpen("/dashboard/blast") && (
             <SidebarLink href="/dashboard/blast" label="Blast" icon="📣" active={pathname === "/dashboard/blast"} collapsed={desktopMenuCollapsed} />
           )}
-          {hasPerm("settings") && (
+          {canOpen("/dashboard/settings") && (
             <SidebarLink href="/dashboard/settings" label="Settings" icon="⚙️" active={pathname === "/dashboard/settings"} collapsed={desktopMenuCollapsed} />
           )}
         </nav>
