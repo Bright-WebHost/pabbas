@@ -86,7 +86,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 ```dotenv
 # Locally, the cookie gate is bypassed entirely. Any value works.
-DEV_ACCESS_KEY=local-dev-access-only
+DEV_ACCESS_KEY=<your DEV_ACCESS_KEY from .env.local>
 ```
 
 **Never commit the production key. Never put it in logs, URLs, or client bundles.**

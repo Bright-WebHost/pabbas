@@ -58,3 +58,8 @@ referenece/
 # Local DB scripts (contain credentials)
 update_chat_context.js
 scratch_update.js
+
+# Scratch scripts and dumps often contain keys — never commit them
+scratch/
+__pycache__/
+*.pyc
