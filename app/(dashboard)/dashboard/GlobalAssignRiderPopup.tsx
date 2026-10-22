@@ -52,7 +52,7 @@ export default function GlobalAssignRiderPopup() {
       const rider = riders.find(r => r.id === riderId);
       if (!rider) return;
 
-      await updateOrderStatus(pendingAssignmentOrder, pendingAssignmentOrder.status, undefined, {
+      await updateOrderStatus(pendingAssignmentOrder, "out_for_delivery", undefined, {
         id: rider.id,
         name: rider.name,
         phone: rider.whatsapp_number

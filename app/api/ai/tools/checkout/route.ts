@@ -308,12 +308,14 @@ export async function POST(request: Request) {
     }
     await db.from('ai_carts').update({ items: [], updated_at: new Date().toISOString() }).eq('channel_user_id', channelUserId)
     await saveState({ step: 'placing', last_order_number: result.orderNumber, at: new Date().toISOString() })
-    const how = state.order_type === 'delivery' ? `🛵 Delivery to ${state.address}` : '🛍️ Takeaway'
-    return reply(
-      `🎉 *Order placed!* #${result.orderNumber}\n\n${itemList(p.lines)}\n\n*Total: ${rs(result.total)}* (pay on ${state.order_type === 'delivery' ? 'delivery' : 'pickup'})\n${how}\n\nOur team will confirm it shortly and keep you updated here 🙏`,
-      [B.track],
-      { order_number: result.orderNumber, total: result.total }
-    )
+    // 22 Oct plan: send nothing on placement (customer gets invoice image + confirmation once restaurant accepts)
+    return NextResponse.json({
+      ok: true,
+      silent: true,
+      reply: '',
+      order_number: result.orderNumber,
+      total: result.total,
+    })
   }
 
   switch (event) {

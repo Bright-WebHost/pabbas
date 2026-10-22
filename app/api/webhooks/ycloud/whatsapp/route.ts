@@ -162,16 +162,22 @@ export async function POST(request: Request) {
 
         // Return HTTP 200 so we do NOT forward this rider interactive message to the customer n8n AI Bridge
         return new NextResponse('OK', { status: 200 });
-      } else if (buttonId && buttonId.startsWith('deliver_')) {
+      } else if (buttonId && (buttonId.startsWith('deliver_') || buttonId.startsWith('collected_') || buttonId.startsWith('unpaid_'))) {
         let payment_status: string | undefined = undefined;
         let orderNumber = "";
 
         if (buttonId.startsWith('deliver_collected_')) {
           payment_status = 'collected';
           orderNumber = buttonId.replace('deliver_collected_', '');
+        } else if (buttonId.startsWith('collected_')) {
+          payment_status = 'collected';
+          orderNumber = buttonId.replace('collected_', '');
         } else if (buttonId.startsWith('deliver_unpaid_')) {
           payment_status = 'unpaid';
           orderNumber = buttonId.replace('deliver_unpaid_', '');
+        } else if (buttonId.startsWith('unpaid_')) {
+          payment_status = 'unpaid';
+          orderNumber = buttonId.replace('unpaid_', '');
         }
 
         const riderPhone = (message.from || message.sender?.phone || '').replace(/[^0-9]/g, '');

@@ -51,8 +51,8 @@ const BOARD_COLUMNS: Array<{ key: "preparing" | "ready" | "delivered"; label: st
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   new: ["preparing", "cancelled"],
   preparing: ["ready_for_pickup", "out_for_delivery", "cancelled"],
-  ready_for_pickup: ["delivered", "cancelled"],
-  out_for_delivery: ["delivered", "cancelled"],
+  ready_for_pickup: ["out_for_delivery", "delivered", "cancelled"],
+  out_for_delivery: ["out_for_delivery", "delivered", "cancelled"],
   delivered: [],
   cancelled: ["new", "preparing", "ready_for_pickup", "out_for_delivery"],
 };
@@ -428,6 +428,20 @@ function OrderDetails({ order, onClose, now, onStatusChange }: { order: Dashboar
               </button>
             )}
 
+            {hasPerm("assign_rider") && order.status === "out_for_delivery" && order.rider_name && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(order, "out_for_delivery", undefined);
+                  onClose();
+                }}
+                className="h-[48px] rounded-[12px] border border-[#C9B8F5] bg-[#F2EEFF] px-5 text-[14px] font-extrabold text-[#5B3FBF] hover:bg-[#E9E0FF] transition-colors"
+              >
+                🔄 Reassign Rider
+              </button>
+            )}
+
             {hasPerm("reopen_cancelled") && order.status === "cancelled" && (
               <UndoCancelButton
                 order={order}
@@ -779,6 +793,18 @@ function OrderCard({ order, onOpen, onStatusChange, now }: { order: DashboardOrd
               Collect Cash
             </button>
           )}
+          {hasPerm("assign_rider") && order.status === "out_for_delivery" && order.rider_name && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onStatusChange(order, "out_for_delivery", undefined);
+              }}
+              className="px-3 py-1.5 rounded-[8px] bg-[#F2EEFF] text-[#5B3FBF] font-extrabold text-[12px] hover:bg-[#E9E0FF] border border-[#C9B8F5] shadow-sm transition-colors"
+            >
+              🔄 Reassign Rider
+            </button>
+          )}
           <button
             type="button"
             onClick={(event) => {
@@ -816,8 +842,8 @@ export default function OrdersBoard() {
       return;
     }
 
-    if (nextStatus === "out_for_delivery" && !rider && !order.rider_id && assignRiderOrder?.order.id !== order.id) {
-      // Intercept and show modal instead of updating directly
+    if (nextStatus === "out_for_delivery" && !rider && assignRiderOrder?.order.id !== order.id) {
+      // Intercept and show modal instead of updating directly (both first-assign and re-assign)
       setAssignRiderOrder({ order, reason });
       return;
     }
@@ -1003,7 +1029,7 @@ export default function OrdersBoard() {
           orderNumber={assignRiderOrder.order.order_number}
           onAssign={(rider) => handleStatusChange(
             assignRiderOrder.order, 
-            assignRiderOrder.order.status === "preparing" ? "ready_for_pickup" : assignRiderOrder.order.status, 
+            rider ? "out_for_delivery" : "ready_for_pickup", 
             assignRiderOrder.reason, 
             rider
           )}

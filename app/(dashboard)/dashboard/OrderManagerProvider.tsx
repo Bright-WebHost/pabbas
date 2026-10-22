@@ -11,7 +11,7 @@ interface OrderManagerContextType {
   orders: DashboardOrder[];
   queuedNewOrders: DashboardOrder[];
   acknowledgeOrder: (orderId: string, isUpdate?: boolean) => void;
-  updateOrderStatus: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }, options?: { pin?: string }) => Promise<void>;
+  updateOrderStatus: (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }, options?: { pin?: string; prepTime?: number }) => Promise<void>;
   autoPrint: boolean;
   isLoading: boolean;
   error: string | null;
@@ -256,7 +256,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
     setQueuedNewOrders(prev => prev.filter(o => o.id !== orderId));
   }, []);
 
-  const updateOrderStatus = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }, options?: { pin?: string }) => {
+  const updateOrderStatus = useCallback(async (order: DashboardOrder, nextStatus: OrderStatus, reason?: string, rider?: { id: string; name: string; phone: string }, options?: { pin?: string; prepTime?: number }) => {
     // Optimistic update
     pendingUpdates.current.add(order.id);
     const previousStatus = order.status;
@@ -313,7 +313,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
       // Trigger Webhook
       try {
         if (previousStatus === 'new' && nextStatus === 'preparing' && order.source !== 'pos') {
-          // Send order confirmation message ONLY when admin accepts
+          // Send invoice + order confirmation ONLY when admin accepts
           const itemsArr = Array.isArray(order.items_json) ? order.items_json : [];
           notifyOrderCreatedWebhook({
             order_number: order.order_number,
@@ -325,59 +325,89 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
               quantity: item.quantity,
               unit_price: item.unit_price,
             })),
-            total: Number(order.total)
+            total: Number(order.total),
+            prep_time: options?.prepTime || 20
           }).catch(console.error);
         }
 
-        let customMessage = undefined;
-
+        // When a rider is first assigned:
+        // 1. Send rider direct message with Collected / Unpaid buttons (no accept step)
+        // 2. Send customer message with assigned rider name and phone
         if (updates.rider_name && !order.rider_name) {
-          // PHASE A: Send notification to the rider via existing n8n webhook
-          const riderMessage = `🚚 *New Delivery*\n\nYou have a new delivery from Pabbas.\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${[order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided"}\n\n*Amount to Collect: ₹${order.total}*\n\nPlease accept the order to start the delivery.`;
+          const addr = [order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided";
+          const riderMessage = `🚚 *Delivery for you — Pabbas*\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${addr}\n\n*Collect: Rs.${order.total}*\n\nAfter delivering, tap the button below to confirm.`;
 
-          const riderNotifyResult = await notifyStatusWebhook(order.order_number, "rider_assigned", undefined, {
+          notifyStatusWebhook(order.order_number, "rider_assigned", undefined, {
             target: "rider",
             rider_phone: updates.rider_phone,
             rider_name: updates.rider_name,
             whatsapp_message_text: riderMessage,
-            interactive_button: "Accept Order",
+            interactive_buttons: ["Collected", "Unpaid"],
             total: order.total
-          });
+          }).catch(console.error);
 
-          if (!riderNotifyResult.success) {
-            console.error("Failed to notify rider via webhook:", riderNotifyResult.error);
-          }
-        }
-
-        if (nextStatus === "out_for_delivery" && order.rider_name) {
-          // Send the existing customer notification
-          customMessage = `Good news! Your order ${order.order_number} is on its way. 🛵\n\nYour delivery partner, ${order.rider_name} (📞 ${order.rider_phone}), will be arriving soon.\n\nPlease keep ₹${order.total} in cash ready for the delivery.\n\nThank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
-        } else if (nextStatus === "delivered") {
-          customMessage = `Your order ${order.order_number} has been delivered! 🎉\n\nHere is your receipt. Thank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
-        }
-
-        if (nextStatus !== order.status) {
-          const itemsArr = Array.isArray(order.items_json) ? order.items_json : [];
-          const notifyResult = await notifyStatusWebhook(order.order_number, nextStatus, updates.cancel_reason, {
+          const customerMsg = `Great news! Your order ${order.order_number} is on its way! 🛵\n\nYour delivery partner: ${updates.rider_name} (${updates.rider_phone})\n\nPlease keep Rs.${order.total} in cash ready.`;
+          notifyStatusWebhook(order.order_number, "out_for_delivery", undefined, {
             total: order.total,
             order_type: order.order_type,
             customer_name: order.customer_name || "Guest",
             customer_phone: order.customer_phone,
-            rider_name: updates.rider_name || order.rider_name,
-            rider_phone: order.customer_phone || updates.rider_phone || order.rider_phone, // HACK: Force n8n to send to customer instead of rider
-            custom_message: customMessage,
-            whatsapp_message_text: customMessage,
-            items: itemsArr.map((item: any) => ({
-              item_name: item.item_name,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-            }))
-          });
-
-          if (!notifyResult.success) {
-            console.error("Failed to notify customer:", notifyResult.error);
-          }
+            rider_name: updates.rider_name,
+            rider_phone: updates.rider_phone,
+            custom_message: customerMsg,
+            whatsapp_message_text: customerMsg,
+          }).catch(console.error);
         }
+
+        // When a rider is RE-assigned (different rider):
+        // 1. Send new rider the delivery message
+        // 2. Notify customer of new rider details with apology
+        if (updates.rider_name && order.rider_name && updates.rider_name !== order.rider_name) {
+          const addr = [order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided";
+          const riderMessage = `🚚 *Delivery for you — Pabbas*\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${addr}\n\n*Collect: Rs.${order.total}*\n\nAfter delivering, tap the button below to confirm.`;
+
+          notifyStatusWebhook(order.order_number, "rider_assigned", undefined, {
+            target: "rider",
+            rider_phone: updates.rider_phone,
+            rider_name: updates.rider_name,
+            whatsapp_message_text: riderMessage,
+            interactive_buttons: ["Collected", "Unpaid"],
+            total: order.total
+          }).catch(console.error);
+
+          const customerMsg = `Hi ${order.customer_name || "there"}! We've updated your delivery partner for order ${order.order_number}. Sorry for any inconvenience!\n\nYour new delivery partner is ${updates.rider_name} (${updates.rider_phone}). Your order is on its way!`;
+          notifyStatusWebhook(order.order_number, "out_for_delivery", undefined, {
+            total: order.total,
+            order_type: order.order_type,
+            customer_name: order.customer_name || "Guest",
+            customer_phone: order.customer_phone,
+            rider_name: updates.rider_name,
+            rider_phone: updates.rider_phone,
+            custom_message: customerMsg,
+            whatsapp_message_text: customerMsg,
+          }).catch(console.error);
+        }
+
+        // When cancelled, send sorry message with reason to customer (WhatsApp orders only)
+        if (nextStatus === "cancelled" && order.source !== "pos" && order.customer_phone) {
+          const rawReason = reason || "";
+          // Strip the prepended status prefix ("new|Kitchen full" -> "Kitchen full")
+          const cleanReason = rawReason.includes("|") ? rawReason.split("|").slice(1).join("|") : rawReason;
+          const restaurantPhone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "";
+          const phoneDisplay = restaurantPhone ? `+${restaurantPhone.replace(/\D/g, "")}` : "our number";
+          const cancelMsg = `Hi ${order.customer_name || "there"}, we are very sorry - we cannot take your order ${order.order_number} right now.${cleanReason ? `\n\nReason: ${cleanReason}` : ""}\n\nNothing has been charged. Please call us on ${phoneDisplay} and we will help you sort it out.`;
+          notifyStatusWebhook(order.order_number, "cancelled", updates.cancel_reason, {
+            total: order.total,
+            order_type: order.order_type,
+            customer_name: order.customer_name || "Guest",
+            customer_phone: order.customer_phone,
+            rider_phone: order.customer_phone, // send to customer
+            custom_message: cancelMsg,
+            whatsapp_message_text: cancelMsg,
+          }).catch(console.error);
+        }
+        // NOTE: No message is sent for 'delivered' status (cost reduction).
+        // The customer already got the invoice on accept, and the rider flow handles confirmation.
       } catch (notifyErr) {
         console.error("Webhook integration error:", notifyErr);
       }

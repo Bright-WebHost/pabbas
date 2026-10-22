@@ -53,6 +53,7 @@ debug_*.json
 production_*.json
 status_*.json
 n8n/
+n8n_backups/
 referenece/
 
 # Local DB scripts (contain credentials)
