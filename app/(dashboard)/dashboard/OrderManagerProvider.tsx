@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
-import { notifyStatusWebhook, notifyOrderCreatedWebhook } from "@/lib/server/notify";
+import { notifyStatusWebhook, notifyOrderCreatedWebhook, notifyRiderText } from "@/lib/server/notify";
 import { useStaff } from "@/components/providers/StaffProvider";
 import { isAuthError, redirectIfSessionExpired } from "@/lib/auth/session-expired";
 
@@ -363,6 +363,9 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
         // 1. Send new rider the delivery message
         // 2. Notify customer of new rider details with apology
         if (updates.rider_name && order.rider_name && updates.rider_name !== order.rider_name) {
+          if (order.rider_phone) {
+            notifyRiderText(order.rider_phone, `Order ${order.order_number} has been reassigned to another rider. No action needed from you.`).catch(console.error);
+          }
           const addr = [order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided";
           const riderMessage = `🚚 *Delivery for you — Pabbas*\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${addr}\n\n*Collect: Rs.${order.total}*\n\nAfter delivering, tap the button below to confirm.`;
 

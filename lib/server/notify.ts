@@ -61,3 +61,27 @@ export async function notifyOrderCreatedWebhook(payload: any) {
     return { success: false };
   }
 }
+
+/** One-off WhatsApp text to a rider (e.g. "order reassigned"). Signed-in staff only. */
+export async function notifyRiderText(phone: string, text: string) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Not signed in" };
+
+    const apiKey = process.env.YCLOUD_API_KEY;
+    const to = String(phone || "").replace(/\D/g, "");
+    if (!apiKey || !to) return { success: false, error: "Missing key or phone" };
+
+    const res = await fetch("https://api.ycloud.com/v2/whatsapp/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ from: "+919180348124", to: `+${to}`, type: "text", text: { body: text } }),
+    });
+    if (!res.ok) console.error("[notifyRiderText] failed:", res.status);
+    return { success: res.ok };
+  } catch (err: any) {
+    console.error("[notifyRiderText] error:", err);
+    return { success: false, error: err.message };
+  }
+}

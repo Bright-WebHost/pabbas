@@ -3,7 +3,7 @@
 import { authorize } from "@/lib/auth/staff";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyStatusWebhook } from "@/lib/server/notify";
+import { notifyOrderCreatedWebhook } from "@/lib/server/notify";
 
 type PosOrderPayload = {
   customer_name: string;
@@ -69,8 +69,18 @@ export async function createPosOrder(payload: PosOrderPayload) {
     // and go straight to 'preparing' (kitchen)
     await adminClient.from("orders").update({ status: "preparing" }).eq("id", data.id);
 
-    // Notify the customer via WhatsApp that their order is confirmed and being prepared
-    await notifyStatusWebhook(data.order_number, "preparing");
+    // Counter orders are accepted on creation: send the invoice + confirmation once, if we have a number.
+    if (payload.customer_phone && payload.customer_phone.replace(/D/g, "").length >= 10) {
+      await notifyOrderCreatedWebhook({
+        order_number: data.order_number,
+        customer_phone: payload.customer_phone,
+        customer_name: payload.customer_name,
+        order_type: payload.order_type,
+        items: payload.items_json.map((i) => ({ item_name: i.item_name, quantity: i.quantity, unit_price: i.unit_price })),
+        total: payload.total,
+        prep_time: 20,
+      });
+    }
 
     return {
       success: true,

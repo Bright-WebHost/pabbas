@@ -54,93 +54,91 @@ export async function GET(request: NextRequest) {
       minute: '2-digit'
     })
 
+    const pmRaw = String(order.payment_method || '').toLowerCase()
+    const payLabel = pmRaw === 'upi' ? 'UPI' : pmRaw === 'card' ? 'CARD' : 'CASH'
+    const typeLabel = order.order_type === 'dine-in' ? 'DINE-IN' : String(order.order_type || 'delivery').toUpperCase()
+    const deliverTo = order.order_type === 'delivery'
+      ? [order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(', ')
+      : order.order_type === 'dine-in' && order.table_number ? `Table ${order.table_number}` : ''
+    const RED = '#c8102e'
+    const label = { fontSize: '13px', color: '#9ca3af', letterSpacing: '1px' } as const
+
     return new ImageResponse(
       (
-        <div
-          style={{
-            height: '100%',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: '#ffffff',
-            fontFamily: 'sans-serif',
-            padding: '40px',
-          }}
-        >
+        <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff', fontFamily: 'sans-serif' }}>
           {/* Header */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '2px dashed #e5e7eb', paddingBottom: '30px', marginBottom: '30px' }}>
-            <h1 style={{ fontSize: '42px', fontWeight: 800, color: '#ef4f5f', margin: 0 }}>{settings.restaurantName.toUpperCase()}</h1>
-            {settings.tagline ? <p style={{ fontSize: '18px', color: '#6b7280', marginTop: '10px', marginBottom: '5px' }}>{settings.tagline}</p> : null}
-            {settings.address ? <p style={{ fontSize: '16px', color: '#9ca3af', margin: 0 }}>{settings.address}</p> : null}
-            {settings.gstin ? <p style={{ fontSize: '14px', color: '#9ca3af', marginTop: '6px', marginBottom: 0 }}>GSTIN: {settings.gstin}</p> : null}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 32px 22px', borderBottom: '2px dashed #e5e7eb' }}>
+            <span style={{ fontSize: '40px', fontWeight: 800, color: RED, letterSpacing: '2px' }}>{settings.restaurantName.toUpperCase()}</span>
+            {settings.tagline ? <span style={{ fontSize: '16px', color: '#6b7280', marginTop: '6px' }}>{settings.tagline}</span> : null}
+            {settings.address ? <span style={{ fontSize: '14px', color: '#9ca3af', marginTop: '4px' }}>{settings.address}</span> : null}
+            {settings.phone ? <span style={{ fontSize: '14px', color: '#9ca3af', marginTop: '2px' }}>{settings.phone}</span> : null}
+            {settings.gstin ? <span style={{ fontSize: '13px', color: '#9ca3af', marginTop: '2px' }}>GSTIN: {settings.gstin}</span> : null}
           </div>
 
-          {/* Order Info */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '14px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px' }}>Order No</span>
-              <span style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>{order.order_number}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '22px 32px 0' }}>
+            {/* Payment pill */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', backgroundColor: RED, color: '#ffffff', fontSize: '15px', fontWeight: 700, letterSpacing: '1.5px', padding: '7px 20px', borderRadius: '999px' }}>
+                {payLabel} · {typeLabel}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ fontSize: '14px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px' }}>Date</span>
-              <span style={{ fontSize: '18px', fontWeight: 600, color: '#374151' }}>{date}</span>
-            </div>
-          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '14px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px' }}>Customer</span>
-              <span style={{ fontSize: '20px', fontWeight: 600, color: '#374151' }}>{order.customer_name || 'Guest'}</span>
+            {/* Order no + date */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={label}>ORDER</span>
+                <span style={{ fontSize: '24px', fontWeight: 800, color: '#111827' }}>{order.order_number}</span>
+              </div>
+              <span style={{ fontSize: '15px', color: '#6b7280' }}>{date}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ fontSize: '14px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px' }}>Type</span>
-              <span style={{ fontSize: '20px', fontWeight: 600, color: '#374151', textTransform: 'capitalize' }}>
-                {order.order_type === 'dine-in' && order.table_number ? `Table ${order.table_number}` : order.order_type}
-              </span>
-            </div>
-          </div>
 
-          {/* Items */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '40px' }}>
-            {items.map((item: any) => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <span style={{ fontSize: '18px', fontWeight: 600, color: '#374151', minWidth: '30px' }}>{item.quantity}x</span>
-                  <span style={{ fontSize: '18px', fontWeight: 500, color: '#111827' }}>{item.item_name}</span>
+            {/* Customer + deliver to */}
+            <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f9fafb', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px' }}>
+              <span style={label}>CUSTOMER</span>
+              <span style={{ fontSize: '19px', fontWeight: 700, color: '#111827' }}>{order.customer_name || 'Guest'}</span>
+              {deliverTo ? (
+                <div style={{ display: 'flex', flexDirection: 'column', marginTop: '8px' }}>
+                  <span style={label}>{order.order_type === 'delivery' ? 'DELIVER TO' : 'TABLE'}</span>
+                  <span style={{ fontSize: '15px', color: '#374151' }}>{deliverTo}</span>
                 </div>
-                <span style={{ fontSize: '18px', fontWeight: 600, color: '#111827' }}>
-                  ₹{(Number(item.unit_price) * Number(item.quantity)).toFixed(2)}
-                </span>
+              ) : null}
+            </div>
+
+            {/* Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '14px' }}>
+              {items.map((item: any) => (
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '17px', color: '#111827' }}>{item.quantity}x {item.item_name}</span>
+                  <span style={{ fontSize: '17px', fontWeight: 600, color: '#111827' }}>Rs {(item.unit_price * item.quantity).toFixed(0)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary */}
+            {summaryRows.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px dashed #e5e7eb', paddingTop: '10px', marginBottom: '14px' }}>
+                {summaryRows.map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '14px', color: '#6b7280' }}>{k}</span>
+                    <span style={{ fontSize: '14px', color: '#374151' }}>{v}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : null}
 
-          {/* Summary */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px dashed #e5e7eb', paddingTop: '16px', marginBottom: '10px' }}>
-            {summaryRows.map(([label, value]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '16px', color: '#6b7280' }}>{label}</span>
-                <span style={{ fontSize: '16px', fontWeight: 600, color: '#374151' }}>{value}</span>
-              </div>
-            ))}
-          </div>
+            {/* Total box */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: RED, borderRadius: '12px', padding: '16px 22px' }}>
+              <span style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', letterSpacing: '2px' }}>TOTAL</span>
+              <span style={{ fontSize: '32px', fontWeight: 800, color: '#ffffff' }}>Rs {Number(order.total).toFixed(0)}</span>
+            </div>
 
-          {/* Total */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid #111827', paddingTop: '25px', marginTop: '10px' }}>
-            <span style={{ fontSize: '28px', fontWeight: 800, color: '#111827' }}>Total Amount</span>
-            <span style={{ fontSize: '32px', fontWeight: 800, color: '#ef4f5f' }}>₹{Number(order.total).toFixed(2)}</span>
-          </div>
-
-          {/* Footer */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '60px' }}>
-            <p style={{ fontSize: '20px', fontWeight: 600, color: '#374151', margin: 0 }}>Thank you for your order!</p>
-            <p style={{ fontSize: '16px', color: '#9ca3af', marginTop: '8px' }}>We hope to serve you again soon.</p>
+            <span style={{ fontSize: '14px', color: '#9ca3af', textAlign: 'center', alignSelf: 'center', marginTop: '18px' }}>Thank you for ordering with {settings.restaurantName}!</span>
           </div>
         </div>
       ),
       {
         width: 600,
-        height: 640 + (items.length * 40) + (summaryRows.length * 32) + (settings.gstin ? 24 : 0),
+        height: 550 + items.length * 34 + summaryRows.length * 24 + (deliverTo ? 60 : 0) + (settings.gstin ? 20 : 0) + (settings.phone ? 20 : 0),
       }
     )
   } catch (e: any) {

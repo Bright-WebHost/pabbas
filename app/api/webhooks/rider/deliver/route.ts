@@ -1,23 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isInternalRequest } from '@/lib/server/internal-auth';
-import { notifyStatusWebhook } from "@/lib/server/notify";
-
-async function notifyRider(phone: string, text: string) {
-  const apiKey = process.env.YCLOUD_API_KEY;
-  if (!apiKey) return;
-  const to = String(phone || '').replace(/[^0-9]/g, '');
-  try {
-    const res = await fetch('https://api.ycloud.com/v2/whatsapp/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-      body: JSON.stringify({ from: '+919180348124', to: `+${to}`, type: 'text', text: { body: text } }),
-    });
-    if (!res.ok) console.error('[RIDER DELIVER] rider confirmation failed:', res.status);
-  } catch (err) {
-    console.error('[RIDER DELIVER] rider confirmation error', err);
-  }
-}
 
 export async function POST(request: Request) {
   // Only the YCloud webhook route calls this (rider tapped "Delivered").
@@ -75,36 +58,8 @@ export async function POST(request: Request) {
 
     if (updateError) throw updateError;
 
-    // Tell the rider their tap was recorded (they got no reply before).
-    const amount = `₹${Math.round(Number(order.total) || 0).toLocaleString('en-IN')}`;
-    await notifyRider(
-      rider_phone,
-      paymentStatus === 'unpaid'
-        ? `⚠️ Order ${order_number} delivered and marked *UNPAID* (${amount}).
-
-You don't need to hand over cash for this order. The restaurant will follow up with the customer.`
-        : `✅ Order ${order_number} delivered. Cash collected: *${amount}*.
-
-Please hand it over at the counter. Thank you! 🙏`
-    );
-
-    // 3. Notify webhook
-    const customMessage = `Your order ${order.order_number} has been delivered! 🎉\n\nHere is your receipt. Thank you for choosing Pabbas! We hope you enjoy your meal. 😋`;
-    const itemsArr = Array.isArray(order.items_json) ? order.items_json : [];
-
-    await notifyStatusWebhook(order_number, 'delivered', undefined, {
-      total: order.total,
-      order_type: order.order_type,
-      customer_name: order.customer_name || "Guest",
-      customer_phone: order.customer_phone,
-      custom_message: customMessage,
-      whatsapp_message_text: customMessage,
-      items: itemsArr.map((item: any) => ({
-        item_name: item.item_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-      }))
-    });
+    // No WhatsApp messages here: the rider gets one message per order (at assignment) and the
+    // customer gets no "delivered" message (messaging cost).
 
     return NextResponse.json({ success: true, message: 'Order marked as delivered' });
 
