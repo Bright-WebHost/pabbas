@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notifyStatusWebhook } from "@/lib/server/notify";
+import { sendPosOrderBill } from '@/lib/orders/table-bill';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { order_id, table_number, new_items } = body;
 
-    if (!order_id || !table_number || !new_items || !new_items.length) {
+    if (!order_id || !table_number || !Array.isArray(new_items) || new_items.length === 0) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     // 1. Fetch existing order
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, items_json, total, status, order_number')
+      .select('id, items_json, total, status, order_number, order_type, table_number, source')
       .eq('id', order_id)
       .single();
 
@@ -24,8 +25,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
     }
 
+    const isDineInOrder = order.order_type === 'dine-in' || Boolean(String(order.table_number || '').trim());
+    if (!isDineInOrder || String(order.table_number) !== String(table_number)) {
+      return NextResponse.json({ success: false, error: 'This order does not belong to that table.' }, { status: 409 });
+    }
+
+    const openStatuses = ['new', 'preparing', 'ready_for_pickup']
+    if (!openStatuses.includes(order.status)) {
+      return NextResponse.json({ success: false, error: 'This table order is already closed. Refresh the Tables page to start a new table order.' }, { status: 409 })
+    }
+
+    const { data: table, error: tableError } = await adminClient
+      .from('restaurant_tables')
+      .select('id, is_active, current_order_id')
+      .eq('table_number', table_number)
+      .maybeSingle();
+
+    if (tableError || !table) {
+      return NextResponse.json({ success: false, error: 'Table not found. Refresh the Tables page and try again.' }, { status: 404 });
+    }
+
+    const { data: openTableOrders, error: openTableOrdersError } = await adminClient
+      .from('orders')
+      .select('id')
+      .eq('table_number', table_number)
+      .in('status', openStatuses);
+
+    if (openTableOrdersError) throw openTableOrdersError;
+    if (openTableOrders?.some((openOrder: { id: string }) => openOrder.id !== order.id)) {
+      return NextResponse.json({ success: false, error: 'Another open order is assigned to this table. Refresh Tables and add the round to that order.' }, { status: 409 });
+    }
+
+    if (table.current_order_id && table.current_order_id !== order.id) {
+      const { data: pointedOrder } = await adminClient
+        .from('orders')
+        .select('id, status')
+        .eq('id', table.current_order_id)
+        .maybeSingle();
+      if (pointedOrder && openStatuses.includes(pointedOrder.status)) {
+        return NextResponse.json({ success: false, error: 'Another open order is assigned to this table. Refresh Tables and add the round to that order.' }, { status: 409 });
+      }
+    }
+
     // 2. Append items with new round
-    let existingItems = order.items_json || [];
+    const existingItems = order.items_json || [];
     let updatedTotal = order.total;
 
     // Determine the next round number
@@ -34,9 +77,19 @@ export async function POST(request: Request) {
 
     const mergedItems = [...existingItems];
 
-    for (const newItem of new_items) {
+    for (const value of new_items) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return NextResponse.json({ success: false, error: 'Invalid item' }, { status: 400 });
+      }
+      const { special_note, ...newItem } = value as Record<string, any>;
+      const note = typeof special_note === 'string' ? special_note.trim() : '';
+      if (note.length > 300) {
+        return NextResponse.json({ success: false, error: 'Special instructions must be 300 characters or fewer.' }, { status: 400 });
+      }
+
       mergedItems.push({
         ...newItem,
+        notes: note || null,
         is_new_addition: true,
         round: nextRound
       });
@@ -59,27 +112,80 @@ export async function POST(request: Request) {
     }
 
     // 4. Update the order
-    const { error: updateError } = await adminClient
+    const updatePayload: any = {
+      items_json: mergedItems,
+      items: itemsSummary,
+      total: updatedTotal,
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+    if (order.source === 'pos') {
+      updatePayload.whatsapp_bill_sent_at = null;
+      updatePayload.whatsapp_bill_error = null;
+    }
+
+    const { data: updatedOrder, error: updateError } = await adminClient
       .from('orders')
-      .update({
-        items_json: mergedItems,
-        items: itemsSummary,
-        total: updatedTotal,
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', order_id);
+      .update(updatePayload)
+      .eq('id', order_id)
+      .eq('table_number', table_number)
+      .in('status', openStatuses)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       throw updateError;
     }
+    if (!updatedOrder) {
+      return NextResponse.json({ success: false, error: 'This table order was closed before the round could be added. Refresh the Tables page.' }, { status: 409 });
+    }
+
+    // Repair stale table metadata from older POS orders, where active orders were
+    // visible in Tables but current_order_id had not been set by the POS RPC.
+    const { error: tableSyncError } = await adminClient
+      .from('restaurant_tables')
+      .update({ is_active: true, current_order_id: order.id })
+      .eq('id', table.id);
+    if (tableSyncError) console.error('[append-order] Could not refresh table metadata:', tableSyncError.message);
+    else {
+      const { data: stillOpen, error: statusCheckError } = await adminClient
+        .from('orders')
+        .select('id')
+        .eq('id', order.id)
+        .in('status', openStatuses)
+        .maybeSingle();
+      if (statusCheckError) console.error('[append-order] Could not verify table status after append:', statusCheckError.message);
+      else if (!stillOpen) {
+        await adminClient
+          .from('restaurant_tables')
+          .update({ is_active: false, current_order_id: null })
+          .eq('id', table.id)
+          .eq('current_order_id', order.id);
+      }
+    }
 
     // Trigger webhook if we went back to preparing
-    if (newStatus === 'preparing' && order.status !== 'preparing') {
+    if (newStatus === 'preparing' && order.status !== 'preparing' && !isDineInOrder) {
       await notifyStatusWebhook(order.order_number, "preparing", undefined, { is_update: true });
     }
 
-    return NextResponse.json({ success: true, new_total: updatedTotal, merged_items: mergedItems });
+    if (order.source === 'pos') {
+      const billResult = await sendPosOrderBill(order.id);
+      if (!billResult.sent) {
+        console.error('[append-order] POS table round was added but its bill was not sent:', billResult.error);
+      }
+      return NextResponse.json({
+        success: true,
+        order_number: order.order_number,
+        status: newStatus,
+        new_total: updatedTotal,
+        merged_items: mergedItems,
+        billSent: billResult.sent,
+        billError: billResult.sent ? null : billResult.error || 'WhatsApp bill could not be sent.',
+      });
+    }
+
+    return NextResponse.json({ success: true, order_number: order.order_number, status: newStatus, new_total: updatedTotal, merged_items: mergedItems });
 
   } catch (error: any) {
     console.error('Append Order Error:', error);

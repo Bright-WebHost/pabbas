@@ -35,3 +35,28 @@ The primary workflow currently implemented is the **Pabbas | Orders | Event Rece
 
 ## Future Evolution (Stage B)
 When migrating to the Meta WhatsApp Business API, the "Mock WhatsApp Message" and "Send to Simulator" nodes will be replaced by the official **WhatsApp node** in n8n, targeting the customer's actual phone number. The Claim and Complete architecture will remain exactly the same.
+
+## Durable YCloud Inbox
+
+The current YCloud route verifies the provider signature and stores supported
+inbound events in `ycloud_event_inbox` before returning.
+The inbox uses unique provider event IDs and lease-based claims, so transient
+n8n or network failures can be retried without accepting the same event twice.
+YCloud status callbacks are not part of this rollout because Rasoi production
+does not currently subscribe to them. Add them only after that subscription
+and end-to-end handling are verified.
+
+Enable forwarding only after the matching PubBaz inbox migrations and n8n
+endpoint are ready:
+
+- Set `PABBAS_WHATSAPP_FORWARDING_ENABLED=true`,
+  `N8N_WHATSAPP_INBOUND_WEBHOOK_URL`, and
+  `PABBAS_WHATSAPP_INBOUND_SECRET` in the deployment environment.
+- Configure a scheduled POST to `/api/internal/ycloud-inbox/drain` with Header
+  Auth using that same Pabbas secret. The webhook also attempts a short
+  post-response drain; the schedule is the retry path for claimed events.
+- Keep secrets in environment variables or n8n credentials; do not put them in
+  workflow exports.
+
+The rollout sequence and required Supabase migrations are documented in
+[`27-rasoi-parity-rollout.md`](./27-rasoi-parity-rollout.md).

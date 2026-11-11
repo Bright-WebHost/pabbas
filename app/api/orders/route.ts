@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getSessionCookie } from '@/lib/session/cookies'
 import { createCustomerOrder } from '@/lib/orders/create'
+import { timingSafeSecretEquals } from '@/lib/server/internal-auth'
 
 export async function POST(request: Request) {
   try {
     const aiSecret = request.headers.get('x-pabbas-ai-secret')?.trim()
-    const isAiBackend = Boolean(aiSecret && aiSecret === process.env.PABBAS_AI_WEBHOOK_SECRET?.trim())
+    const isAiBackend = timingSafeSecretEquals(aiSecret, process.env.PABBAS_AI_WEBHOOK_SECRET)
 
     let body: Record<string, unknown>
     try {
@@ -28,6 +29,11 @@ export async function POST(request: Request) {
       customerName: body.customer_name,
       customerPhone: body.customer_phone,
       customerId,
+      // Only the trusted WhatsApp backend may choose a channel identity. Public
+      // website checkout is keyed by the normalized phone inside the DB RPC.
+      channelUserId: isAiBackend && body.source === 'whatsapp' ? body.channel_user_id : null,
+      idempotencyKey: body.idempotency_key,
+      paymentMethod: body.payment_method,
       deliveryAddress: body.delivery_address,
       landmark: body.landmark,
       pincode: body.pincode,
@@ -47,13 +53,14 @@ export async function POST(request: Request) {
       total: result.total,
       delivery_fee: result.deliveryFee,
       order: {
+        id: result.orderId,
         order_number: result.orderNumber,
         order_type: result.orderType,
         order_status: result.status,
         total: result.total,
         delivery_fee: result.deliveryFee,
         scheduled_for: result.scheduledFor,
-        is_duplicate: false,
+        is_duplicate: result.isDuplicate,
       },
     })
   } catch (err) {

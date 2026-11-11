@@ -3,15 +3,19 @@
 import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, ChevronRight, Clock3, MapPin, Minus, Plus, Search, ShoppingBag, Sparkles, Trash2, Utensils, X, Star, Info, ChevronDown, SlidersHorizontal, Bookmark, Share2, Users, MoreVertical, ChevronLeft, LogOut } from "lucide-react";
-import { categories, displayCategory } from "@/lib/menu-data";
+import { displayCategory } from "@/lib/menu-data";
 import { CartItem, CustomerDetails, MenuItem, OrderType, PaymentMethod } from "@/lib/types";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { checkOrderRules, closedMessage, deliveryFeeFor, isOpenAt, type CustomerOrderType, type PublicSettings } from "@/lib/settings";
+import { normalizeWhatsAppPhone } from "@/lib/phone/whatsapp";
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+const whatsAppNumber = normalizeWhatsAppPhone(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER);
+const whatsAppUrl = whatsAppNumber ? `https://wa.me/${whatsAppNumber}` : "/";
+const whatsAppLabel = whatsAppNumber ? "Back to WhatsApp" : "Return to Pabbas";
 const initialDetails: CustomerDetails = { name: "", phone: "", address: "", landmark: "", pincode: "", pickupDate: "", pickupTime: "19:00", payment: "cash" };
 
-type Screen = "welcome" | "menu" | "checkout" | "confirmed";
+type Screen = "welcome" | "menu" | "checkout" | "confirmed" | "table-order";
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("welcome");
@@ -35,6 +39,10 @@ export default function Home() {
   const [activeOrderTotal, setActiveOrderTotal] = useState<number>(0);
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(menuItems.map((item) => displayCategory(item.category))))],
+    [menuItems],
+  );
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
   const [menuError, setMenuError] = useState(false);
   const [store, setStore] = useState<PublicSettings | null>(null);
@@ -98,6 +106,8 @@ export default function Home() {
             setActiveOrderItems(data.active_order.items || []);
             setActiveOrderStatus(data.active_order.status);
             setActiveOrderTotal(data.active_order.total || 0);
+            setOrderNumber(data.active_order.order_number || "");
+            setScreen("table-order");
           }
         })
         .catch(console.error);
@@ -108,11 +118,47 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!activeOrderId || orderType !== "dine-in" || !["table-order", "menu", "checkout"].includes(screen)) return;
+
+    let cancelled = false;
+    const refreshTableOrder = async () => {
+      try {
+        const response = await fetch(`/api/tables/active?table=${encodeURIComponent(table)}`, { cache: "no-store" });
+        const data = await response.json();
+        if (cancelled || !data.success) return;
+        if (data.active_order) {
+          setActiveOrderId(data.active_order.id);
+          setActiveOrderItems(data.active_order.items || []);
+          setActiveOrderStatus(data.active_order.status);
+          setActiveOrderTotal(Number(data.active_order.total) || 0);
+          setOrderNumber(data.active_order.order_number || "");
+        } else {
+          setActiveOrderId(null);
+          setActiveOrderStatus("closed");
+          if (screen !== "table-order") {
+            setActiveOrderItems([]);
+            setActiveOrderTotal(0);
+            setOrderNumber("");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to refresh table order:", error);
+      }
+    };
+
+    const timer = window.setInterval(refreshTableOrder, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [screen, activeOrderId, orderType, table]);
+
   const visibleItems = useMemo(() => {
     return menuItems.filter((item) => {
       const matchSearch = `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(search.toLowerCase());
       const matchCat = category === "All" || displayCategory(item.category) === category;
-      const matchDiet = dietFilter === "All" || (dietFilter === "Veg" ? item.vegetarian !== false : item.vegetarian === false);
+      const matchDiet = dietFilter === "All" || (dietFilter === "Veg" ? item.vegetarian === true : item.vegetarian === false);
       return matchSearch && matchCat && matchDiet;
     }).sort((a, b) => {
       if (a.is_pinned && !b.is_pinned) return -1;
@@ -142,14 +188,16 @@ export default function Home() {
   const addToCart = (item: MenuItem, amount = 1) => { 
     setCart((current) => { 
       const existing = current.find((line) => line.item.id === item.id); 
-      return existing ? current.map((line) => line.item.id === item.id ? { ...line, quantity: line.quantity + amount } : line) : [...current, { item, quantity: amount }]; 
+      return existing ? current.map((line) => line.item.id === item.id ? { ...line, quantity: line.quantity + amount } : line) : [...current, { item, quantity: amount, specialNote: "" }];
     }); 
     setNotice(`${item.name} added`); 
     window.setTimeout(() => setNotice(""), 1800); 
   };
 
   const changeQuantity = (id: string, delta: number) => setCart((current) => current.flatMap((line) => line.item.id === id ? (line.quantity + delta > 0 ? [{ ...line, quantity: line.quantity + delta }] : []) : [line]));
+  const changeSpecialNote = (id: string, note: string) => setCart((current) => current.map((line) => line.item.id === id ? { ...line, specialNote: note.slice(0, 300) } : line));
   const quantityFor = (id: string) => cart.find((line) => line.item.id === id)?.quantity ?? 0;
+  const specialNoteFor = (id: string) => cart.find((line) => line.item.id === id)?.specialNote ?? "";
   const selectCategory = (value: string) => { setCategory(value); setMenuMenuOpen(false); document.getElementById("menu-list")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const [tables, setTables] = useState<import("@/lib/supabase/types").RestaurantTableRow[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string>("");
@@ -211,7 +259,8 @@ export default function Home() {
             menu_item_id: line.item.id,
             item_name: line.item.name,
             quantity: line.quantity,
-            price: line.item.price
+            price: line.item.price,
+            special_note: line.specialNote?.trim() || null
           }))
         };
         const res = await fetch('/api/orders/append', {
@@ -222,12 +271,13 @@ export default function Home() {
         const data = await res.json();
         
         if (res.ok && data.success) {
-          setOrderNumber(data.merged_items ? "Updated successfully" : "Updated");
+          setOrderNumber(data.order_number || orderNumber);
           setCart([]);
           setCartOpen(false);
-          setScreen("confirmed");
+          setScreen("table-order");
           if (data.new_total) setActiveOrderTotal(data.new_total);
           if (data.merged_items) setActiveOrderItems(data.merged_items);
+          if (data.status) setActiveOrderStatus(data.status);
         } else {
           setSubmitError(data.error || "Failed to update order");
         }
@@ -246,7 +296,8 @@ export default function Home() {
           idempotency_key: currentIdempotencyKey,
           cart_items: cart.map(line => ({
             menu_item_id: line.item.id,
-            quantity: line.quantity
+            quantity: line.quantity,
+            special_note: line.specialNote?.trim() || null
           }))
         };
 
@@ -264,9 +315,27 @@ export default function Home() {
           return;
         }
 
-        setOrderNumber(data.order?.order_number || `PAB-${Math.floor(1000 + Math.random() * 8999)}`);
-        setScreen("confirmed");
+        const createdOrderNumber = data.order?.order_number || 'Pending';
+        setOrderNumber(createdOrderNumber);
+        setIdempotencyKey("");
         setCartOpen(false);
+        if (orderType === "dine-in") {
+          setActiveOrderId(data.order?.id || null);
+          setActiveOrderItems(cart.map((line) => ({
+            menu_item_id: line.item.id,
+            item_name: line.item.name,
+            quantity: line.quantity,
+            unit_price: line.item.price,
+            notes: line.specialNote?.trim() || null,
+            round: 1,
+          })));
+          setActiveOrderStatus(data.order?.order_status || "new");
+          setActiveOrderTotal(Number(data.total) || total);
+          setCart([]);
+          setScreen("table-order");
+        } else {
+          setScreen("confirmed");
+        }
       } // CLOSE THE ELSE BLOCK
     } catch (err: any) {
       setSubmitError(err?.message || 'Network error placing order');
@@ -277,16 +346,32 @@ export default function Home() {
 
   if (screen === "welcome") return <Welcome store={store} setOrderType={(type) => { setOrderType(type); setScreen("menu"); }} />;
 
-  if (screen === "checkout") return <Checkout activeOrderItems={activeOrderItems} orderType={orderType} setOrderType={setOrderType} canDeliver={!store || store.orderTypes.delivery} canTakeaway={!store || store.orderTypes.takeaway} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} waivedDeliveryFee={waivedDeliveryFee} total={total} blockReason={checkoutBlock} deliveryNote={store?.deliveryNote || ""} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} />;
+  if (screen === "checkout") return <>
+    <Checkout activeOrderItems={activeOrderItems} orderType={orderType} setOrderType={setOrderType} canDeliver={!store || store.orderTypes.delivery} canTakeaway={!store || store.orderTypes.takeaway} table={table} setTable={setTable} tables={tables} selectedTableId={selectedTableId} setSelectedTableId={setSelectedTableId} partySize={partySize} setPartySize={setPartySize} isAsap={isAsap} setIsAsap={setIsAsap} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} waivedDeliveryFee={waivedDeliveryFee} total={total} blockReason={checkoutBlock} deliveryNote={store?.deliveryNote || ""} details={details} setDetails={setDetails} isSubmitting={isSubmitting} submitError={submitError} onBack={() => setScreen("menu")} onPlace={placeOrder} menuItems={menuItems} quantityFor={quantityFor} onAddDrink={addToCart} onChangeQuantity={changeQuantity} />
+  </>;
+
+  if (screen === "table-order") return <TableOrderPage table={table} orderNumber={orderNumber} status={activeOrderStatus} items={activeOrderItems} total={activeOrderTotal} onAddMore={() => { setCart([]); if (activeOrderStatus === "closed") { setActiveOrderItems([]); setActiveOrderTotal(0); setOrderNumber(""); setIdempotencyKey(""); } setScreen("menu"); }} />;
 
   if (screen === "confirmed") return <Confirmation orderNumber={orderNumber} orderType={orderType} table={table} cart={cart} total={total} onContinue={() => { setScreen("welcome"); setCart([]); setIdempotencyKey(""); }} />;
 
 
   return <div className="min-h-screen bg-gray-50 text-gray-900 pb-[80px]">
     <div className="max-w-[768px] mx-auto bg-white min-h-screen relative shadow-sm">
-      <Header search={search} setSearch={setSearch} onBack={() => setScreen("welcome")} />
+      <Header search={search} setSearch={setSearch} onBack={() => setScreen(activeOrderId && orderType === "dine-in" ? "table-order" : "welcome")} />
       
       <RestaurantInfo orderType={orderType} table={table} store={store} />
+
+      {isTableAppend && (
+        <div className="px-4 pt-3">
+          <button type="button" onClick={() => setScreen("table-order")} className="flex w-full items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left">
+            <span>
+              <span className="block text-[13px] font-extrabold text-emerald-900">Table {table} · current order</span>
+              <span className="mt-0.5 block text-[11px] font-semibold text-emerald-700">View ordered items and kitchen status</span>
+            </span>
+            <span className="text-[13px] font-black text-emerald-800">{money(activeOrderTotal)} →</span>
+          </button>
+        </div>
+      )}
 
       <nav aria-label="Menu categories" className="sticky top-[64px] z-30 flex gap-3 overflow-x-auto bg-white px-4 py-3 border-b border-gray-100 shadow-[0_2px_15px_rgba(0,0,0,0.04)] no-scrollbar">
         <button onClick={() => setMenuMenuOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-[13px] font-bold shrink-0 text-gray-700 transition">
@@ -309,7 +394,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-2 gap-3 px-3.5 sm:grid-cols-3">
             {visibleItems.map((item) => (
-              <ProductCard key={item.id} item={item} quantity={quantityFor(item.id)} onAdd={addToCart} onChange={changeQuantity} onDetails={setSelectedItem} />
+            <ProductCard key={item.id} item={item} quantity={quantityFor(item.id)} specialNote={specialNoteFor(item.id)} onAdd={addToCart} onChange={changeQuantity} onNoteChange={changeSpecialNote} onDetails={setSelectedItem} />
             ))}
           </div>
           {isLoadingMenu && <div className="py-12 text-center text-gray-500">Loading menu...</div>}
@@ -394,7 +479,7 @@ export default function Home() {
               <h2 className="text-xl font-bold">Your Order</h2>
               <button aria-label="Close cart" onClick={() => setCartOpen(false)} className="p-2 rounded-full bg-white border border-gray-200 text-gray-600"><X size={19} /></button>
             </div>
-            <CartPanel cart={cart} activeOrderItems={activeOrderItems} subtotal={subtotal} deliveryFee={deliveryFee} total={total} blockReason={cartBlock} deliveryOffer={deliveryOffer} onChange={changeQuantity} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
+            <CartPanel cart={cart} activeOrderItems={activeOrderItems} subtotal={subtotal} deliveryFee={deliveryFee} total={total} blockReason={cartBlock} deliveryOffer={deliveryOffer} onChange={changeQuantity} onNoteChange={changeSpecialNote} onCheckout={() => {setCartOpen(false); setScreen("checkout");}} />
           </motion.div>
         </div>}
       </AnimatePresence>
@@ -430,7 +515,7 @@ function RestaurantInfo({ orderType, table, store }: { orderType: OrderType, tab
     <div className="flex justify-between items-start gap-4">
       <div className="flex-1 min-w-0">
         <h1 className="text-[26px] font-extrabold flex items-center gap-2 text-gray-900 leading-tight">{store?.restaurantName || "Pabbas"} <Info size={18} className="text-gray-400 mt-1"/></h1>
-        <p className="text-gray-600 text-[13px] mt-1.5 flex items-center gap-1 font-medium"><MapPin size={14} className="text-gray-400 shrink-0"/> <span className="truncate">{store?.address || "Lalbagh, Mangaluru"}</span></p>
+        {store?.address && <p className="text-gray-600 text-[13px] mt-1.5 flex items-center gap-1 font-medium"><MapPin size={14} className="text-gray-400 shrink-0"/> <span className="truncate">{store.address}</span></p>}
         <p className="text-gray-600 text-[13px] mt-1 flex items-center gap-1 font-medium">
           <Clock3 size={14} className="text-gray-400"/>
           {orderType === 'dine-in' ? (
@@ -467,7 +552,7 @@ function Welcome({ store, setOrderType }: { store: PublicSettings | null; setOrd
       <div className="bg-[#ef4f5f] p-10 text-center text-white">
         {store?.logoUrl && <img src={store.logoUrl} alt="" className="mx-auto mb-3 h-16 w-16 rounded-2xl bg-white object-cover shadow-md" />}
         <h1 className="font-extrabold text-5xl tracking-tight mb-2">{(store?.restaurantName || "pabbas").toLowerCase()}</h1>
-        <p className="text-white/90 text-sm font-medium">{store ? store.tagline : "Delicious desserts since 1969"}</p>
+        <p className="text-white/90 text-sm font-medium">{store ? store.tagline : "Welcome to Pabbas"}</p>
       </div>
       <div className="p-6">
         <h2 className="text-[22px] font-extrabold text-gray-900 mb-6 text-center">Select Order Type</h2>
@@ -490,8 +575,8 @@ function Welcome({ store, setOrderType }: { store: PublicSettings | null; setOrd
   </main> 
 }
 
-function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: MenuItem; quantity: number; onAdd: (item: MenuItem, amount?: number) => void; onChange: (id: string, delta: number) => void; onDetails: (item: MenuItem) => void; }) { 
-  const isVeg = item.vegetarian !== false;
+function ProductCard({ item, quantity, specialNote, onAdd, onChange, onNoteChange, onDetails }: { item: MenuItem; quantity: number; specialNote: string; onAdd: (item: MenuItem, amount?: number) => void; onChange: (id: string, delta: number) => void; onNoteChange: (id: string, note: string) => void; onDetails: (item: MenuItem) => void; }) {
+  const isVeg = item.vegetarian === true;
 
   return (
     <article 
@@ -515,9 +600,11 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
 
       {/* 2. Metadata: Veg dot + Bestseller */}
       <div className="flex items-center gap-1.5 mb-1 min-h-[18px]">
-        <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] shrink-0 ${isVeg ? 'border-green-600' : 'border-red-700'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-700'}`}></span>
-        </span>
+        {typeof item.vegetarian === 'boolean' && (
+          <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] shrink-0 ${isVeg ? 'border-green-600' : 'border-red-700'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-700'}`}></span>
+          </span>
+        )}
         {item.popular_today ? (
           <span className="text-[#c2410c] text-[11px] font-bold flex items-center gap-0.5 tracking-tight">
             🔥 Popular today
@@ -581,6 +668,21 @@ function ProductCard({ item, quantity, onAdd, onChange, onDetails }: { item: Men
           )}
         </div>
       </div>
+
+      {quantity > 0 && (
+        <div className="mt-2.5" onClick={(event) => event.stopPropagation()}>
+          <label className="sr-only" htmlFor={`special-note-${item.id}`}>Special instructions for {item.name}</label>
+          <textarea
+            id={`special-note-${item.id}`}
+            value={specialNote}
+            onChange={(event) => onNoteChange(item.id, event.target.value)}
+            maxLength={300}
+            rows={1}
+            placeholder="Special note..."
+            className="min-h-8 w-full resize-y rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-gray-800 outline-none placeholder:text-gray-500 focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+          />
+        </div>
+      )}
     </article>
   );
 }
@@ -609,7 +711,7 @@ function FreeDeliveryProgress({ offer, className = "" }: { offer: DeliveryOffer;
   );
 }
 
-function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, blockReason, deliveryOffer, onChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; blockReason: string | null; deliveryOffer: DeliveryOffer | null; onChange: (id: string, delta: number) => void; onCheckout: () => void }) {
+function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, blockReason, deliveryOffer, onChange, onNoteChange, onCheckout }: { cart: CartItem[]; activeOrderItems?: any[]; subtotal: number; deliveryFee: number; total: number; blockReason: string | null; deliveryOffer: DeliveryOffer | null; onChange: (id: string, delta: number) => void; onNoteChange: (id: string, note: string) => void; onCheckout: () => void }) {
   const freeDeliveryApplied = Boolean(deliveryOffer) && deliveryFee === 0 && cart.length > 0;
   return <div className="bg-white rounded-[20px] p-5">
     {cart.length === 0 && (!activeOrderItems || activeOrderItems.length === 0) ? (
@@ -652,12 +754,24 @@ function CartPanel({ cart, activeOrderItems, subtotal, deliveryFee, total, block
                   <div className="flex items-start gap-3" key={line.item.id}>
               <div className="flex-1">
                 <div className="flex items-start gap-2">
-                  <span className={`shrink-0 mt-1 w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] ${line.item.vegetarian !== false ? 'border-green-600' : 'border-red-700'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${line.item.vegetarian !== false ? 'bg-green-600' : 'bg-red-700'}`}></span>
-                  </span>
+                  {typeof line.item.vegetarian === 'boolean' && (
+                    <span className={`shrink-0 mt-1 w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] ${line.item.vegetarian ? 'border-green-600' : 'border-red-700'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${line.item.vegetarian ? 'bg-green-600' : 'bg-red-700'}`}></span>
+                    </span>
+                  )}
                   <strong className="text-[15px] text-gray-800 leading-tight">{line.item.name}</strong>
                 </div>
                 <div className="text-gray-600 text-[13px] font-medium mt-1 ml-5">{money(line.item.price)}</div>
+                <textarea
+                  value={line.specialNote ?? ""}
+                  onChange={(event) => onNoteChange(line.item.id, event.target.value)}
+                  onClick={(event) => event.stopPropagation()}
+                  maxLength={300}
+                  rows={1}
+                  placeholder="Special note..."
+                  aria-label={`Special instructions for ${line.item.name}`}
+                  className="mt-2 min-h-8 w-full resize-y rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-[12px] font-medium leading-snug text-gray-800 outline-none placeholder:text-gray-500 focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                />
               </div>
               <div className="flex flex-col items-end gap-2 shrink-0">
                 <div className="flex items-center justify-between bg-[#fff0f1] text-[#ef4f5f] border border-[#ffc9ce] rounded-[8px] shrink-0 w-20 h-8">
@@ -706,7 +820,7 @@ function ProductDetails({
   onAdd: (item: MenuItem, amount?: number) => void; 
   onChange: (id: string, delta: number) => void; 
 }) { 
-  const isVeg = item.vegetarian !== false;
+  const isVeg = item.vegetarian === true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center sm:p-5" onClick={onClose}>
@@ -749,9 +863,11 @@ function ProductDetails({
               <div className="flex-1 min-w-0">
                 {/* Veg / Non-veg dot + Bestseller */}
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] shrink-0 ${isVeg ? 'border-green-600' : 'border-red-700'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-700'}`}></span>
-                  </span>
+                  {typeof item.vegetarian === 'boolean' && (
+                    <span className={`w-3.5 h-3.5 border-[1.5px] flex items-center justify-center rounded-[2px] shrink-0 ${isVeg ? 'border-green-600' : 'border-red-700'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-green-600' : 'bg-red-700'}`}></span>
+                    </span>
+                  )}
                   {(item.is_pinned || item.featured) && (
                     <span className="text-[#e23744] text-[12px] font-bold flex items-center gap-0.5 tracking-tight">
                       ★ Bestseller
@@ -841,7 +957,11 @@ function Checkout({
   isSubmitting,
   submitError,
   onBack,
-  onPlace
+  onPlace,
+  menuItems,
+  quantityFor,
+  onAddDrink,
+  onChangeQuantity
 }: {
   activeOrderItems?: any[];
   orderType: OrderType;
@@ -870,9 +990,45 @@ function Checkout({
   submitError: string;
   onBack: () => void;
   onPlace: () => void;
+  menuItems: MenuItem[];
+  quantityFor: (id: string) => number;
+  onAddDrink: (item: MenuItem) => void;
+  onChangeQuantity: (id: string, delta: number) => void;
 }) { 
   const { user, signOut } = useAuth();
   const reduceMotion = useReducedMotion();
+  const drinkItems = menuItems.filter((item) => /drink|beverage|juice|soda|shake|coffee|tea/i.test(item.category));
+  const showContactDetails = !activeOrderItems?.length;
+  const needsContactDetails = showContactDetails && (!details.name.trim() || !details.phone.trim());
+  const contactDetails = (
+    <div>
+      <h2 className="text-[17px] font-bold mb-1 text-gray-800">Contact Details <span className="text-red-600">*</span></h2>
+      {orderType === "dine-in" && <p className="mb-4 text-[13px] font-medium text-gray-600">Enter your name and WhatsApp number for your first table order. The final bill will be sent to this number.</p>}
+      {orderType !== "dine-in" && <p className="mb-4 text-[13px] font-medium text-gray-600">Your name and WhatsApp number are required.</p>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="checkout-customer-name" className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Full name <span className="text-red-600">*</span></label>
+          <input id="checkout-customer-name" required autoComplete="name" className="checkout-input bg-gray-50 w-full" placeholder="Full name" value={details.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} />
+        </div>
+        <div>
+          {user?.phone ? (
+            <>
+              <span id="checkout-customer-phone-label" className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">WhatsApp / mobile number <span className="text-red-600">*</span></span>
+              <div aria-labelledby="checkout-customer-phone-label" className="bg-gray-100 border border-gray-200 rounded-xl p-3 flex flex-col justify-center gap-1 opacity-80 cursor-not-allowed min-h-[48px]">
+                <span className="text-gray-900 font-semibold text-[15px] leading-tight">{details.phone || user.phone}</span>
+                <span className="text-[11px] text-green-700 font-semibold">🔒 Linked to WhatsApp</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <label htmlFor="checkout-customer-phone" className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">WhatsApp / mobile number <span className="text-red-600">*</span></label>
+              <input id="checkout-customer-phone" required type="tel" inputMode="tel" autoComplete="tel" className="checkout-input bg-gray-50 w-full" placeholder="WhatsApp / mobile number" value={details.phone} onChange={(e) => setDetails({ ...details, phone: e.target.value })} />
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   const [addresses, setAddresses] = useState<import("@/lib/supabase/types").CustomerAddressRow[]>([]);
   const [fetchingAddresses, setFetchingAddresses] = useState(false);
@@ -952,11 +1108,11 @@ function Checkout({
     setDetails((prev: CustomerDetails) => ({ ...prev, address: addr.address, landmark: addr.landmark || '', pincode: addr.pincode || '' }));
   };
 
-  return <main className="min-h-screen bg-gray-50 pt-4 pb-20 px-4">
-    <div className="max-w-[768px] mx-auto">
+  return <main className="min-h-screen min-w-0 bg-gray-50 pt-4 pb-20 px-4">
+    <div className="mx-auto min-w-0 max-w-[768px]">
       <button onClick={onBack} className="flex items-center gap-1.5 text-gray-800 mb-6 font-semibold"><ChevronLeft size={22} /> Back</button>
-      <div className="grid gap-6">
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <div className="grid min-w-0 gap-6">
+        <section className="min-w-0 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h1 className="text-2xl font-extrabold mb-6 text-gray-900">Complete Order</h1>
           {orderType !== "dine-in" && canDeliver && canTakeaway && (
             <div className="mb-6">
@@ -1020,23 +1176,7 @@ function Checkout({
           ) : null}
 
           <div className="mb-8">
-            {(!activeOrderItems || activeOrderItems.length === 0) && (
-              <>
-                <h2 className="text-[17px] font-bold mb-4 text-gray-800">Contact Details</h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <input className="checkout-input bg-gray-50" placeholder="Full name" value={details.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} />
-                  {user ? (
-                    <div className="bg-gray-100 border border-gray-200 rounded-xl p-3 flex flex-col justify-center gap-1 opacity-80 cursor-not-allowed">
-                      <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">WhatsApp Number</span>
-                      <span className="text-gray-900 font-semibold text-[15px] leading-tight">{details.phone || "Not linked"}</span>
-                      <span className="text-[11px] text-green-700 font-semibold flex items-center gap-1 mt-0.5">🔒 Linked to WhatsApp</span>
-                    </div>
-                  ) : (
-                    <input className="checkout-input bg-gray-50" placeholder="WhatsApp Number" value={details.phone} onChange={(e) => setDetails({ ...details, phone: e.target.value })} />
-                  )}
-                </div>
-              </>
-            )}
+            {orderType !== "dine-in" && showContactDetails && contactDetails}
 
             {orderType === "delivery" && <>
               <h2 className="text-[17px] font-bold mt-8 mb-4 text-gray-800">Delivery Address</h2>
@@ -1165,8 +1305,53 @@ function Checkout({
           </div>
         </section>
         
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <section className="min-w-0 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <h2 className="text-[17px] font-bold mb-4 text-gray-800">Order Summary</h2>
+          {drinkItems.length ? (
+            <section aria-label="Drink add-ons" className="mb-5 overflow-hidden rounded-2xl border border-orange-100 bg-[#fffaf6] p-4 sm:p-5">
+              <h3 className="mb-1 text-[12px] font-extrabold uppercase tracking-[0.16em] text-gray-500">Complete your meal</h3>
+              <p className="mb-4 text-[12px] font-medium text-gray-600">Add a refreshing drink to your order</p>
+              <div className="divide-y divide-orange-100">
+                {drinkItems.map((item) => (
+                  <article key={item.id} className="flex min-w-0 items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-bold text-gray-800">{item.name}</p>
+                      <p className="mt-0.5 text-[13px] font-extrabold text-gray-900">{money(item.price)}</p>
+                    </div>
+                    {quantityFor(item.id) > 0 ? (
+                      <div className="flex shrink-0 items-center gap-2 rounded-xl border border-orange-200 bg-white p-1">
+                        <button
+                          type="button"
+                          aria-label={`Remove one ${item.name}`}
+                          onClick={() => onChangeQuantity(item.id, -1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-700 transition hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                        >
+                          <Minus size={16} strokeWidth={2.5} />
+                        </button>
+                        <span aria-live="polite" className="min-w-5 text-center text-sm font-bold text-gray-900">{quantityFor(item.id)}</span>
+                        <button
+                          type="button"
+                          aria-label={`Add one ${item.name}`}
+                          onClick={() => onAddDrink(item)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        >
+                          <Plus size={16} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onAddDrink(item)}
+                        className="shrink-0 rounded-lg border border-orange-300 bg-white px-3 py-1.5 text-xs font-extrabold text-orange-800 transition hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                      >
+                        Add
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <div className="flex flex-col gap-3.5 mb-5">
             {activeOrderItems && activeOrderItems.length > 0 && (
               <div className="mb-2">
@@ -1194,6 +1379,12 @@ function Checkout({
             <div className="flex justify-between font-extrabold text-[18px] text-gray-900"><span>Grand Total</span><span>{money(total)}</span></div>
           </div>
 
+          {orderType === "dine-in" && showContactDetails && (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+              {contactDetails}
+            </div>
+          )}
+
           {blockReason && (
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold">
               {blockReason}
@@ -1206,9 +1397,15 @@ function Checkout({
             </div>
           )}
 
+          {needsContactDetails && (
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] font-semibold text-amber-800" role="status">
+              Enter your full name and WhatsApp / mobile number above to place this order.
+            </p>
+          )}
+
           <button
             onClick={onPlace}
-            disabled={isSubmitting || Boolean(blockReason) || ((!activeOrderItems || activeOrderItems.length === 0) && (!details.name || !details.phone)) || (orderType === "delivery" && !details.address)}
+            disabled={isSubmitting || Boolean(blockReason) || needsContactDetails || (orderType === "delivery" && !details.address)}
             className="w-full bg-[#e23744] text-white font-bold text-[16px] py-[15px] rounded-[14px] mt-6 disabled:opacity-50 shadow-md shadow-red-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
@@ -1226,6 +1423,93 @@ function Checkout({
   </main> 
 }
 
+
+function TableOrderPage({ table, orderNumber, status, items, total, onAddMore }: { table: string; orderNumber: string; status: string | null; items: any[]; total: number; onAddMore: () => void }) {
+  const isClosed = status === "closed";
+  const statusText = isClosed
+    ? "This table order is closed."
+    : status === "preparing"
+      ? "The kitchen is preparing your order."
+      : status === "ready_for_pickup"
+        ? "Your order is ready. Please ask restaurant staff."
+        : "Your order is with the restaurant and awaiting confirmation.";
+  const rounds = Array.from(new Set(items.map((item) => Number(item.round) || 1))).sort((a, b) => a - b);
+
+  return (
+    <main className="min-h-screen bg-[#F5F7FA] px-4 py-6 sm:py-10">
+      <section className="mx-auto w-full max-w-xl overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-xl">
+        <div className="bg-gradient-to-br from-emerald-600 to-green-700 px-6 py-7 text-white sm:px-8">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-3xl" aria-hidden="true">
+            {isClosed ? "✓" : "🍳"}
+          </div>
+          <h1 className="text-[27px] font-black leading-tight">{isClosed ? "Table order closed" : "Sent to kitchen"}</h1>
+          <p className="mt-2 text-[14px] font-medium leading-relaxed text-white/85">{statusText}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <span className="rounded-full bg-white/15 px-3 py-1.5 text-[12px] font-extrabold">Table {table}</span>
+            {orderNumber && <span className="rounded-full bg-white/15 px-3 py-1.5 text-[12px] font-extrabold">Order {orderNumber}</span>}
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-7">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-[18px] font-extrabold text-gray-900">Items ordered</h2>
+              <p className="mt-0.5 text-[12px] font-medium text-gray-500">This list refreshes while the table is open.</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-[12px] font-extrabold text-gray-700">
+              {items.reduce((count, item) => count + (Number(item.quantity) || 0), 0)} items
+            </span>
+          </div>
+
+          {items.length ? (
+            <div className="space-y-4">
+              {rounds.map((round) => {
+                const roundItems = items.filter((item) => (Number(item.round) || 1) === round);
+                return (
+                  <div key={round} className="overflow-hidden rounded-2xl border border-gray-200">
+                    {rounds.length > 1 && <div className="border-b border-gray-100 bg-gray-50 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-gray-500">Round {round}</div>}
+                    <div className="divide-y divide-gray-100">
+                      {roundItems.map((item, index) => {
+                        const name = item.item_name || item.name || "Menu item";
+                        const note = typeof item.notes === "string" ? item.notes : typeof item.special_note === "string" ? item.special_note : "";
+                        const quantity = Number(item.quantity) || 1;
+                        const price = Number(item.unit_price ?? item.price ?? 0);
+                        return (
+                          <div key={`${item.menu_item_id || name}-${index}`} className="px-4 py-3.5">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0">
+                                <p className="font-bold text-gray-900">{quantity} × {name}</p>
+                                {note.trim() && <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-900">Note: {note}</p>}
+                              </div>
+                              <span className="shrink-0 text-[13px] font-extrabold text-gray-800">{money(price * quantity)}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-gray-200 px-4 py-7 text-center text-[13px] font-semibold text-gray-500">No items are available for this table order.</div>
+          )}
+
+          <div className="mt-5 flex items-center justify-between border-t border-dashed border-gray-200 pt-4">
+            <span className="text-[13px] font-bold uppercase tracking-wide text-gray-500">Current total</span>
+            <strong className="text-[24px] font-black text-gray-900">{money(total)}</strong>
+          </div>
+          <p className="mt-3 text-center text-[12px] font-medium leading-relaxed text-gray-500">
+            The final bill will be sent to the WhatsApp number given with the order when staff closes the table.
+          </p>
+          <button type="button" onClick={onAddMore} className="mt-5 w-full rounded-xl bg-[#E23744] py-3.5 text-[14px] font-extrabold text-white shadow-md shadow-red-500/20 transition hover:bg-[#CC2E3A] active:scale-[0.99]">
+            {isClosed ? "Start a new order at this table" : "+ Add more items to the table"}
+          </button>
+        </div>
+      </section>
+    </main>
+  );
+}
 
 function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }: { orderNumber: string; orderType: OrderType; table: string; cart: CartItem[]; total: number; onContinue: () => void }) { 
   const [cancelling, setCancelling] = useState(false);
@@ -1261,7 +1545,7 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
         </div>
         <h1 className="text-[26px] font-extrabold mb-2 text-gray-900">Order Cancelled</h1>
         <p className="text-gray-500 mb-6 font-medium">Your order has been successfully cancelled.</p>
-        <a href="https://wa.me/919180348124" className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
+        <a href={whatsAppUrl} className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition block text-center">{whatsAppLabel}</a>
       </div>
     </main>;
   }
@@ -1283,7 +1567,7 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
         
         <div className="flex flex-col gap-3">
           <button onClick={() => window.location.reload()} className="w-full bg-[#e23744] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition">Add more to this table</button>
-          <a href="https://wa.me/919180348124" className="w-full bg-white text-gray-900 border-2 border-gray-900 font-bold py-[15px] rounded-[14px] active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
+          <a href={whatsAppUrl} className="w-full bg-white text-gray-900 border-2 border-gray-900 font-bold py-[15px] rounded-[14px] active:scale-[0.98] transition block text-center">{whatsAppLabel}</a>
         </div>
       </div>
     </main>;
@@ -1319,7 +1603,7 @@ function Confirmation({ orderNumber, orderType, table, cart, total, onContinue }
       
       {cancelError && <p className="text-red-500 text-sm mb-4">{cancelError}</p>}
       <div className="flex flex-col gap-3">
-        <a href="https://wa.me/919180348124" className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition block text-center">Back to WhatsApp</a>
+        <a href={whatsAppUrl} className="w-full bg-[#ef4f5f] text-white font-bold py-[15px] rounded-[14px] shadow-md shadow-red-500/20 active:scale-[0.98] transition block text-center">{whatsAppLabel}</a>
       </div>
     </div>
   </main>;

@@ -208,7 +208,7 @@ export default function DevWhatsAppPage() {
               P
             </div>
             <div className="flex-1">
-              <h2 className="text-white font-semibold text-[15px] leading-tight">Pabbas Mangalore</h2>
+              <h2 className="text-white font-semibold text-[15px] leading-tight">Pabbas</h2>
               <p className="text-[#8696a0] text-xs">AI Assistant</p>
             </div>
           </div>

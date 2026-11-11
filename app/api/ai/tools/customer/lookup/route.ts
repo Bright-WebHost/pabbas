@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { timingSafeSecretEquals } from '@/lib/server/internal-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateToken, hashToken, TOKEN_TTL_SECONDS } from '@/lib/session/token';
 
@@ -24,27 +25,29 @@ export async function GET(request: Request) {
     const secretHeader = request.headers.get('x-pabbas-ai-secret')?.trim();
     const expectedSecret = process.env.PABBAS_AI_WEBHOOK_SECRET?.trim();
 
-    if (!expectedSecret || secretHeader !== expectedSecret) {
+    if (!timingSafeSecretEquals(secretHeader, expectedSecret)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = createAdminClient();
 
-    // 1 & 2. Find or create the customer robustly to prevent race conditions.
-    // The schema has a UNIQUE(channel, channel_user_id) constraint.
-    const { data: customer, error: upsertError } = await supabase
-      .from('app_customers')
-      .upsert({
-        channel: 'whatsapp',
-        channel_user_id: channelUserId,
-        phone: phone,
-        name: name || 'WhatsApp Customer'
-      }, { 
-        onConflict: 'channel,channel_user_id',
-        ignoreDuplicates: false // updating phone/name ensures profile is fresh
-      })
+    const { data: existingCustomer, error: lookupError } = await supabase
+      .from('customers')
       .select('id')
-      .single();
+      .eq('phone', phone)
+      .maybeSingle();
+    if (lookupError) {
+      console.error('[AI Tool: customer_lookup] Customer lookup failed:', lookupError.message);
+      return NextResponse.json({ error: 'Failed to find customer' }, { status: 500 });
+    }
+
+    const { data: customer, error: upsertError } = existingCustomer
+      ? { data: existingCustomer, error: null }
+      : await supabase
+        .from('customers')
+        .insert({ phone, name: name || 'WhatsApp Customer', source: 'whatsapp' })
+        .select('id')
+        .single();
 
     if (upsertError || !customer) {
       console.error('[AI Tool: customer_lookup] Database error on upsert:', upsertError ? {
@@ -78,11 +81,13 @@ export async function GET(request: Request) {
     }
 
     // 4. Return the customer_id and the fully qualified CTA URL
-    const ctaUrl = `https://pabbas-one.vercel.app/auth/whatsapp?token=${encodeURIComponent(rawToken)}`;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin;
+    const ctaUrl = new URL('/auth/whatsapp', siteUrl);
+    ctaUrl.searchParams.set('token', rawToken);
     
     return NextResponse.json({ 
       customer_id: customer.id,
-      cta_url: ctaUrl
+      cta_url: ctaUrl.toString()
     });
 
   } catch (error) {

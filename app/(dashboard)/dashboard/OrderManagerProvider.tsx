@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import { createClient } from "@/lib/supabase/client";
 import { DashboardOrder, OrderStatus } from "@/lib/orders/queries";
 import { notifyStatusWebhook, notifyOrderCreatedWebhook, notifyRiderText } from "@/lib/server/notify";
+import { normalizeDashboardOrderType } from "@/lib/orders/type-utils";
 import { useStaff } from "@/components/providers/StaffProvider";
 import { isAuthError, redirectIfSessionExpired } from "@/lib/auth/session-expired";
 
@@ -19,6 +20,7 @@ interface OrderManagerContextType {
   isRealtimeConnected: boolean;
   refreshOrders: () => Promise<void>;
   toggleSound: () => void;
+  enableSound: () => void;
   soundEnabled: boolean;
 }
 
@@ -55,88 +57,80 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
   const pendingUpdates = useRef<Set<string>>(new Set());
   const ordersRef = useRef<DashboardOrder[]>(initialOrders);
 
-  useEffect(() => {
-    const unlock = () => {
-      if (audioRef.current) {
-        audioRef.current.play().then(() => {
-          audioRef.current?.pause();
-          document.removeEventListener('click', unlock);
-          document.removeEventListener('keydown', unlock);
-        }).catch(() => { });
-      }
-    };
-    document.addEventListener('click', unlock);
-    document.addEventListener('keydown', unlock);
-    return () => {
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('keydown', unlock);
-    };
-  }, []);
-
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && !audioRef.current) {
-
-    }
-  }, []);
+  const queuedOrderKey = queuedNewOrders.map((order) => order.id).join(",");
 
   const stopSound = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
   }, []);
 
   const startSound = useCallback(() => {
     if (!soundEnabled || !audioRef.current) return;
-    try {
-      audioRef.current.play().catch(e => console.warn("Audio play blocked", e));
-    } catch (err) {
-      console.warn("Sound play failed", err);
-    }
+    void audioRef.current.play().catch((err) => console.warn("Order sound could not play", err));
   }, [soundEnabled]);
 
+  const enableSound = useCallback(() => {
+    setSoundEnabled(true);
+    localStorage.setItem("pabbas_sound_enabled", "true");
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (queuedOrderKey) {
+      void audio.play().catch((err) => console.warn("Order sound could not play", err));
+      return;
+    }
+    void audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+    }).catch((err) => console.warn("Order sound could not unlock", err));
+  }, [queuedOrderKey]);
+
   const toggleSound = useCallback(() => {
-    setSoundEnabled(prev => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("pabbas_sound_enabled", String(next));
-      }
-      if (!next) {
-        stopSound();
-      } else {
-        // Unlock audio on user interaction
-        if (audioRef.current) {
-          audioRef.current.play().then(() => {
-            audioRef.current?.pause();
-            audioRef.current!.currentTime = 0;
-            // If there's already queued orders, play it for real
-            if (queuedNewOrders.length > 0) {
-              audioRef.current?.play().catch(() => { });
-            }
-          }).catch(e => console.warn("Audio unlock failed", e));
-        }
-      }
-      return next;
-    });
-  }, [stopSound, queuedNewOrders.length]);
+    if (soundEnabled) {
+      setSoundEnabled(false);
+      localStorage.setItem("pabbas_sound_enabled", "false");
+      stopSound();
+      return;
+    }
+    enableSound();
+  }, [enableSound, soundEnabled, stopSound]);
 
   useEffect(() => {
-    if (queuedNewOrders.length > 0 && soundEnabled) {
-      startSound();
-    } else {
-      stopSound();
-    }
-  }, [queuedNewOrders.length, soundEnabled, startSound, stopSound]);
+    const unlock = () => {
+      const audio = audioRef.current;
+      if (!soundEnabled || !audio) return;
+      void audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        document.removeEventListener("pointerdown", unlock);
+        document.removeEventListener("keydown", unlock);
+        if (soundEnabled && queuedOrderKey) startSound();
+      }).catch((err) => console.warn("Order sound could not unlock", err));
+    };
+    document.addEventListener("pointerdown", unlock);
+    document.addEventListener("keydown", unlock);
+    return () => {
+      document.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("keydown", unlock);
+    };
+  }, [queuedOrderKey, soundEnabled, startSound]);
+
+  useEffect(() => {
+    stopSound();
+    if (!soundEnabled || !queuedOrderKey) return;
+    startSound();
+    return stopSound;
+  }, [queuedOrderKey, soundEnabled, startSound, stopSound]);
 
   // Initial Sync & Polling
   const refreshOrders = useCallback(async () => {
     try {
       const { data, error: fetchErr } = await supabase.current
         .from("orders")
-        .select("id, order_number, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone, collected_amount, is_collected, scheduled_for, payment_status")
+        .select("id, order_number, customer_id, customer_phone, customer_name, items, total, status, order_type, source, address, landmark, city, pincode, table_number, confirmed_at, amend_window_until, amended_at, amendment_count, original_items, cancel_reason, cancelled_by, cancelled_at, cancel_requested_at, created_at, updated_at, items_json, rider_id, rider_name, rider_phone, collected_amount, is_collected, scheduled_for, payment_status")
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(300);
 
       if (fetchErr) throw fetchErr;
 
@@ -146,7 +140,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
           const existing = ordersRef.current.find(curr => curr.id === o.id);
           if (existing) return existing;
         }
-        return o;
+        return { ...o, order_type: normalizeDashboardOrderType(o) };
       }) as DashboardOrder[];
       setOrders(latestOrders);
       ordersRef.current = latestOrders;
@@ -304,6 +298,8 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
       // Trigger refresh but don't await it to keep UI responsive
       refreshOrders().catch(console.error);
 
+    const isDineInOrder = order.order_type === "dine-in" || Boolean(String(order.table_number || "").trim());
+
       if (autoPrint && previousStatus === "new" && nextStatus === "preparing") {
         import("@/lib/print/bill")
           .then(({ printOrderBill }) => printOrderBill(order.id, { auto: true }))
@@ -312,14 +308,15 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
 
       // Trigger Webhook
       try {
-        if (previousStatus === 'new' && nextStatus === 'preparing' && order.source !== 'pos') {
-          // Send invoice + order confirmation ONLY when admin accepts
+        if (previousStatus === 'new' && nextStatus === 'preparing' && order.source !== 'pos' && !isDineInOrder) {
+          // Delivery and takeaway get their invoice when accepted. Dine-in QR orders get one final bill only when staff closes the table.
           const itemsArr = Array.isArray(order.items_json) ? order.items_json : [];
           notifyOrderCreatedWebhook({
             order_number: order.order_number,
             customer_phone: order.customer_phone,
             customer_name: order.customer_name,
             order_type: order.order_type,
+            table_number: order.table_number,
             items: itemsArr.map((item: any) => ({
               item_name: item.item_name,
               quantity: item.quantity,
@@ -333,7 +330,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
         // When a rider is first assigned:
         // 1. Send rider direct message with Collected / Unpaid buttons (no accept step)
         // 2. Send customer message with assigned rider name and phone
-        if (updates.rider_name && !order.rider_name) {
+        if (!isDineInOrder && updates.rider_name && !order.rider_name) {
           const addr = [order.address, order.landmark, order.city, order.pincode].filter(Boolean).join(", ") || "No address provided";
           const riderMessage = `🚚 *Delivery for you — Pabbas*\n\n*Order:* ${order.order_number}\n*Customer:* ${order.customer_name || "Guest"}\n*Address:* ${addr}\n\n*Collect: Rs.${order.total}*\n\nAfter delivering, tap the button below to confirm.`;
 
@@ -362,7 +359,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
         // When a rider is RE-assigned (different rider):
         // 1. Send new rider the delivery message
         // 2. Notify customer of new rider details with apology
-        if (updates.rider_name && order.rider_name && updates.rider_name !== order.rider_name) {
+        if (!isDineInOrder && updates.rider_name && order.rider_name && updates.rider_name !== order.rider_name) {
           if (order.rider_phone) {
             notifyRiderText(order.rider_phone, `Order ${order.order_number} has been reassigned to another rider. No action needed from you.`).catch(console.error);
           }
@@ -392,7 +389,7 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
         }
 
         // When cancelled, send sorry message with reason to customer (WhatsApp orders only)
-        if (nextStatus === "cancelled" && order.source !== "pos" && order.customer_phone) {
+        if (!isDineInOrder && nextStatus === "cancelled" && order.source !== "pos" && order.customer_phone) {
           const rawReason = reason || "";
           // Strip the prepended status prefix ("new|Kitchen full" -> "Kitchen full")
           const cleanReason = rawReason.includes("|") ? rawReason.split("|").slice(1).join("|") : rawReason;
@@ -441,9 +438,10 @@ export function OrderManagerProvider({ children, initialOrders = [], autoPrint =
       isRealtimeConnected,
       refreshOrders,
       toggleSound,
+      enableSound,
       soundEnabled
     }}>
-      <audio ref={audioRef} src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" loop preload="auto" style={{ display: 'none' }} />
+      <audio ref={audioRef} src="/alarm_clock.ogg" loop preload="auto" style={{ display: "none" }} />
       {children}
     </OrderManagerContext.Provider>
   );

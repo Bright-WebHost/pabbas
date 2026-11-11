@@ -5,7 +5,7 @@
  * Used by the AuthProvider on the client to know if a session is active.
  *
  * It decodes the opaque cookie and fetches the non-sensitive customer details
- * (name, phone) server-side from the app_customers table.
+ * (name, phone) server-side from the customers table.
  *
  * POST /api/session/me  (with body { action: "signout" })
  * Clears the session cookie.
@@ -24,7 +24,7 @@ export async function GET() {
   // Look up the customer data safely server-side
   const admin = createAdminClient()
   const { data: customer } = await admin
-    .from('app_customers')
+    .from('customers')
     .select('phone, name')
     .eq('id', session.customerId)
     .single()

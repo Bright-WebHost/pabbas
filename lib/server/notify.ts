@@ -7,8 +7,9 @@ export async function notifyStatusWebhook(order_number: string, status: string, 
     const { data: { session } } = await supabase.auth.getSession();
     const authHeader = session?.access_token ? `Bearer ${session.access_token}` : "";
 
-    const url = process.env.N8N_STATUS_WEBHOOK_URL || "https://staff.brightmedia.tech/webhook/pabbas-status";
-    const secret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET || process.env.PABBAS_AI_WEBHOOK_SECRET || process.env.PABBAS_N8N_WEBHOOK_SECRET || "";
+    const url = process.env.N8N_STATUS_WEBHOOK_URL?.trim() || "https://staff.brightmedia.tech/webhook/pabbas-status";
+    const secret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET?.trim() || process.env.PABBAS_N8N_WEBHOOK_SECRET?.trim() || "";
+    if (!url || !secret) return { success: false, error: "Pabbas status webhook is not configured." };
     
     const response = await fetch(url, {
       method: "POST",
@@ -37,11 +38,16 @@ export async function notifyStatusWebhook(order_number: string, status: string, 
     return { success: false, error: err.message };
   }
 }
-
 export async function notifyOrderCreatedWebhook(payload: any) {
   try {
-    const notifyUrl = process.env.N8N_ORDER_CREATED_WEBHOOK_URL || 'https://staff.brightmedia.tech/webhook/pabbas-order-created';
-    const notifySecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET || process.env.PABBAS_N8N_WEBHOOK_SECRET || '';
+    // QR dine-in customers receive their final bill only after staff closes the table.
+    if (payload?.order_type === "dine-in" || String(payload?.table_number || "").trim()) {
+      return { success: true, skipped: true };
+    }
+
+    const notifyUrl = process.env.N8N_ORDER_CREATED_WEBHOOK_URL?.trim() || "https://staff.brightmedia.tech/webhook/pabbas-order-created";
+    const notifySecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET?.trim() || process.env.PABBAS_N8N_WEBHOOK_SECRET?.trim() || '';
+    if (!notifyUrl || !notifySecret) return { success: false, error: 'Pabbas order-created webhook is not configured.' };
 
     const res = await fetch(notifyUrl, {
       method: 'POST',
@@ -73,10 +79,13 @@ export async function notifyRiderText(phone: string, text: string) {
     const to = String(phone || "").replace(/\D/g, "");
     if (!apiKey || !to) return { success: false, error: "Missing key or phone" };
 
+    const from = process.env.YCLOUD_PHONE_NUMBER?.trim();
+    if (!from) return { success: false, error: "YCLOUD_PHONE_NUMBER not configured" };
+
     const res = await fetch("https://api.ycloud.com/v2/whatsapp/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-      body: JSON.stringify({ from: "+919180348124", to: `+${to}`, type: "text", text: { body: text } }),
+      body: JSON.stringify({ from, to: `+${to}`, type: "text", text: { body: text } }),
     });
     if (!res.ok) console.error("[notifyRiderText] failed:", res.status);
     return { success: res.ok };

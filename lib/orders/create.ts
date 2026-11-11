@@ -21,8 +21,11 @@ export interface CreateOrderInput {
   orderType: unknown
   customerName?: unknown
   customerPhone?: unknown
-  /** app_customers.id from a trusted session (website cookie or AI backend) */
+  /** customers.id from a trusted session (website cookie or AI backend) */
   customerId?: string | null
+  channelUserId?: unknown
+  idempotencyKey?: unknown
+  paymentMethod?: unknown
   deliveryAddress?: unknown
   landmark?: unknown
   pincode?: unknown
@@ -32,7 +35,7 @@ export interface CreateOrderInput {
 }
 
 export type CreateOrderResult =
-  | { ok: true; orderId: string; orderNumber: string; orderType: string; status: string; total: number; deliveryFee: number; scheduledFor: string | null }
+  | { ok: true; orderId: string; orderNumber: string; orderType: string; status: string; total: number; deliveryFee: number; scheduledFor: string | null; isDuplicate: boolean }
   | { ok: false; status: number; error: string; code?: string }
 
 const fail = (status: number, error: string, code?: string): CreateOrderResult => ({ ok: false, status, error, code })
@@ -44,10 +47,6 @@ export function normalizeOrderType(value: unknown): 'delivery' | 'takeaway' | 'd
   return null
 }
 
-// Columns added by later migrations. If one is missing (migration not run yet),
-// the order is still saved without it rather than failing for the customer.
-const OPTIONAL_COLUMNS = ['delivery_fee', 'scheduled_for']
-
 export async function createCustomerOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
   const orderType = normalizeOrderType(input.orderType)
   if (!orderType) return fail(400, 'Invalid order type')
@@ -56,55 +55,78 @@ export async function createCustomerOrder(input: CreateOrderInput): Promise<Crea
   if (!Array.isArray(cartItems) || cartItems.length === 0 || cartItems.length > MAX_CART_ITEMS) {
     return fail(400, 'Cart cannot be empty')
   }
+  const idempotencyKey = str(input.idempotencyKey)
+  if (input.source === 'whatsapp' && !idempotencyKey) return fail(400, 'A request id is required to place a WhatsApp order')
+  if (idempotencyKey.length > 255) return fail(400, 'Invalid request id')
 
   const adminClient = createAdminClient()
 
   let customerData: { name?: string; phone?: string } | null = null
   if (input.customerId) {
-    const { data } = await adminClient.from('app_customers').select('name, phone').eq('id', input.customerId).single()
+    const { data } = await adminClient.from('customers').select('name, phone').eq('id', input.customerId).single()
     customerData = data
   }
 
   const resolvedName = str(input.customerName) || customerData?.name || 'Valued Customer'
   const resolvedPhone = str(input.customerPhone) || customerData?.phone || ''
   if (!resolvedPhone) return fail(400, 'Customer phone is required')
-
   const deliveryAddress = str(input.deliveryAddress)
   if (orderType === 'delivery' && !deliveryAddress) return fail(400, 'Delivery address is required for delivery orders')
 
-  const validatedItems: Array<{ menu_item_id: string; quantity: number }> = []
+  const validatedItems: Array<{ menu_item_id: string; variant_id: string | null; quantity: number; special_note: string | null }> = []
   for (const item of cartItems) {
     if (!item || typeof item !== 'object') return fail(400, 'Invalid cart item')
     const record = item as Record<string, unknown>
     const menuItemId = typeof record.menu_item_id === 'string' ? record.menu_item_id : null
+    const variantId = typeof record.variant_id === 'string' ? record.variant_id : typeof record.variantId === 'string' ? record.variantId : null
     const quantity = typeof record.quantity === 'number' ? record.quantity : Number(record.quantity)
     if (!menuItemId) return fail(400, 'Each cart item requires a menu_item_id.')
     if (!Number.isInteger(quantity) || quantity <= 0 || quantity > MAX_QUANTITY_PER_ITEM) return fail(400, 'Invalid item quantity')
-    validatedItems.push({ menu_item_id: menuItemId, quantity })
+    const specialNote = typeof record.special_note === 'string' ? record.special_note.trim() : ''
+    if (specialNote.length > 300) return fail(400, 'Special instructions must be 300 characters or fewer.')
+    validatedItems.push({ menu_item_id: menuItemId, variant_id: variantId, quantity, special_note: specialNote || null })
   }
 
   const { data: liveMenuItems, error: menuError } = await adminClient
     .from('menu_items')
-    .select('id, item_name, price, available')
+    .select('id, item_name, price, available, variants')
     .in('id', validatedItems.map((item) => item.menu_item_id))
   if (menuError) {
     console.error('[createCustomerOrder] Menu lookup failed:', menuError.message)
     return fail(500, 'Unable to load menu items')
   }
 
-  const menuLookup = new Map<string, { item_name: string; price: number; available: boolean }>()
-  for (const row of (liveMenuItems ?? []) as Array<{ id: string; item_name: string; price: number; available: boolean }>) {
-    menuLookup.set(row.id, { item_name: row.item_name, price: Number(row.price), available: Boolean(row.available) })
+  const menuLookup = new Map<string, { item_name: string; price: number; available: boolean; variants: unknown }>()
+  for (const row of (liveMenuItems ?? []) as Array<{ id: string; item_name: string; price: number; available: boolean; variants?: unknown }>) {
+    menuLookup.set(row.id, { item_name: row.item_name, price: Number(row.price), available: Boolean(row.available), variants: row.variants })
   }
 
-  const orderedItems: Array<{ menu_item_id: string; item_name: string; quantity: number; unit_price: number }> = []
+  const orderedItems: Array<{ menu_item_id: string; variant_id: string | null; item_name: string; quantity: number; unit_price: number }> = []
   let itemsTotal = 0
   for (const item of validatedItems) {
     const menuItem = menuLookup.get(item.menu_item_id)
     if (!menuItem || menuItem.available !== true) return fail(400, 'One or more menu items are unavailable')
     if (!Number.isFinite(menuItem.price)) return fail(400, 'Invalid menu item price')
     itemsTotal += menuItem.price * item.quantity
-    orderedItems.push({ menu_item_id: item.menu_item_id, item_name: menuItem.item_name, quantity: item.quantity, unit_price: menuItem.price })
+    let itemName = menuItem.item_name
+    let unitPrice = menuItem.price
+    if (item.variant_id) {
+      const variant = menuItem.variants
+      const variants = Array.isArray(variant) ? variant : []
+      const selected = variants.find((entry) => {
+        if (!entry || typeof entry !== 'object') return false
+        const record = entry as Record<string, unknown>
+        return record.id === item.variant_id || record.variant_id === item.variant_id
+      }) as Record<string, unknown> | undefined
+      if (!selected || selected.available === false || selected.is_active === false) {
+        return fail(400, 'One or more selected variants are unavailable')
+      }
+      const variantPrice = Number(selected.price)
+      if (Number.isFinite(variantPrice) && variantPrice > 0) unitPrice = variantPrice
+      const variantName = typeof selected.name === 'string' ? selected.name.trim() : ''
+      if (variantName) itemName = `${itemName} (${variantName})`
+    }
+    orderedItems.push({ menu_item_id: item.menu_item_id, variant_id: item.variant_id, item_name: itemName, quantity: item.quantity, unit_price: unitPrice })
   }
 
   // Restaurant rules from Settings: hours / pause, order types, minimum order, delivery pincodes.
@@ -144,72 +166,88 @@ export async function createCustomerOrder(input: CreateOrderInput): Promise<Crea
     tableNumber = tableRow.table_number
   }
 
-  const { data: orderNumber, error: numberError } = await adminClient.rpc('next_order_number', { src: input.source })
-  if (numberError || typeof orderNumber !== 'string') {
-    console.error('[createCustomerOrder] next_order_number failed:', numberError?.message)
-    return fail(500, 'Unable to generate order number')
+  if (idempotencyKey) {
+    const { data: duplicate } = await adminClient.from('orders').select('id, order_number, order_type, status, total, delivery_fee, scheduled_for').eq('idempotency_key', idempotencyKey).maybeSingle()
+    if (duplicate) {
+      return {
+        ok: true,
+        orderId: duplicate.id,
+        orderNumber: duplicate.order_number,
+        orderType: duplicate.order_type || orderType,
+        status: duplicate.status || 'new',
+        total: Number(duplicate.total ?? total),
+        deliveryFee: Number(duplicate.delivery_fee ?? deliveryFee),
+        scheduledFor: duplicate.scheduled_for || scheduledFor,
+        isDuplicate: true,
+      }
+    }
   }
 
-  const isDelivery = orderType === 'delivery'
-  const payload: Record<string, unknown> = {
+  const { data: orderNumber, error: orderNumberError } = await adminClient.rpc('next_order_number', { src: input.source })
+  if (orderNumberError || typeof orderNumber !== 'string') {
+    console.error('[createCustomerOrder] Order number generation failed:', orderNumberError?.message || 'No order number returned')
+    return fail(500, 'Failed to create order')
+  }
+
+  const itemsJson = orderedItems.map((item, index) => ({
+    ...item,
+    notes: validatedItems[index].special_note,
+  }))
+  const { data: created, error: createError } = await adminClient.from('orders').insert({
     order_number: orderNumber,
     customer_phone: resolvedPhone,
     customer_name: resolvedName,
     items: orderedItems.map((item) => `${item.item_name} x ${item.quantity}`).join(', '),
     total,
-    delivery_fee: deliveryFee,
     status: 'new',
     order_type: orderType,
     source: input.source,
-    address: isDelivery ? deliveryAddress : null,
-    landmark: isDelivery ? str(input.landmark) || null : null,
-    city: null,
-    pincode: isDelivery ? pincode || null : null,
+    address: orderType === 'delivery' ? deliveryAddress : null,
+    landmark: orderType === 'delivery' ? str(input.landmark) || null : null,
+    pincode: orderType === 'delivery' ? pincode || null : null,
     table_number: tableNumber,
-    items_json: orderedItems.map((item) => ({ ...item, round: 1 })),
-  }
-  if (scheduledFor) payload.scheduled_for = scheduledFor
-
-  const insert = (p: Record<string, unknown>) =>
-    adminClient.from('orders').insert(p).select('id, order_number, status, order_type').single()
-
-  let { data: created, error: insertError } = await insert(payload)
-  for (const column of OPTIONAL_COLUMNS) {
-    if (insertError && new RegExp(column).test(insertError.message || '') && column in payload) {
-      console.warn(`[createCustomerOrder] orders.${column} missing — run the latest supabase migration`)
-      delete payload[column]
-      ;({ data: created, error: insertError } = await insert(payload))
+    items_json: itemsJson,
+    scheduled_for: scheduledFor,
+    delivery_fee: deliveryFee,
+    payment_method: str(input.paymentMethod) || 'cash',
+    idempotency_key: idempotencyKey || null,
+  }).select('id, order_number, order_type, status, total, delivery_fee, scheduled_for').single()
+  if (createError || !created) {
+    console.error('[createCustomerOrder] Order insert failed:', createError?.message || 'No order returned')
+    if (createError?.code === '23505' && idempotencyKey) {
+      const { data: duplicate } = await adminClient.from('orders').select('id, order_number, order_type, status, total, delivery_fee, scheduled_for').eq('idempotency_key', idempotencyKey).maybeSingle()
+      if (duplicate) {
+        return { ok: true, orderId: duplicate.id, orderNumber: duplicate.order_number, orderType: duplicate.order_type || orderType, status: duplicate.status || 'new', total: Number(duplicate.total ?? total), deliveryFee: Number(duplicate.delivery_fee ?? deliveryFee), scheduledFor: duplicate.scheduled_for || scheduledFor, isDuplicate: true }
+      }
     }
-  }
-  if (insertError || !created) {
-    console.error('[createCustomerOrder] Order insert failed:', insertError?.message || 'No order returned')
     return fail(500, 'Failed to create order')
   }
 
   const { error: itemsError } = await adminClient.from('order_items').insert(
-    orderedItems.map((item) => ({ order_id: created.id, ...item, size: null, notes: null }))
+    orderedItems.map((item, index) => ({
+      order_id: created.id,
+      menu_item_id: item.menu_item_id,
+      item_name: item.item_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      size: validatedItems[index].variant_id,
+      notes: validatedItems[index].special_note,
+    })),
   )
   if (itemsError) {
-    console.error('[createCustomerOrder] Order item insert failed:', itemsError.message)
-    const { error: cleanupError } = await adminClient.from('orders').delete().eq('id', created.id)
-    if (cleanupError) console.error('[createCustomerOrder] Orphaned order cleanup failed:', cleanupError.message)
-    return fail(500, 'Failed to create order items')
-  }
-
-  if (orderType === 'dine-in' && tableNumber) {
-    const { error: tableUpdateError } = await adminClient
-      .from('restaurant_tables').update({ is_active: true, current_order_id: created.id }).eq('table_number', tableNumber)
-    if (tableUpdateError) console.error('[createCustomerOrder] Table update failed:', tableUpdateError.message)
+    console.error('[createCustomerOrder] Order items insert failed:', itemsError.message)
+    return fail(500, 'Order was created but its items could not be saved')
   }
 
   return {
     ok: true,
     orderId: created.id,
     orderNumber: created.order_number,
-    orderType: created.order_type,
-    status: created.status,
-    total,
-    deliveryFee,
-    scheduledFor: 'scheduled_for' in payload ? scheduledFor : null,
+    orderType: created.order_type || orderType,
+    status: created.status || 'new',
+    total: Number(created.total ?? total),
+    deliveryFee: Number(created.delivery_fee ?? deliveryFee),
+    scheduledFor: created.scheduled_for || scheduledFor,
+    isDuplicate: false,
   }
 }

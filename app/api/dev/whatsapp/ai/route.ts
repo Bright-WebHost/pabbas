@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     // Resolve customer from the authenticated session cookie.
 
     const { data: customer, error } = await admin
-      .from('app_customers')
+      .from('customers')
       .select('id, phone')
       .eq('id', session.customerId)
       .single()
@@ -108,10 +108,9 @@ export async function POST(request: Request) {
     }
 
     const { data: customer, error } = await admin
-      .from('app_customers')
+      .from('customers')
       .select('id, phone')
-      .eq('channel', 'whatsapp')
-      .eq('channel_user_id', channelUserId)
+      .eq('phone', devCustomer.phone)
       .single()
 
     if (error || !customer) {
@@ -137,8 +136,8 @@ export async function POST(request: Request) {
   // 3. Get n8n configuration
   // --------------------------------------------------
 
-  const webhookUrl = process.env.N8N_AI_WEBHOOK_URL
-  const webhookSecret = process.env.PABBAS_AI_WEBHOOK_SECRET
+  const webhookUrl = process.env.N8N_AI_WEBHOOK_URL?.trim()
+  const webhookSecret = process.env.PABBAS_AI_WEBHOOK_SECRET?.trim()
 
   if (!webhookUrl || !webhookSecret) {
     console.error(

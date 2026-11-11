@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { timingSafeSecretEquals } from '@/lib/server/internal-auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkOrderRules } from '@/lib/settings'
 import { getActivePincodes, getSettings } from '@/lib/settings/server'
+import { normalizeWhatsAppPhone } from '@/lib/phone/whatsapp'
 
-type ActiveMenuItem = { id: string; is_active: boolean }
+type ActiveMenuItem = { id: string; available: boolean }
 type ActiveMenuVariant = { id: string; menu_item_id: string; is_active: boolean }
 
 const VALID_ORDER_TYPES = new Set(['delivery', 'pickup', 'dine-in'])
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
   const secretHeader = request.headers.get('x-pabbas-ai-secret')?.trim()
   const expectedSecret = process.env.PABBAS_AI_WEBHOOK_SECRET?.trim()
 
-  if (!expectedSecret || secretHeader !== expectedSecret) {
+  if (!timingSafeSecretEquals(secretHeader, expectedSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -77,6 +79,10 @@ export async function POST(request: Request) {
   const customerId = typeof body.customer_id === 'string' ? body.customer_id : typeof body.customerId === 'string' ? body.customerId : null
   const customerName = typeof body.customer_name === 'string' ? body.customer_name : typeof body.customerName === 'string' ? body.customerName : 'WhatsApp Customer'
   const customerPhone = typeof body.customer_phone === 'string' ? body.customer_phone : typeof body.customerPhone === 'string' ? body.customerPhone : ''
+  if (!normalizeWhatsAppPhone(customerPhone)) {
+    return NextResponse.json({ error: 'A valid customer phone is required.' }, { status: 400 })
+  }
+  const adminClient = createAdminClient()
   const orderType = normalizeOrderType(body.order_type ?? body.type)
   const deliveryAddress = typeof body.delivery_address === 'string' ? body.delivery_address : typeof body.deliveryAddress === 'string' ? body.deliveryAddress : null
   const landmark = typeof body.landmark === 'string' ? body.landmark : null
@@ -127,15 +133,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: ruleError, code: 'ORDER_RULES' }, { status: 400 })
   }
 
-  const adminClient = createAdminClient()
-
   const menuItemIds = [...new Set(cartItems.map((item) => item.menu_item_id))]
 
   const { data: activeMenuItems, error: activeMenuItemsError } = (await adminClient
     .from('menu_items')
-    .select('id, is_active')
+    .select('id, available')
     .in('id', menuItemIds)
-    .eq('is_active', true)) as { data: ActiveMenuItem[] | null; error: { message?: string } | null }
+    .eq('available', true)) as { data: ActiveMenuItem[] | null; error: { message?: string } | null }
 
   if (activeMenuItemsError) {
     return NextResponse.json({ error: 'Menu validation failed.' }, { status: 500 })
@@ -190,7 +194,7 @@ export async function POST(request: Request) {
     p_party_size: Number.isFinite(partySize) && partySize > 0 ? partySize : 1,
   }
 
-  const { data, error } = await (adminClient.rpc as any)('create_customer_order', normalizedPayload)
+  const { data, error } = await adminClient.rpc('create_customer_order', normalizedPayload)
 
   if (error) {
     return NextResponse.json({ error: error.message || 'Order could not be created.' }, { status: 400 })

@@ -59,21 +59,20 @@ export async function POST(request: Request) {
   try {
     const admin = createAdminClient()
 
-    // 1. Find or create the customer in app_customers
-    // This uses an upsert pattern on the unique constraint (channel, channel_user_id)
-    const { data: customer, error: customerError } = await admin
-      .from('app_customers')
-      .upsert(
-        {
-          channel: 'whatsapp',
-          channel_user_id: channelUserId,
-          phone: devCustomer.phone,
-          name: devCustomer.name,
-        },
-        { onConflict: 'channel,channel_user_id', ignoreDuplicates: false }
-      )
+    const { data: existingCustomer, error: lookupError } = await admin
+      .from('customers')
       .select('id')
-      .single()
+      .eq('phone', devCustomer.phone)
+      .maybeSingle()
+    const { data: customer, error: customerError } = lookupError
+      ? { data: null, error: lookupError }
+      : existingCustomer
+        ? { data: existingCustomer, error: null }
+        : await admin
+          .from('customers')
+          .insert({ phone: devCustomer.phone, name: devCustomer.name, source: 'whatsapp' })
+          .select('id')
+          .single()
 
     if (customerError || !customer) {
       console.error('Failed to upsert customer:', customerError)

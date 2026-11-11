@@ -24,8 +24,9 @@ export async function sendAgentReply(phone: string, message: string) {
       
     const agentName = staffData?.name || "Staff";
 
-    const webhookUrl = process.env.N8N_AGENT_REPLY_WEBHOOK_URL || "https://staff.brightmedia.tech/webhook/pabbas-agent-reply";
-    const notifySecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET || process.env.PABBAS_N8N_WEBHOOK_SECRET || "";
+    const webhookUrl = process.env.N8N_AGENT_REPLY_WEBHOOK_URL?.trim();
+    const notifySecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET?.trim() || process.env.PABBAS_N8N_WEBHOOK_SECRET?.trim() || "";
+    if (!webhookUrl || !notifySecret) return { success: false, error: "Pabbas agent-reply webhook is not configured." };
 
     const payload = {
       phone,
@@ -77,8 +78,9 @@ export async function toggleAiSession(phone: string, enabled: boolean) {
       
     const agentName = staffData?.name || "Staff";
 
-    const webhookUrl = process.env.N8N_AI_TOGGLE_WEBHOOK_URL || "https://staff.brightmedia.tech/webhook/pabbas-ai-toggle";
-    const notifySecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET || process.env.PABBAS_N8N_WEBHOOK_SECRET || "";
+    const webhookUrl = process.env.N8N_AI_TOGGLE_WEBHOOK_URL?.trim();
+    const notifySecret = process.env.PABBAS_WHATSAPP_INBOUND_SECRET?.trim() || process.env.PABBAS_N8N_WEBHOOK_SECRET?.trim() || "";
+    if (!webhookUrl || !notifySecret) return { success: false, error: "Pabbas AI-toggle webhook is not configured." };
 
     const payload = {
       phone,

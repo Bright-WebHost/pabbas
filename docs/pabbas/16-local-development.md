@@ -16,28 +16,29 @@ Ensure you have a `.env.local` file in the root directory.
 ```env
 # Next.js
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_WHATSAPP_NUMBER=<YOUR_PUBLIC_WHATSAPP_NUMBER>
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=<YOUR_SUPABASE_URL>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<YOUR_ANON_KEY>
 SUPABASE_SECRET_KEY=<YOUR_SERVICE_ROLE_KEY>
 
-# n8n Webhook
-N8N_WEBHOOK_URL=http://localhost:5678/webhook/pabbas-order-event
-N8N_WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
+# YCloud and n8n inbound forwarding (optional for local development)
+YCLOUD_WEBHOOK_SECRET=<YOUR_YCLOUD_SIGNING_SECRET>
+PABBAS_WHATSAPP_INBOUND_SECRET=<YOUR_SHARED_WEBHOOK_SECRET>
+N8N_WHATSAPP_INBOUND_WEBHOOK_URL=https://<YOUR_N8N_HOST>/webhook/<YOUR_PABBAS_INBOUND_PATH>
+PABBAS_WHATSAPP_FORWARDING_ENABLED=false
 ```
 
 ## 2. Supabase Setup
-1. Create a Supabase project.
-2. Execute the SQL migrations in `supabase/` sequentially (e.g., `profiles.sql`, `customer_addresses.sql`, etc.) to build the schema, RLS policies, and RPCs.
-3. Seed the `menu_categories`, `menu_items`, and `menu_item_variants` tables.
+1. Create a Supabase project and apply the schema verified for that project.
+2. Do **not** apply the candidate parity migrations until the target database schema has been compared with the preconditions in the [Rasoi parity rollout guide](./27-rasoi-parity-rollout.md).
+3. Keep the existing PubBaz `menu_items` rows and menu seed. The parity migrations do not seed or replace the catalog.
 
 ## 3. n8n Setup
 1. Start n8n (via Desktop app, Docker, or Cloud).
-2. Import the `Pabbas | Orders | Event Receiver` workflow.
-3. Configure the **Header Auth** credential matching your `N8N_WEBHOOK_SECRET`.
-4. Configure the **Supabase Custom Auth** credentials inside n8n to match your `SUPABASE_URL` and `SUPABASE_SECRET_KEY`.
-5. Ensure the workflow is **Active**.
+2. Keep the existing Pabbas order and WhatsApp workflows configured with their Pabbas credentials.
+3. To enable durable YCloud forwarding, set `PABBAS_WHATSAPP_FORWARDING_ENABLED=true` only after the inbound URL, shared secret, and inbox migrations are configured. Add a scheduled POST to `/api/internal/ycloud-inbox/drain` using Header Auth with the same shared secret so queued events are retried.
 
 ## 4. Running the Next.js Application
 Install dependencies:
