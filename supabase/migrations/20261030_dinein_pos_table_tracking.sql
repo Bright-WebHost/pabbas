@@ -118,12 +118,10 @@ BEGIN
     customer_name,
     items,
     total,
-    total_amount,
     status,
     order_type,
     source,
     address,
-    delivery_address,
     landmark,
     pincode,
     table_number,
@@ -153,7 +151,7 @@ BEGIN
       item_name,
       quantity,
       unit_price,
-      variant_name
+      size
     ) VALUES (
       v_order_id,
       NULLIF(v_item->>'menu_item_id', '')::uuid,

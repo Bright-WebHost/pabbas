@@ -109,12 +109,8 @@ WHERE o.status = 'delivered'
     SELECT 1 FROM public.reviews r WHERE r.order_number = o.order_number
   );
 
--- One RPC commits the order and its items together. The advisory lock plus the
--- unique index makes repeat webhook/API requests with the same key return one order.
-CREATE UNIQUE INDEX IF NOT EXISTS orders_idempotency_key_idx
-  ON public.orders(idempotency_key)
-  WHERE idempotency_key IS NOT NULL;
-
+-- One RPC commits the order and its items together. This RPC is retained as a
+-- candidate only because its Oceana-style schema is not present in live Pabbas.
 CREATE OR REPLACE FUNCTION public.create_customer_order_atomic(
   p_customer_id uuid,
   p_order_type text,

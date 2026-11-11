@@ -91,6 +91,33 @@ described as fully atomic: the order and order-line inserts are separate
 writes, so a database RPC should be introduced only after a staging schema
 test confirms the exact live constraints.
 
+### Safe migration batch prepared
+
+The following migrations are now reconciled with the exposed Pabbas contract
+and may be run individually, in this order, after a database backup:
+
+1. `20261028_ycloud_event_inbox.sql`
+2. `20261029_inbound_bundle.sql`
+3. `20261029_ycloud_event_claims.sql`
+4. `20261029_zzz_table_qr_bill.sql`
+5. `20261030_dinein_pos_table_tracking.sql`
+6. `20261031_stock_pnl.sql`
+7. `20261102_enforce_customer_order_settings.sql`
+
+The POS migration was adapted to use live `orders.total`, `orders.address`,
+and `order_items.size`; it no longer references `total_amount`,
+`delivery_address`, or `order_items.variant_name`. The inbound bundle no
+longer recreates the idempotency index already applied by the compatibility
+migration.
+
+These seven migrations were **not applied** from this environment because the
+Supabase dashboard session is signed out and no SQL execution connection is
+available. Run them one at a time in Supabase SQL Editor and stop on the first
+error. The following remain intentionally blocked and must not be run:
+`20261029_ycloud_inbound_atomic_orders.sql`,
+`20261029_zz_order_item_special_notes.sql`, and
+`20261031_zz_guest_pwa_orders.sql`.
+
 Tentative order after schema reconciliation:
 
 1. `supabase/migrations/20261028_ycloud_event_inbox.sql`
