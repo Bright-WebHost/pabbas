@@ -150,6 +150,19 @@ function cachedList<T>(load: () => PromiseLike<{ data: unknown }>) {
 
 const naturalTable = (a: TableRow, b: TableRow) => a.table_number.localeCompare(b.table_number, undefined, { numeric: true });
 export const useTables = cachedList<TableRow>(() =>
-  db().from("restaurant_tables").select("id,table_number,capacity").then((r) => ({ data: ((r.data || []) as TableRow[]).sort(naturalTable) })));
+  db().from("restaurant_tables").select("id,table_number,capacity").then(async (r) => {
+    if (!r.error) {
+      return { data: ((r.data || []) as TableRow[]).sort(naturalTable) };
+    }
+    // Older Pabbas databases do not have capacity yet; keep existing tables
+    // visible while the additive capacity migration is applied.
+    const fallback = await db().from("restaurant_tables").select("id,table_number");
+    return {
+      data: ((fallback.data || []) as Array<{ id: string; table_number: string }>).map((table) => ({
+        ...table,
+        capacity: 2,
+      })).sort(naturalTable),
+    };
+  }));
 export const useRiders = cachedList<RiderRow>(() =>
   db().from("riders").select("id,name,whatsapp_number,is_active,cash_collected,created_at").order("created_at", { ascending: false }));

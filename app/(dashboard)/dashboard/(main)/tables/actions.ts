@@ -147,7 +147,20 @@ export async function addTable(tableNumber: string, capacity = 2) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Keep table creation usable on databases awaiting the additive capacity
+      // migration; existing tables default to two seats until then.
+      if (error.code === "42703" || /capacity.*does not exist/i.test(error.message || "")) {
+        const fallback = await adminClient
+          .from("restaurant_tables")
+          .insert([{ table_number: cleanNumber, is_active: false }])
+          .select()
+          .single();
+        if (fallback.error) throw fallback.error;
+        return { success: true, table: { ...fallback.data, capacity } as RestaurantTable };
+      }
+      throw error;
+    }
     return { success: true, table: data as RestaurantTable };
   } catch (error: any) {
     console.error("[addTable] Error:", error);

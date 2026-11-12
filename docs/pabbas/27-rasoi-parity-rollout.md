@@ -118,6 +118,15 @@ error. The following remain intentionally blocked and must not be run:
 `20261029_zz_order_item_special_notes.sql`, and
 `20261031_zz_guest_pwa_orders.sql`.
 
+### Table capacity follow-up
+
+The live `restaurant_tables` rows exist, but the original table migration did
+not add `capacity`. The dashboard therefore received an empty result when its
+capacity-select query failed, while duplicate checks correctly reported that
+table numbers such as `1` already existed. Run
+`20261112_restaurant_table_capacity.sql` once; the UI also has a two-seat
+fallback so existing tables remain visible before that migration is applied.
+
 Tentative order after schema reconciliation:
 
 1. `supabase/migrations/20261028_ycloud_event_inbox.sql`
