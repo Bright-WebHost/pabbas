@@ -25,11 +25,11 @@ const row = (n) => ({
   },
 })
 
-test('forwarding is off unless explicitly enabled with an https url and secret', () => {
+test('forwarding requires an https url and secret and supports explicit opt-out', () => {
   assert.equal(forwarderConfig({}), null)
-  assert.equal(forwarderConfig({ N8N_WHATSAPP_INBOUND_WEBHOOK_URL: config.url, PABBAS_WHATSAPP_INBOUND_SECRET: 's' }), null)
   assert.equal(forwarderConfig({ PABBAS_WHATSAPP_FORWARDING_ENABLED: 'true', N8N_WHATSAPP_INBOUND_WEBHOOK_URL: 'http://x', PABBAS_WHATSAPP_INBOUND_SECRET: 's' }), null)
-  assert.deepEqual(forwarderConfig({ PABBAS_WHATSAPP_FORWARDING_ENABLED: 'true', N8N_WHATSAPP_INBOUND_WEBHOOK_URL: config.url, PABBAS_WHATSAPP_INBOUND_SECRET: 's', NEXT_PUBLIC_SITE_URL: 'https://pabbas.example.test' }), { url: config.url, secret: 's', appBaseUrl: 'https://pabbas.example.test' })
+  assert.equal(forwarderConfig({ PABBAS_WHATSAPP_FORWARDING_ENABLED: 'false', N8N_WHATSAPP_INBOUND_WEBHOOK_URL: config.url, PABBAS_WHATSAPP_INBOUND_SECRET: 's' }), null)
+  assert.deepEqual(forwarderConfig({ N8N_WHATSAPP_INBOUND_WEBHOOK_URL: config.url, PABBAS_WHATSAPP_INBOUND_SECRET: 's', NEXT_PUBLIC_SITE_URL: 'https://pabbas.example.test' }), { url: config.url, secret: 's', appBaseUrl: 'https://pabbas.example.test' })
 })
 
 test('resolves the app URL from Vercel settings when NEXT_PUBLIC_SITE_URL is absent or insecure', () => {

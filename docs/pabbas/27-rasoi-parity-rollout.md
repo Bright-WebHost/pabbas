@@ -147,8 +147,9 @@ not insert menu items or alter existing menu prices.
 
 ## Configure WhatsApp forwarding
 
-The durable YCloud inbox is opt-in. The webhook stores supported events even
-when forwarding is disabled; forwarding requires all three deployment settings:
+The durable YCloud inbox forwards when the URL and shared secret are
+configured. Set `PABBAS_WHATSAPP_FORWARDING_ENABLED=false` to explicitly
+disable forwarding; otherwise forwarding requires these deployment settings:
 
 - `PABBAS_WHATSAPP_FORWARDING_ENABLED=true`
 - `N8N_WHATSAPP_INBOUND_WEBHOOK_URL` set to the Pabbas inbound workflow URL

@@ -140,7 +140,8 @@ export async function createPosOrder(payload: PosOrderPayload) {
         return { success: false, error: "POS order creation is not configured yet. Please run the required database migration." };
       }
 
-      return { success: false, error: "Failed to create order." };
+      const databaseMessage = error?.message?.replace(/^ERROR:\s*/i, "").trim();
+      return { success: false, error: databaseMessage || "Failed to create order." };
     }
 
     // Fix: the RPC defaults POS orders to 'new', but we want them to skip the acceptance popup
