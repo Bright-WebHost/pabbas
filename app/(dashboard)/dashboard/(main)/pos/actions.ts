@@ -58,14 +58,22 @@ export async function searchPosCustomers(query: string) {
       console.error("[searchPosCustomers] Order history lookup failed:", orderError.message);
     }
 
+    const orderCounts = new Map<string, number>();
+    for (const order of orderRows || []) {
+      const phone = String(order.customer_phone || "");
+      if (phone) orderCounts.set(phone, (orderCounts.get(phone) || 0) + 1);
+    }
     const matches = new Map<string, PosCustomer>();
     for (const customer of data || []) {
-      matches.set(customer.phone, customer);
+      matches.set(customer.phone, {
+        ...customer,
+        total_orders: Math.max(Number(customer.total_orders) || 0, orderCounts.get(customer.phone) || 0),
+      });
     }
     for (const order of orderRows || []) {
       const phone = String(order.customer_phone || "");
       if (!phone || matches.has(phone)) continue;
-      matches.set(phone, { phone, name: order.customer_name || null, total_orders: null });
+      matches.set(phone, { phone, name: order.customer_name || null, total_orders: orderCounts.get(phone) || 0 });
     }
     return { success: true as const, customers: [...matches.values()].slice(0, 8) };
   } catch (error) {
