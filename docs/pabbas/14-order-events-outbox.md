@@ -2,6 +2,12 @@
 
 Integrating an e-commerce backend with an external notification system (like WhatsApp) introduces the classic "Two-Phase Commit" problem. 
 
+> **Historical design:** This document describes the earlier `order_events`
+> outbox and `claim_order_event` RPCs. The current Pabbas inbound WhatsApp
+> path uses `ycloud_event_inbox` and lease-based
+> `claim_ycloud_events`/`finish_ycloud_event` RPCs instead. Treat the flow
+> below as historical until the live schema is reconciled.
+
 If Pabbas saves an order to the database, and then HTTP posts to WhatsApp, what happens if the WhatsApp API is down? The order is saved, but the customer never gets a receipt. Alternatively, if we call WhatsApp first, and the database crashes, the customer gets a receipt for an order that doesn't exist.
 
 ## The Transactional Outbox Pattern

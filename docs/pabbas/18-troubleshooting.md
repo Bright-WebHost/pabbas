@@ -15,9 +15,11 @@ This document outlines real issues encountered during development and how they w
 **What not to change:** Do not replace the `<form>` with a simple `div`.
 
 ## 3. n8n Duplicate Workflow Import
-**Symptom:** Importing an updated workflow JSON into n8n resulted in two Webhook nodes listening on the same path, causing unpredictable order event processing.
+**Symptom:** Importing an updated workflow JSON into n8n resulted in two Webhook nodes listening on the same path, causing unpredictable processing.
 **Cause:** n8n creates new nodes instead of replacing existing ones when importing if IDs mismatch.
-**Fix:** Manually delete the duplicate workflow and ensure only one webhook with the exact path `/webhook/pabbas-order-event` exists and is Active.
+**Fix:** Manually delete duplicate workflows and ensure only the intended active workflow owns each current path:
+`/webhook/pabbas-whatsapp-inbound`, `/webhook/pabbas-order-created`, and
+`/webhook/pabbas-status`.
 
 ## 4. Stale Order Events (500 Errors in Supabase)
 **Symptom:** n8n fails to claim an event, throwing a Supabase REST error.

@@ -2,6 +2,14 @@
 
 Supabase is the heart of the Pabbas Ordering System. It is the authoritative system of record. It provides the PostgreSQL database, Row Level Security (RLS) policies, and Edge Functions via Remote Procedure Calls (RPCs).
 
+> **Current live-schema note:** This document contains the original Oceana-style
+> design model. The configured Pabbas database currently uses `customers`,
+> JSON variants on `menu_items.variants`, and `orders.total`. The current
+> WhatsApp reliability path uses `ycloud_event_inbox` with
+> `claim_ycloud_events` and `finish_ycloud_event`; do not apply the schema or
+> RPCs below without reconciling them against
+> [`27-rasoi-parity-rollout.md`](./27-rasoi-parity-rollout.md).
+
 ## Core Tables
 
 | Table | Purpose |

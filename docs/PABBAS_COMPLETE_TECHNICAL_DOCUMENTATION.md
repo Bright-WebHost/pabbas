@@ -2,6 +2,14 @@
 
 Welcome to the **Pabbas Ordering System** comprehensive technical documentation. This documentation is the long-term technical reference and developer handover for this project.
 
+> **Live-architecture warning:** Several sections below describe the original
+> Oceana-style schema and transactional outbox. The configured Pabbas database
+> uses the reconciled contract documented in
+> [`docs/pabbas/27-rasoi-parity-rollout.md`](pabbas/27-rasoi-parity-rollout.md).
+> Its current YCloud inbox path uses `ycloud_event_inbox`,
+> `claim_ycloud_events`, and `finish_ycloud_event`; treat older
+> `order_events`/`claim_order_event` instructions as historical.
+
 # 1. Project Overview
 
 ## What is the Pabbas Ordering System?

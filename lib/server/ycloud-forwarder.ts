@@ -10,7 +10,7 @@ type ForwarderAdminClient = {
   rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown | null }>
 }
 
-// Disabled unless explicitly enabled, so deploying this code changes nothing by itself.
+// Requires the forwarding URL and secret; an explicit false disables forwarding.
 export function forwarderConfig(env: Record<string, string | undefined> = process.env): ForwarderConfig | null {
   if (env.PABBAS_WHATSAPP_FORWARDING_ENABLED?.trim().toLowerCase() === 'false') return null
   const url = env.N8N_WHATSAPP_INBOUND_WEBHOOK_URL?.trim() || ''
