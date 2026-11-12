@@ -24,6 +24,7 @@ type PosOrderPayload = {
     variant_name?: string | null;
   }>;
 };
+type PosCustomer = { phone: string; name: string | null; total_orders: number | null };
 
 export async function searchPosCustomers(query: string) {
   await authorize("pos");
@@ -32,19 +33,41 @@ export async function searchPosCustomers(query: string) {
   if (digits.length < 3 || digits.length > 15) return { success: true as const, customers: [] };
 
   try {
-    const { data, error } = await createAdminClient()
+    const adminClient = createAdminClient();
+    const [{ data, error }, { data: orderRows, error: orderError }] = await Promise.all([
+      adminClient
       .from("customers")
       .select("phone,name,total_orders")
       .ilike("phone", `%${digits}%`)
       .order("total_orders", { ascending: false, nullsFirst: false })
-      .limit(8);
+      .limit(8),
+      adminClient
+        .from("orders")
+        .select("customer_phone,customer_name")
+        .ilike("customer_phone", `%${digits}%`)
+        .not("customer_phone", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
 
     if (error) {
       console.error("[searchPosCustomers] Customer lookup failed:", error.message);
       return { success: false as const, error: "Could not load customer matches." };
     }
+    if (orderError) {
+      console.error("[searchPosCustomers] Order history lookup failed:", orderError.message);
+    }
 
-    return { success: true as const, customers: data || [] };
+    const matches = new Map<string, PosCustomer>();
+    for (const customer of data || []) {
+      matches.set(customer.phone, customer);
+    }
+    for (const order of orderRows || []) {
+      const phone = String(order.customer_phone || "");
+      if (!phone || matches.has(phone)) continue;
+      matches.set(phone, { phone, name: order.customer_name || null, total_orders: null });
+    }
+    return { success: true as const, customers: [...matches.values()].slice(0, 8) };
   } catch (error) {
     console.error("[searchPosCustomers] Customer lookup failed:", error);
     return { success: false as const, error: "Could not load customer matches." };
@@ -90,7 +113,19 @@ export async function createPosOrder(payload: PosOrderPayload) {
       console.error("[createPosOrder] RPC error:", error?.message);
 
       if (error?.message?.toLowerCase().includes("table unavailable")) {
-        return { success: false, error: "That table already has an open order. Add items to the existing table order instead." };
+        const { data: existingOrder } = await adminClient
+          .from("orders")
+          .select("id")
+          .eq("table_number", payload.table_number)
+          .in("status", ["new", "preparing", "ready_for_pickup"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return {
+          success: false,
+          error: "That table already has an open order. Add items to the existing table order instead.",
+          existingOrderId: existingOrder?.id || null,
+        };
       }
       
       if (error?.message?.includes("Could not find the function") || error?.code === 'PGRST202') {

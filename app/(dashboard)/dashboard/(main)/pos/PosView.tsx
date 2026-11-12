@@ -181,7 +181,28 @@ export default function PosView() {
         toast("Order updated · " + rs(total) + billNotice);
       } else {
         const r = await createPosOrder(payload);
-        if (!r.success) throw new Error(r.error || "failed");
+        if (!r.success) {
+          if (type === "dine-in" && r.existingOrderId) {
+            const appendResponse = await fetch("/api/orders/append", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                order_id: r.existingOrderId,
+                table_number: form.tbl.trim(),
+                new_items: items,
+              }),
+            });
+            const appendResult = await appendResponse.json();
+            if (!appendResult.success) throw new Error(appendResult.error || r.error || "failed");
+            toast("Items added to table " + form.tbl.trim());
+            setCart([]);
+            setForm({ ph: "", nm: "", adr: "", pin: "", tbl: "" });
+            void refreshOrders();
+            router.push("/dashboard/tables");
+            return;
+          }
+          throw new Error(r.error || "failed");
+        }
         const billNotice = r.billSent
           ? " · WhatsApp bill sent"
           : ` · WhatsApp bill not sent${r.billError ? `: ${r.billError}` : ""}`;
