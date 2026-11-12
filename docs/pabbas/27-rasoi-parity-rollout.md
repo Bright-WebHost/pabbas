@@ -127,6 +127,13 @@ table numbers such as `1` already existed. Run
 `20261112_restaurant_table_capacity.sql` once; the UI also has a two-seat
 fallback so existing tables remain visible before that migration is applied.
 
+### POS RPC correction
+
+The first live POS RPC adaptation contained two extra values in the
+`orders` insert, causing `INSERT has more expressions than target columns`.
+Run `20261112_fix_create_pos_order_rpc.sql` once in Supabase SQL Editor to
+replace the function. It does not create an order or modify existing data.
+
 Tentative order after schema reconciliation:
 
 1. `supabase/migrations/20261028_ycloud_event_inbox.sql`
